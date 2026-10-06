@@ -184,6 +184,7 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 10px 0}
 .chip{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--rule);background:var(--white);padding:0 0 0 10px;font-size:14px;min-height:32px}
 .chip button{border:0;border-left:1px solid var(--rule);background:transparent;width:30px;align-self:stretch;font-size:16px;line-height:1;margin-left:6px}
+.chip .qty{margin-left:6px;font-size:13px;color:var(--muted)}
 .chips .none{font-size:13px;color:var(--muted);padding:6px 0}
 .legacy{margin:8px 10px 0;font-size:13px;color:var(--muted);white-space:pre-wrap}
 .pickers{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px}
@@ -489,16 +490,16 @@ function render(){
   const foodsSorted=[...state.foods].sort((a,b)=>a.name.localeCompare(b.name));
   const placesSorted=[...state.places].sort((a,b)=>a.name.localeCompare(b.name));
   for(const ml of MEALS){
-    const m=mday[ml.id]||{}, ids=(m.foods||[]).filter(id=>byId(state.foods,id));
+    const m=mday[ml.id]||{}, counts=countFoods(m.foods), ids=[...counts.keys()].filter(id=>byId(state.foods,id));
     const place=m.place&&byId(state.places,m.place);
     html+=`<div class="box meal ${ml.l}">
       <div class="lid">${ml.label}${place?`<span class="place">at ${esc(place.name)}</span>`:""}</div>
-      <div class="chips">${ids.length?ids.map(id=>`<span class="chip">${esc(byId(state.foods,id).name)}<button data-rm="${esc(id)}" data-meal="${ml.id}" aria-label="Remove ${esc(byId(state.foods,id).name)}">×</button></span>`).join(""):`<span class="none">Nothing added</span>`}</div>
+      <div class="chips">${ids.length?ids.map(id=>{const nm=byId(state.foods,id).name,n=counts.get(id);return `<span class="chip">${esc(nm)}${n>1?`<span class="qty">×${n}</span>`:""}<button data-rm="${esc(id)}" data-meal="${ml.id}" aria-label="Remove one ${esc(nm)}">×</button></span>`}).join(""):`<span class="none">Nothing added</span>`}</div>
       ${legacy[ml.id]?`<p class="legacy">${esc(legacy[ml.id])}</p>`:""}
       <div class="pickers">
         <select data-pick="food" data-meal="${ml.id}" aria-label="Add food to ${ml.label}">
           <option value="">Add food…</option>
-          ${foodsSorted.filter(f=>!ids.includes(f.id)).map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}
+          ${foodsSorted.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}
           <option value="__new">+ New food…</option>
         </select>
         <select data-pick="place" data-meal="${ml.id}" aria-label="Restaurant for ${ml.label}">
@@ -704,7 +705,7 @@ document.getElementById("slots").addEventListener("click",e=>{
   const rm=e.target.closest("[data-rm]"), rmsym=e.target.closest("[data-rmsym]");
   if(rmsym){ const sd=state.slog[viewDate]||{}; delete sd[rmsym.dataset.rmsym]; if(!Object.keys(sd).length) delete state.slog[viewDate]; commit(); return; }
   if(add){openEditor(add.dataset.add,null);return}
-  if(rm){ const m=mealOf(viewDate,rm.dataset.meal); m.foods=m.foods.filter(x=>x!==rm.dataset.rm); tidyMeals(viewDate); commit(); return; }
+  if(rm){ const m=mealOf(viewDate,rm.dataset.meal), i=m.foods.lastIndexOf(rm.dataset.rm); if(i>=0) m.foods.splice(i,1); tidyMeals(viewDate); commit(); return; }
   if(sym){
     const sd=state.slog[viewDate]||(state.slog[viewDate]={});
     const id=sym.dataset.sym;
@@ -725,6 +726,8 @@ document.getElementById("slots").addEventListener("click",e=>{
   if(!Object.keys(day).length) delete state.log[viewDate];
   commit();
 });
+/* A meal's foods list can hold the same food more than once; this tallies them in first-added order */
+function countFoods(list){const c=new Map();for(const id of list||[])c.set(id,(c.get(id)||0)+1);return c}
 function mealOf(date,meal){const d=state.meals[date]||(state.meals[date]={});return d[meal]||(d[meal]={foods:[]})}
 function tidyMeals(date){
   const d=state.meals[date]; if(!d) return;
@@ -742,7 +745,7 @@ document.getElementById("slots").addEventListener("change",e=>{
   const meal=sel.dataset.meal, v=sel.value, kind=sel.dataset.pick;
   if(v==="__new"){ sel.value=kind==="food"?"":(mealOf(viewDate,meal).place||""); openEditor(kind==="food"?"food":"place",null,{date:viewDate,meal}); return; }
   const m=mealOf(viewDate,meal);
-  if(kind==="food"){ if(v&&!m.foods.includes(v)) m.foods.push(v); }
+  if(kind==="food"){ if(v) m.foods.push(v); }
   else { if(v) m.place=v; else delete m.place; }
   tidyMeals(viewDate); commit();
 });
@@ -829,7 +832,7 @@ form.addEventListener("submit",e=>{
     const p=editing.pending;
     if(p&&p.sym){ const sd=state.slog[p.date]||(state.slog[p.date]={}); sd[item.id]=Date.now(); }
     else if(p){ const m=mealOf(p.date,p.meal);
-      if(editing.kind==="food"){ if(!m.foods.includes(item.id)) m.foods.push(item.id) } else m.place=item.id; }
+      if(editing.kind==="food"){ m.foods.push(item.id) } else m.place=item.id; }
   }
   dlg.close(); commit();
 });
@@ -874,7 +877,7 @@ function buildCSV(start,end){
       taken.length,sched.length,missed.map(x=>x.label).join("; "),
       had.map(x=>x.name).join("; "),had.length,
       ...syms.map(x=>sl[x.id]?1:0),
-      ...MEALS.flatMap(m=>{const e=meals[m.id]||{};return [(e.foods||[]).map(id=>nameOf(state.foods,id)).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
+      ...MEALS.flatMap(m=>{const e=meals[m.id]||{};return [[...countFoods(e.foods)].map(([id,n])=>{const nm=nameOf(state.foods,id);return nm&&(n>1?nm+" x"+n:nm)}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
       placesToday.map(id=>nameOf(state.places,id)).filter(Boolean).join("; "),
       ...places.map(x=>placesToday.includes(x.id)?1:0),
       MEALS.filter(m=>typed[m.id]).map(m=>m.label+": "+typed[m.id]).join(" | "),
