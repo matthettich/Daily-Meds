@@ -347,7 +347,7 @@ body{display:flex;flex-direction:column}
   <form method="dialog" id="xform">
     <h3 id="xdlgTitle">Dose</h3>
     <div class="body">
-      <label class="f">Time taken<input type="time" id="xtime" required></label>
+      <label class="f"><span id="xlabel">Time taken</span><input type="time" id="xtime" required></label>
       <div class="actions">
         <button type="button" class="danger" id="xremove">Remove dose</button>
         <button type="button" class="ghost" id="xcancel">Cancel</button>
@@ -537,7 +537,7 @@ function render(){
     const had=symsSorted.filter(x=>sday[x.id]);
     html+=`<div class="box l-sym">
       <div class="lid">Symptoms<span class="st">${had.length?had.length+" today":"None"}</span></div>
-      <div class="chips">${had.length?had.map(x=>`<span class="chip">${esc(x.name)}<button data-rmsym="${esc(x.id)}" aria-label="Remove ${esc(x.name)}">×</button></span>`).join(""):`<span class="none">No symptoms today</span>`}</div>
+      <div class="chips">${had.length?[...had].sort((a,b)=>sday[a.id]-sday[b.id]).map(x=>`<span class="chip">${esc(x.name)}${realTime(sday[x.id])?`<button class="t" data-editsym="${esc(x.id)}" aria-label="Change time of ${esc(x.name)}, now ${fmtTime(sday[x.id])}">${fmtTime(sday[x.id])}</button>`:""}<button data-rmsym="${esc(x.id)}" aria-label="Remove ${esc(x.name)}">×</button></span>`).join(""):`<span class="none">No symptoms today</span>`}</div>
       <div class="pickers one">
         <select data-pick="sym" aria-label="Add a symptom">
           <option value="">Add symptom…</option>
@@ -789,6 +789,8 @@ function sweep(){
 document.getElementById("slots").addEventListener("click",e=>{
   const med=e.target.closest(".med"), sym=e.target.closest(".sym"), all=e.target.closest("[data-all]"), add=e.target.closest("[data-add]");
   const rm=e.target.closest("[data-rm]"), rmsym=e.target.closest("[data-rmsym]"), rmx=e.target.closest("[data-rmx]");
+  const editsym=e.target.closest("[data-editsym]");
+  if(editsym){ openSymTime(viewDate,editsym.dataset.editsym); return; }
   const editx=e.target.closest("[data-editx]");
   if(editx){ openDoseTime(viewDate,+editx.dataset.editx); return; }
   if(rmx){ const list=state.xlog[viewDate]||[]; list.splice(+rmx.dataset.rmx,1); if(!list.length) delete state.xlog[viewDate]; commit(); return; }
@@ -798,7 +800,7 @@ document.getElementById("slots").addEventListener("click",e=>{
   if(sym){
     const sd=state.slog[viewDate]||(state.slog[viewDate]={});
     const id=sym.dataset.sym;
-    if(sd[id]) delete sd[id]; else sd[id]=Date.now();
+    if(sd[id]) delete sd[id]; else sd[id]=stampFor(viewDate);
     if(!Object.keys(sd).length) delete state.slog[viewDate];
     commit(); return;
   }
@@ -816,29 +818,46 @@ document.getElementById("slots").addEventListener("click",e=>{
   commit();
 });
 /* Log a dose on `date` at the current clock time (so past days get the right date), kept in time order */
+function stampFor(date){ const now=new Date(), d=parseKey(date); d.setHours(now.getHours(),now.getMinutes(),now.getSeconds()); return d.getTime(); }
+function realTime(t){ return typeof t==="number" && t>1e11; }
 function logExtra(date,id){
-  const now=new Date(), d=parseKey(date); d.setHours(now.getHours(),now.getMinutes(),now.getSeconds());
-  const list=state.xlog[date]||(state.xlog[date]=[]); list.push({id,t:d.getTime()}); list.sort((a,b)=>a.t-b.t);
+  const list=state.xlog[date]||(state.xlog[date]=[]); list.push({id,t:stampFor(date)}); list.sort((a,b)=>a.t-b.t);
 }
+function logSym(date,id){ (state.slog[date]||(state.slog[date]={}))[id]=stampFor(date); }
 /* Edit a dose's time */
 const xdlg=document.getElementById("xdlg"); let xedit=null;
-function openDoseTime(date,i){
-  const e=(state.xlog[date]||[])[i], m=e&&anyMed(e.id); if(!m) return;
-  xedit={date,i};
-  const d=new Date(e.t);
-  document.getElementById("xdlgTitle").textContent=m.name+(m.dose?" · "+m.dose:"");
+function openTimeDialog(title,label,removeText,t){
+  const d=new Date(t);
+  document.getElementById("xdlgTitle").textContent=title;
+  document.getElementById("xlabel").textContent=label;
+  document.getElementById("xremove").textContent=removeText;
   document.getElementById("xtime").value=String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
   xdlg.showModal();
 }
+function openDoseTime(date,i){
+  const e=(state.xlog[date]||[])[i], m=e&&anyMed(e.id); if(!m) return;
+  xedit={kind:"dose",date,i};
+  openTimeDialog(m.name+(m.dose?" · "+m.dose:""),"Time taken","Remove dose",e.t);
+}
+function openSymTime(date,id){
+  const t=(state.slog[date]||{})[id], x=state.symptoms.find(s=>s.id===id); if(!x||!realTime(t)) return;
+  xedit={kind:"sym",date,id};
+  openTimeDialog(x.name,"Time noticed","Remove symptom",t);
+}
 document.getElementById("xform").addEventListener("submit",ev=>{
   ev.preventDefault();
-  const v=document.getElementById("xtime").value, list=state.xlog[xedit.date]||[], e=list[xedit.i];
-  if(e&&/^\d\d:\d\d/.test(v)){ const d=parseKey(xedit.date); d.setHours(+v.slice(0,2),+v.slice(3,5),0); e.t=d.getTime(); list.sort((a,b)=>a.t-b.t); }
+  const v=document.getElementById("xtime").value;
+  if(/^\d\d:\d\d/.test(v)){
+    const d=parseKey(xedit.date); d.setHours(+v.slice(0,2),+v.slice(3,5),0);
+    if(xedit.kind==="sym"){ const sd=state.slog[xedit.date]; if(sd&&sd[xedit.id]) sd[xedit.id]=d.getTime(); }
+    else { const list=state.xlog[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=d.getTime(); list.sort((a,b)=>a.t-b.t); } }
+  }
   xdlg.close(); commit();
 });
 document.getElementById("xcancel").onclick=()=>xdlg.close();
 document.getElementById("xremove").onclick=()=>{
-  const list=state.xlog[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete state.xlog[xedit.date];
+  if(xedit.kind==="sym"){ const sd=state.slog[xedit.date]||{}; delete sd[xedit.id]; if(!Object.keys(sd).length) delete state.slog[xedit.date]; }
+  else { const list=state.xlog[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete state.xlog[xedit.date]; }
   xdlg.close(); commit();
 };
 /* A meal's foods list can hold the same food more than once; this tallies them in first-added order */
@@ -860,7 +879,7 @@ document.getElementById("slots").addEventListener("change",e=>{
   if(sel.dataset.pick==="sym"){
     const v=sel.value;
     if(v==="__new"){ sel.value=""; openEditor("sym",null,{date:viewDate,sym:true}); return; }
-    if(v){ const sd=state.slog[viewDate]||(state.slog[viewDate]={}); sd[v]=Date.now(); commit(); }
+    if(v){ logSym(viewDate,v); commit(); }
     return;
   }
   const meal=sel.dataset.meal, v=sel.value, kind=sel.dataset.pick;
@@ -960,7 +979,7 @@ form.addEventListener("submit",e=>{
     let item=K.list().find(x=>x.name.toLowerCase()===name.toLowerCase());
     if(!item){item={id:uid(),name};K.list().push(item)}
     const p=editing.pending;
-    if(p&&p.sym){ const sd=state.slog[p.date]||(state.slog[p.date]={}); sd[item.id]=Date.now(); }
+    if(p&&p.sym){ logSym(p.date,item.id); }
     else if(p){ const m=mealOf(p.date,p.meal);
       if(editing.kind==="food"){ m.foods.push(item.id) } else m.place=item.id; }
   }
@@ -1006,7 +1025,7 @@ function buildCSV(start,end){
     const row=[k,parseKey(k).toLocaleDateString("en-US",{weekday:"long"}),
       taken.length,sched.length,missed.map(x=>x.label).join("; "),
       xd.map(e=>{const m=anyMed(e.id);return m.name+(m.dose?" ("+m.dose+")":"")+" at "+fmtTime(e.t)}).join("; "),xd.length,
-      had.map(x=>x.name).join("; "),had.length,
+      [...had].sort((a,b)=>sl[a.id]-sl[b.id]).map(x=>x.name+(realTime(sl[x.id])?" at "+fmtTime(sl[x.id]):"")).join("; "),had.length,
       ...syms.map(x=>sl[x.id]?1:0),
       ...MEALS.flatMap(m=>{const e=meals[m.id]||{};return [[...countFoods(e.foods)].map(([id,n])=>{const nm=nameOf(state.foods,id);return nm&&(n>1?nm+" x"+n:nm)}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
       placesToday.map(id=>nameOf(state.places,id)).filter(Boolean).join("; "),
