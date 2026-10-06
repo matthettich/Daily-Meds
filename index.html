@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Daily meds</title>
-<meta name="theme-color" content="#EFEFEF">
+<meta name="theme-color" content="#FFFFFF">
 <meta name="color-scheme" content="only light">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,158 +16,202 @@
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#FFFFFF; --panel:#EFEFEF; --ink:#111111; --muted:#555555; --rule:#111111; --hair:#DADADA;
-  --focus:#111111; --danger:#C0392B;
-  /* Day colors live on #slots[data-day]; each slot gets a little darker through the day */
+  --ink:#111111; --muted:#4A4A4A; --rule:#111111; --hair:rgba(17,17,17,.16);
+  --white:#FFFFFF; --danger:#B3261E;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
   color-scheme:only light;
 }
+/* One color per day: Sun peach, Mon lavender, Tue pink, Wed turquoise, Thu mustard, Fri seafoam, Sat blue.
+   --tx is the title text color, chosen to contrast with the day's hue. */
+body{--h:262;--s:70%;--tx:#2F4A0A}
+body[data-day="0"]{--h:22; --s:85%;--tx:#1B4A6B}
+body[data-day="1"]{--h:262;--s:70%;--tx:#2F4A0A}
+body[data-day="2"]{--h:338;--s:80%;--tx:#0A4A44}
+body[data-day="3"]{--h:176;--s:55%;--tx:#7A1F3D}
+body[data-day="4"]{--h:44; --s:75%;--tx:#3A2F86}
+body[data-day="5"]{--h:152;--s:50%;--tx:#7A1E5E}
+body[data-day="6"]{--h:208;--s:75%;--tx:#8A3412}
+/* Phone (folded): pages alternate white and colored — Today white, Food colored, Meds white, Symptoms colored */
+/* Each page is its own version of the day's color (a small hue shift) */
+.pg-today{--dh:0} .pg-food{--dh:22} .pg-meds{--dh:-22} .pg-syms{--dh:44} .pg-sum{--dh:-44}
+.view{--H:calc(var(--h) + var(--dh,0))}
+body[data-page="food"]{--dh:22} body[data-page="syms"]{--dh:44}
+@media (max-width:719px){
+  body[data-page="food"],body[data-page="syms"]{background:hsl(calc(var(--h) + var(--dh)) var(--s) 96%)}
+}
+/* White pages: colored title bars, white entry boxes. Colored pages: white title bars, colored entry boxes. */
+.pg-white .box{background:var(--white)}
+.pg-white .lid{background:hsl(var(--H) var(--s) var(--l))}
+.pg-color .box{background:hsl(var(--H) var(--s) var(--l))}
+.pg-color .lid{background:var(--white)}
+/* Box bodies get a little deeper through the day; still pastel at the darkest */
+.l-page{--l:96%} .l-waking{--l:93%} .l-morning{--l:90%} .l-afternoon{--l:87%}
+.l-evening{--l:84%} .l-bedtime{--l:81%} .l-sym{--l:85%} .l-list{--l:90%} .l-notes{--l:88%}
+
 *,*::before,*::after{box-sizing:inherit;border-radius:0}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;background:var(--bg);color:var(--ink);
+body{margin:0;min-height:100vh;color:var(--ink);background:var(--white);
   font-family:Futura,"Futura PT","Jost","Century Gothic",system-ui,sans-serif;
-  font-size:15px;line-height:1.4;-webkit-tap-highlight-color:transparent}
+  font-size:15px;line-height:1.4;-webkit-tap-highlight-color:transparent;transition:background-color .3s}
 button,input{font:inherit;color:inherit}
 button{cursor:pointer}
-:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-
-/* One color per day: Sun peach, Mon lavender, Tue pink, Wed turquoise, Thu mustard, Fri seafoam, Sat blue */
-#slots{--h:262;--s:70%;--tx:#2F4A0A}
-#slots[data-day="0"]{--h:22; --s:85%;--tx:#1B4A6B}
-#slots[data-day="1"]{--h:262;--s:70%;--tx:#2F4A0A}
-#slots[data-day="2"]{--h:338;--s:80%;--tx:#0A4A44}
-#slots[data-day="3"]{--h:176;--s:55%;--tx:#7A1F3D}
-#slots[data-day="4"]{--h:44; --s:75%;--tx:#3A2F86}
-#slots[data-day="5"]{--h:152;--s:50%;--tx:#7A1E5E}
-#slots[data-day="6"]{--h:208;--s:75%;--tx:#8A3412}
-.c-waking{--l:95%} .c-morning{--l:91.5%} .c-afternoon{--l:88%} .c-evening{--l:84.5%} .c-bedtime{--l:81%}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 /* Top bar */
-header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;
-  background:var(--panel);border-bottom:1px solid var(--rule);padding:8px 12px}
-.brand{font-weight:500;letter-spacing:.02em}
-.tabs{display:flex;border:1px solid var(--rule);background:var(--bg)}
-.tabs button{border:0;background:transparent;padding:6px 14px}
+header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background-color:inherit;padding:8px 12px}
+.brand{font-weight:500;letter-spacing:.02em;color:var(--tx);white-space:nowrap}
+@media (max-width:719px){
+  .brand{display:none}
+  header.top{padding:0}
+  .tabs{border:0}
+  .tabs button{min-height:48px}
+}
+@media (max-width:440px){.tabs button{font-size:13px;padding:8px 2px}}
+.tabs{display:flex;flex:1;border:1px solid var(--rule);background:transparent}
+.tabs button{flex:1;border:0;background:transparent;padding:8px 4px;min-height:40px}
 .tabs button+button{border-left:1px solid var(--rule)}
-.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--white)}
 
 .wrap{max-width:1100px;margin:0 auto;padding:16px 12px 40px}
-.cols{display:grid;gap:24px}
+.cols{display:grid;gap:12px 24px;align-items:start}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
 @media (min-width:720px){
   .cols{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
   .tabs{display:none}
   .view{display:block!important}
 }
 
+
 /* Day header */
 .day{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin:4px 0 10px}
 .day h1{font-size:26px;line-height:1.1;margin:0;font-weight:500;letter-spacing:-.01em}
 .day h1 small{display:block;font-size:13px;font-weight:400;color:var(--muted);letter-spacing:.02em;margin-bottom:2px}
 .daynav{display:flex;border:1px solid var(--rule)}
-.icon-btn{width:40px;height:40px;border:0;background:var(--bg);display:grid;place-items:center;color:var(--ink)}
+.icon-btn{width:40px;height:40px;border:0;background:var(--white);display:grid;place-items:center;color:var(--ink)}
 .icon-btn+.icon-btn{border-left:1px solid var(--rule)}
-.icon-btn:disabled{color:var(--hair);cursor:default}
+.icon-btn:disabled{color:#BBB;cursor:default}
 .icon-btn svg{width:16px;height:16px}
 
-.progress{display:flex;align-items:center;gap:10px;margin:0 0 4px;font-size:13px;color:var(--muted)}
+.progress{display:flex;align-items:center;gap:10px;margin:-4px 0 12px;font-size:13px;color:var(--muted)}
+.progress:empty{display:none}
 .progress .count{color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
-.bar{flex:1;height:6px;border:1px solid var(--rule)}
+.bar{flex:1;height:6px;border:1px solid var(--rule);background:var(--white)}
 .bar i{display:block;height:100%;background:var(--ink);width:0;transition:width .2s}
 .today-link{border:0;background:none;color:var(--ink);padding:0;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
 
-/* Slot modules */
-.box{border:3px solid var(--rule);margin-top:12px;background:var(--bg)}
-.box .lid{font-size:17px;display:flex;align-items:center;gap:8px;min-height:36px;margin:0;padding:0 0 0 10px;
-  background:hsl(var(--h) var(--s) var(--l));color:var(--tx);border-bottom:3px solid var(--rule);font-weight:500}
-.box .lid .st{margin-left:auto;font-weight:500;font-size:13px;padding-right:10px;font-variant-numeric:tabular-nums}
-.box .all{align-self:stretch;border:0;border-left:1px solid var(--ink);background:transparent;color:var(--tx);font-size:13px;padding:0 12px}
-.box .all:focus-visible{outline:2px solid var(--ink);outline-offset:-5px}
-.med{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;min-height:52px;border-top:1px solid var(--hair)}
-.box .lid + .med{border-top:0}
-.pill{flex:none;width:22px;height:22px;border:1px solid var(--rule);display:grid;place-items:center;background:var(--bg)}
-.pill svg{width:14px;height:14px;opacity:0;color:var(--bg)}
-.med[aria-checked="true"] .pill{background:var(--ink)}
-.med[aria-checked="true"] .pill svg{opacity:1}
-.med .nm{font-weight:500;display:block}
-.med .ds{font-size:13px;color:var(--muted)}
-.med[aria-checked="true"] .nm{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1px}
-.med .when{margin-left:auto;font-size:13px;white-space:nowrap;color:var(--muted);font-variant-numeric:tabular-nums}
-.med .note{display:block;font-size:13px;color:var(--muted)}
+/* Boxes: pastel body, white title bar, black frame */
+.box{border:3px solid var(--rule);margin-top:12px}
+/* Notes: ruled lines */
+.box.l-notes textarea{line-height:26px;padding:6px 10px 0;min-height:110px;
+  background-image:linear-gradient(to bottom,transparent 25px,rgba(17,17,17,.22) 25px,rgba(17,17,17,.22) 26px,transparent 26px);
+  background-size:100% 26px;background-origin:content-box;background-clip:content-box;background-position:0 0;background-attachment:local}
+.box:first-child{margin-top:0}
+.lid{display:flex;align-items:center;gap:8px;min-height:38px;padding:0 0 0 10px;
+  background:var(--white);color:var(--tx);border-bottom:3px solid var(--rule);font-weight:500;font-size:17px}
+.lid h2{margin:0;font:inherit}
+.lid .st{margin-left:auto;font-size:13px;padding-right:10px;font-variant-numeric:tabular-nums}
+.lid .act{align-self:stretch;border:0;border-left:1px solid var(--rule);background:transparent;color:var(--tx);font-size:13px;padding:0 12px;font-weight:500}
+.lid .act.add{margin-left:auto}
+.lid .st + .act{margin-left:0}
 
-/* Med list */
-.listhead{display:flex;align-items:center;justify-content:space-between;margin:4px 0 10px;min-height:40px}
-.listhead h2{margin:0;font-size:20px;font-weight:500}
-.primary{border:1px solid var(--ink);background:var(--ink);color:var(--bg);padding:8px 14px;min-height:40px}
-.ghost{border:1px solid var(--rule);background:var(--bg);padding:8px 14px;min-height:40px}
+.row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;min-height:52px;border-top:1px solid var(--hair)}
+.lid + .row{border-top:0}
+.pill{flex:none;width:22px;height:22px;border:1px solid var(--rule);display:grid;place-items:center;background:var(--white)}
+.pill svg{width:14px;height:14px;opacity:0;color:var(--white)}
+.row[aria-checked="true"] .pill{background:var(--ink)}
+.row[aria-checked="true"] .pill svg{opacity:1}
+.row .nm{font-weight:500;display:block}
+.row .ds{font-size:13px;color:var(--muted)}
+.med[aria-checked="true"] .nm{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1px}
+.row .when,.row .side{margin-left:auto;font-size:13px;white-space:nowrap;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+.box .empty-row{padding:14px 10px;color:var(--muted)}
+
+/* Text boxes (food, notes) fill the pastel body */
+.box textarea{display:block;width:100%;min-height:72px;resize:none;overflow:hidden;border:0;background:transparent;
+  padding:10px;font:inherit;color:var(--ink);line-height:1.45}
+.box textarea::placeholder{color:rgba(17,17,17,.4)}
+.box textarea:focus{outline:2px solid var(--ink);outline-offset:-4px}
+.lid .saved{margin-left:auto;padding-right:10px;font-size:13px;color:var(--muted);opacity:0;transition:opacity .3s}
+.lid .saved.on{opacity:1}
+
+/* Buttons */
+.primary{border:1px solid var(--ink);background:var(--ink);color:var(--white);padding:8px 14px;min-height:40px}
+.ghost{border:1px solid var(--rule);background:var(--white);padding:8px 14px;min-height:40px}
 .danger{border:0;background:transparent;color:var(--danger);padding:8px 0}
-.mlist{list-style:none;margin:0;padding:0;border:1px solid var(--rule)}
-.mlist li+li{border-top:1px solid var(--hair)}
-.mlist button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:transparent;padding:12px 10px}
-.mlist .nm{font-weight:500}
-.mlist .ds{color:var(--muted);font-size:13px;margin-left:6px}
-.times{margin-left:auto;font-size:13px;color:var(--muted);text-align:right}
-.empty{border:1px solid var(--rule);padding:20px;color:var(--muted)}
-.empty p{margin:0 0 12px}
-.hint{font-size:13px;color:var(--muted);margin-top:12px}
-.backup{margin-top:28px;border:1px solid var(--rule)}
-.backup h2{margin:0;font-size:15px;font-weight:500;background:var(--panel);border-bottom:1px solid var(--rule);padding:8px 10px}
-.backup .hint{margin:10px}
+.box .hint{margin:10px;font-size:13px;color:var(--muted)}
 .backup-btns{display:flex;flex-wrap:wrap;gap:8px;margin:10px}
 
 /* Dialog */
-dialog{border:1px solid var(--rule);padding:0;width:min(480px,calc(100vw - 24px));background:var(--bg);color:var(--ink);max-height:calc(100% - 24px)}
-dialog::backdrop{background:rgba(255,255,255,.8)}
-dialog h3{margin:0;font-size:15px;font-weight:500;background:var(--panel);border-bottom:1px solid var(--rule);padding:10px 14px}
+dialog{border:3px solid var(--rule);padding:0;width:min(480px,calc(100vw - 24px));background:var(--white);color:var(--ink);max-height:calc(100% - 24px)}
+dialog::backdrop{background:rgba(255,255,255,.75)}
+dialog h3{margin:0;font-size:17px;font-weight:500;color:var(--tx);border-bottom:3px solid var(--rule);padding:10px 14px}
 dialog .body{padding:14px}
 label.f{display:block;margin-bottom:12px;font-size:13px;color:var(--muted)}
-label.f input{display:block;width:100%;margin-top:4px;padding:10px;border:1px solid var(--rule);background:var(--bg);font-size:15px;color:var(--ink)}
+label.f input{display:block;width:100%;margin-top:4px;padding:10px;border:1px solid var(--rule);background:var(--white);font-size:15px;color:var(--ink)}
 fieldset{border:0;padding:0;margin:0 0 12px}
 legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .slotpick{display:flex;flex-wrap:wrap;border:1px solid var(--rule)}
 .slotpick label{position:relative;flex:1 1 auto}
 .slotpick label+label{border-left:1px solid var(--rule)}
 .slotpick input{position:absolute;opacity:0;inset:0;margin:0}
-.slotpick span{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px;min-height:40px;font-size:14px}
-.slotpick input:checked+span{background:var(--ink);color:var(--bg)}
-.slotpick input:focus-visible+span{outline:2px solid var(--focus);outline-offset:-4px}
+.slotpick span{display:flex;align-items:center;justify-content:center;padding:8px 10px;min-height:40px;font-size:14px}
+.slotpick input:checked+span{background:var(--ink);color:var(--white)}
+.slotpick input:focus-visible+span{outline:2px solid var(--ink);outline-offset:-4px}
+@media (max-width:420px){.slotpick label{flex:1 1 33%}.slotpick label+label{border-left:0}}
 .err{color:var(--danger);font-size:13px;min-height:1.2em;margin:0 0 8px}
 .actions{display:flex;gap:8px;align-items:center;justify-content:flex-end}
 .actions .danger{margin-right:auto}
-@media (max-width:420px){.slotpick label+label{border-left:0}.slotpick label{flex:1 1 33%;border-left:0;border-top:0}}
-/* Check-off sweep: the day's color wipes down the screen */
+.is-sym .med-only{display:none}
+
+/* Check-off sweep: a white wave down the screen */
 #sweep{position:fixed;left:0;right:0;top:0;height:100vh;z-index:50;pointer-events:none;visibility:hidden;
-  --h:262;--s:70%;
-  background:linear-gradient(to bottom,
-    hsl(var(--h) var(--s) 81% / 0) 0%,
-    hsl(var(--h) var(--s) 81% / .9) 18%,
-    hsl(var(--h) var(--s) 88% / .9) 82%,
-    hsl(var(--h) var(--s) 95% / 0) 100%)}
-#sweep[data-day="0"]{--h:22; --s:85%}
-#sweep[data-day="1"]{--h:262;--s:70%}
-#sweep[data-day="2"]{--h:338;--s:80%}
-#sweep[data-day="3"]{--h:176;--s:55%}
-#sweep[data-day="4"]{--h:44; --s:75%}
-#sweep[data-day="5"]{--h:152;--s:50%}
-#sweep[data-day="6"]{--h:208;--s:75%}
+  background:linear-gradient(to bottom,rgba(255,255,255,0) 0%,rgba(255,255,255,.92) 18%,rgba(255,255,255,.92) 82%,rgba(255,255,255,0) 100%)}
+/* ---------- Summary ---------- */
+.sumbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
+.sumbar .seg{margin-right:auto}
+.seg{display:flex;border:1px solid var(--rule);background:var(--white)}
+.seg button{border:0;background:transparent;padding:0 14px;min-height:40px}
+.seg button+button{border-left:1px solid var(--rule)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--white)}
+.sumbar h2{flex:1 1 100%;margin:4px 0 0;font-size:26px;font-weight:500;letter-spacing:-.01em}
+.stat{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px;border-top:1px solid var(--hair);align-items:center}
+.lid + .stat{border-top:0}
+.stat .nm{font-weight:500}
+.stat .num{font-size:13px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat .up{color:#9A2F2F}.stat .down{color:#2F6B3A}
+.track{grid-column:1 / -1;height:10px;border:1px solid var(--rule);background:var(--white)}
+.track i{display:block;height:100%;background:hsl(var(--H) var(--s) 72%)}
+.big{padding:12px 10px 4px;font-size:28px;font-weight:500;line-height:1}
+.big small{font-size:13px;font-weight:400;color:var(--muted);margin-left:6px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:10px}
+.cal .dow{font-size:12px;color:var(--muted);text-align:center}
+.cal button{aspect-ratio:1;border:1px solid var(--rule);background:var(--white);font-size:13px;padding:0;display:flex;align-items:flex-start;justify-content:flex-start;padding:3px 4px;font-variant-numeric:tabular-nums}
+.cal button.today{outline:2px solid var(--ink);outline-offset:1px}
+.cal button:disabled{border-color:var(--hair);color:#BBB;cursor:default}
+.cal .blank{aspect-ratio:1}
+.legend{display:flex;align-items:center;gap:6px;padding:0 10px 10px;font-size:12px;color:var(--muted)}
+.legend i{width:14px;height:14px;border:1px solid var(--rule);display:inline-block}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
-
-
-
 </head>
-<body>
+<body class="l-page" data-page="today">
 <header class="top">
-    <span class="brand">Daily meds</span>
-    <div class="tabs" role="tablist">
-      <button role="tab" id="tab-today" aria-selected="true" aria-controls="v-today">Today</button>
-      <button role="tab" id="tab-meds" aria-selected="false" aria-controls="v-meds">Medications</button>
-    </div>
-  </header>
+  <span class="brand">Daily meds</span>
+  <div class="tabs" role="tablist">
+    <button role="tab" data-tab="today" aria-selected="true">Today</button>
+    <button role="tab" data-tab="food" aria-selected="false">Food</button>
+    <button role="tab" data-tab="meds" aria-selected="false">Meds</button>
+    <button role="tab" data-tab="syms" aria-selected="false">Symptoms</button>
+    <button role="tab" data-tab="sum" aria-selected="false">Summary</button>
+  </div>
+</header>
 <div class="wrap">
   <div class="cols">
-    <section class="view" id="v-today" role="tabpanel" aria-labelledby="tab-today">
+   <div class="col colL">
+    <section class="view" data-tab="today food">
       <div class="day">
         <h1 id="dayTitle"></h1>
         <div class="daynav">
@@ -175,19 +219,60 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
           <button class="icon-btn" id="nextDay" aria-label="Next day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
         </div>
       </div>
+    </section>
+
+    <section class="view pg-white pg-today" id="v-today" data-tab="today">
       <div class="progress" id="progress"></div>
       <div id="slots"></div>
     </section>
 
-    <section class="view" id="v-meds" role="tabpanel" aria-labelledby="tab-meds" style="display:none">
-      <div class="listhead">
-        <h2>Medications</h2>
-        <button class="primary" id="addMed">Add</button>
+    <section class="view pg-color pg-food" data-tab="food" style="display:none">
+      <div class="box l-waking"><div class="lid"><label for="f-breakfast">Breakfast</label><span class="saved" data-saved="breakfast">Saved</span></div><textarea id="f-breakfast" data-food="breakfast" rows="2" placeholder="What did you have?"></textarea></div>
+      <div class="box l-morning"><div class="lid"><label for="f-lunch">Lunch</label><span class="saved" data-saved="lunch">Saved</span></div><textarea id="f-lunch" data-food="lunch" rows="2" placeholder="What did you have?"></textarea></div>
+      <div class="box l-afternoon"><div class="lid"><label for="f-dinner">Dinner</label><span class="saved" data-saved="dinner">Saved</span></div><textarea id="f-dinner" data-food="dinner" rows="2" placeholder="What did you have?"></textarea></div>
+      <div class="box l-evening"><div class="lid"><label for="f-after">After dinner</label><span class="saved" data-saved="after">Saved</span></div><textarea id="f-after" data-food="after" rows="2" placeholder="Snacks, drinks…"></textarea></div>
+      <div class="box l-notes"><div class="lid"><label for="n-food">Notes</label><span class="saved" data-saved="note-food">Saved</span></div><textarea id="n-food" data-note="food" rows="2" placeholder="How did food sit today?"></textarea></div>
+    </section>
+
+    <section class="view pg-white pg-today" data-tab="today">
+      <div class="box l-notes"><div class="lid"><label for="dayNotes">Notes</label><span class="saved" data-saved="note-today">Saved</span></div><textarea id="dayNotes" data-note="today" rows="3" placeholder="How was today?"></textarea></div>
+    </section>
+   </div>
+
+   <div class="col colR">
+    <section class="view pg-white pg-meds" data-tab="meds" style="display:none">
+      <div class="box l-list">
+        <div class="lid"><h2>Medications</h2><button class="act add" id="addMed">Add</button></div>
+        <div id="medList"></div>
       </div>
-      <div id="medList"></div>
-      <p class="hint">Tap a medication to edit or delete it.</p>
-      <div class="backup">
-        <h2>Backup</h2>
+      <div class="box l-notes"><div class="lid"><label for="n-meds">Notes</label><span class="saved" data-saved="note-meds">Saved</span><span class="st notedate"></span></div><textarea id="n-meds" data-note="meds" rows="2" placeholder="Side effects, doctor changes…"></textarea></div>
+    </section>
+
+    <section class="view pg-color pg-syms" data-tab="syms" style="display:none">
+      <div class="box l-list">
+        <div class="lid"><h2>Symptoms</h2><button class="act add" id="addSym">Add</button></div>
+        <div id="symList"></div>
+      </div>
+      <div class="box l-notes"><div class="lid"><label for="n-syms">Notes</label><span class="saved" data-saved="note-syms">Saved</span><span class="st notedate"></span></div><textarea id="n-syms" data-note="syms" rows="2" placeholder="Anything about how you felt…"></textarea></div>
+    </section>
+
+    <section class="view pg-white pg-sum" data-tab="sum" style="display:none">
+      <div class="sumbar">
+        <h2 id="sumTitle"></h2>
+        <div class="seg" role="group" aria-label="Summary period">
+          <button id="sumMonth" aria-pressed="true">Month</button><button id="sumYear" aria-pressed="false">Year</button>
+        </div>
+        <div class="daynav">
+          <button class="icon-btn" id="sumPrev" aria-label="Previous period"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <button class="icon-btn" id="sumNext" aria-label="Next period"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+        </div>
+      </div>
+      <div id="sumBody"></div>
+    </section>
+
+    <section class="view pg-white pg-meds" data-tab="meds" style="display:none">
+      <div class="box l-list">
+        <div class="lid"><h2>Backup</h2></div>
         <p class="hint">Stored on this device only. Save a backup before switching phones or clearing browser data.</p>
         <div class="backup-btns">
           <button class="ghost" id="exportBtn">Save backup</button>
@@ -197,47 +282,44 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
         <p class="hint" id="backupMsg" role="status"></p>
       </div>
     </section>
+   </div>
   </div>
 </div>
 
 <div id="sweep" aria-hidden="true"></div>
 <dialog id="dlg">
-  <form method="dialog" id="medForm" novalidate>
+  <form method="dialog" id="itemForm" novalidate>
     <h3 id="dlgTitle">Add medication</h3>
     <div class="body">
-    <label class="f">Name<input name="name" autocomplete="off" required></label>
-    <label class="f">Dose<input name="dose" placeholder="e.g. 50 mg, 2 tablets" autocomplete="off"></label>
-    <fieldset>
-      <legend>Times</legend>
-      <div class="slotpick" id="slotPick"></div>
-    </fieldset>
-    <label class="f">Note<input name="notes" placeholder="e.g. with food" autocomplete="off"></label>
-    <p class="err" id="formErr" role="alert"></p>
-    <div class="actions">
-      <button type="button" class="danger" id="delMed">Delete</button>
-      <button type="button" class="ghost" id="cancel">Cancel</button>
-      <button type="submit" class="primary" id="saveMed">Save</button>
-    </div>
+      <label class="f">Name<input name="name" autocomplete="off" required></label>
+      <label class="f med-only">Dose<input name="dose" placeholder="e.g. 50 mg, 2 tablets" autocomplete="off"></label>
+      <fieldset class="med-only">
+        <legend>Times</legend>
+        <div class="slotpick" id="slotPick"></div>
+      </fieldset>
+      <label class="f med-only">Note<input name="notes" placeholder="e.g. with food" autocomplete="off"></label>
+      <p class="err" id="formErr" role="alert"></p>
+      <div class="actions">
+        <button type="button" class="danger" id="delItem">Delete</button>
+        <button type="button" class="ghost" id="cancel">Cancel</button>
+        <button type="submit" class="primary" id="saveItem">Save</button>
+      </div>
     </div>
   </form>
 </dialog>
 
 <script>
 const SLOTS = [
-  {id:"waking",    label:"Waking",    icon:'<path class="s" d="M2 18a10 10 0 0120 0z"/>'},
-  {id:"morning",   label:"Morning",   icon:'<circle class="s" cx="12" cy="12" r="10"/>'},
-  {id:"afternoon", label:"Afternoon", icon:'<rect class="s" x="3" y="3" width="18" height="18"/>'},
-  {id:"evening",   label:"Evening",   icon:'<path class="s" d="M12 2.5l10.5 19h-21z"/>'},
-  {id:"bedtime",   label:"Bedtime",   icon:'<path class="s" d="M12 1.5L22.5 12 12 22.5 1.5 12z"/>'}
+  {id:"waking",label:"Waking"},{id:"morning",label:"Morning"},{id:"afternoon",label:"Afternoon"},
+  {id:"evening",label:"Evening"},{id:"bedtime",label:"Bedtime"}
 ];
-const shape=(s,cls="")=>`<svg viewBox="0 0 24 24" ${cls}>${s.icon}</svg>`;
 const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const LS_KEY = "daily-meds-v1";
-const KEEP_DAYS = 90;
+const KEEP_MED_DAYS = 400;   // medication check-offs; symptom history is kept for monthly records
 
-let state = {meds:[], log:{}, updated:0};
+let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, updated:0};
 let viewDate = todayKey();
-let editingId = null;
+let editing = null;          // {kind:"med"|"sym", id|null}
 
 /* ---------- dates ---------- */
 function keyOf(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
@@ -249,33 +331,82 @@ function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 function uid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4)}
 
 /* ---------- storage ---------- */
+function normalize(s){
+  const obj=v=>(v&&typeof v==="object"&&!Array.isArray(v))?v:{};
+  return {meds:Array.isArray(s.meds)?s.meds:[], log:obj(s.log),
+          symptoms:Array.isArray(s.symptoms)?s.symptoms:[], slog:obj(s.slog),
+          food:obj(s.food), notes:obj(s.notes), pnotes:obj(s.pnotes), updated:Number(s.updated)||0};
+}
 function loadLocal(){
   try{const raw=localStorage.getItem(LS_KEY);if(raw){const s=JSON.parse(raw);if(s&&Array.isArray(s.meds))state=normalize(s)}}catch(e){}
 }
-function normalize(s){return {meds:Array.isArray(s.meds)?s.meds:[], log:(s.log&&typeof s.log==="object")?s.log:{}, updated:Number(s.updated)||0}}
-function prune(){
-  const cutoff=shiftKey(todayKey(),-KEEP_DAYS);
-  for(const k of Object.keys(state.log)) if(k<cutoff) delete state.log[k];
-}
-function commit(){
+function persist(){
   state.updated=Date.now();
-  prune();
-  try{localStorage.setItem(LS_KEY,JSON.stringify(state))}catch(e){}
-  render();
+  const cutoff=shiftKey(todayKey(),-KEEP_MED_DAYS);
+  for(const k of Object.keys(state.log)) if(k<cutoff) delete state.log[k];
+  try{localStorage.setItem(LS_KEY,JSON.stringify(state));return true}catch(e){return false}
+}
+function commit(){ persist(); render(); }
+
+/* Text boxes save as you type, without redrawing the page */
+let textTimer=null;
+function autosize(ta){ta.style.height="auto";ta.style.height=ta.scrollHeight+"px"}
+function flashSaved(key){
+  const el=document.querySelector(`[data-saved="${key}"]`); if(!el) return;
+  el.classList.add("on"); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("on"),1200);
+}
+function noteStore(key){ return key==="today" ? state.notes : (state.pnotes[key]||(state.pnotes[key]={})) }
+function onTextInput(ta){
+  const date=viewDate, val=ta.value;
+  let savedKey;
+  if(ta.dataset.note){
+    const store=noteStore(ta.dataset.note);
+    if(val.trim()) store[date]=val; else delete store[date];
+    savedKey="note-"+ta.dataset.note;
+  } else {
+    const meal=ta.dataset.food, day=state.food[date]||(state.food[date]={});
+    if(val.trim()) day[meal]=val; else delete day[meal];
+    if(!Object.keys(day).length) delete state.food[date];
+    savedKey=meal;
+  }
+  autosize(ta);
+  clearTimeout(textTimer);
+  textTimer=setTimeout(()=>{ textTimer=null; if(persist()) flashSaved(savedKey); },400);
+}
+function fillTexts(){
+  const fd=state.food[viewDate]||{};
+  for(const ta of document.querySelectorAll("textarea[data-food]")){
+    if(document.activeElement!==ta) ta.value=fd[ta.dataset.food]||"";
+    autosize(ta);
+  }
+  for(const ta of document.querySelectorAll("textarea[data-note]")){
+    if(document.activeElement!==ta) ta.value=noteStore(ta.dataset.note)[viewDate]||"";
+    autosize(ta);
+  }
+  const short=parseKey(viewDate).toLocaleDateString([], {weekday:"short",month:"short",day:"numeric"});
+  for(const el of document.querySelectorAll(".notedate")) el.textContent=short;
 }
 
 /* ---------- render ---------- */
 function medsFor(slot){return state.meds.filter(m=>m.slots&&m.slots.includes(slot))}
+function monthCount(symId){
+  const prefix=todayKey().slice(0,7); let n=0;
+  for(const [k,v] of Object.entries(state.slog)) if(k.startsWith(prefix)&&v[symId]) n++;
+  return n;
+}
 function render(){
   const tk=todayKey();
   if(viewDate>tk) viewDate=tk;
   const d=parseKey(viewDate);
+  document.body.dataset.day=d.getDay();
+  updateChrome();
   const rel = viewDate===tk ? "Today" : viewDate===shiftKey(tk,-1) ? "Yesterday" : d.toLocaleDateString([], {year:"numeric"});
   document.getElementById("dayTitle").innerHTML =
     `<small>${esc(rel)}</small>${esc(d.toLocaleDateString([], {weekday:"long", month:"short", day:"numeric"}))}`;
   document.getElementById("nextDay").disabled = viewDate>=tk;
 
-  const day = state.log[viewDate] || {};
+  /* Today: medication slots */
+  const day=state.log[viewDate]||{};
   let total=0, taken=0, html="";
   for(const s of SLOTS){
     const list=medsFor(s.id);
@@ -283,59 +414,205 @@ function render(){
     const doneCount=list.filter(m=>day[m.id+"|"+s.id]).length;
     total+=list.length; taken+=doneCount;
     const allDone=doneCount===list.length;
-    html+=`<div class="box c-${s.id}${allDone?" done":""}">
-      <div class="lid">${s.label}<span class="st">${allDone?"Done":doneCount+"/"+list.length}</span>${list.length>1 && !allDone ? `<button class="all" data-all="${s.id}">Take all</button>` : ""}</div>
+    html+=`<div class="box l-${s.id}">
+      <div class="lid">${s.label}<span class="st">${allDone?"Done":doneCount+"/"+list.length}</span>${list.length>1&&!allDone?`<button class="act" data-all="${s.id}">Take all</button>`:""}</div>
       ${list.map(m=>{
         const k=m.id+"|"+s.id, ts=day[k];
-        return `<button class="med" role="checkbox" aria-checked="${ts?"true":"false"}" data-k="${esc(k)}">
+        const sub=[m.dose,m.notes].filter(Boolean).join(" · ");
+        return `<button class="row med" role="checkbox" aria-checked="${ts?"true":"false"}" data-k="${esc(k)}">
           <span class="pill">${CHECK}</span>
-          <span><span class="nm">${esc(m.name)}</span>${m.dose||m.notes?`<span class="ds">${esc([m.dose,m.notes].filter(Boolean).join(" · "))}</span>`:""}</span>
+          <span><span class="nm">${esc(m.name)}</span>${sub?`<span class="ds">${esc(sub)}</span>`:""}</span>
           ${ts?`<span class="when">${fmtTime(ts)}</span>`:""}
         </button>`}).join("")}
     </div>`;
   }
-  const slotsEl=document.getElementById("slots");
-  slotsEl.dataset.day=d.getDay();
-  if(!total){
-    slotsEl.innerHTML=`<div class="empty"><p>No medications. Add one to start a daily checklist.</p><button class="primary" data-add>Add medication</button></div>`;
-    document.getElementById("progress").innerHTML="";
-  } else {
-    slotsEl.innerHTML=html;
-    const back = viewDate!==tk ? ` <button class="today-link" id="goToday">Today</button>` : "";
-    document.getElementById("progress").innerHTML =
-      `<span class="count">${taken}/${total}</span><div class="bar"><i style="width:${Math.round(taken/total*100)}%"></i></div>${back}`;
+
+  /* Today: symptoms */
+  const sday=state.slog[viewDate]||{};
+  if(state.symptoms.length){
+    const had=state.symptoms.filter(x=>sday[x.id]).length;
+    html+=`<div class="box l-sym">
+      <div class="lid">Symptoms<span class="st">${had?had+" today":"None"}</span></div>
+      ${state.symptoms.map(x=>`<button class="row sym" role="checkbox" aria-checked="${sday[x.id]?"true":"false"}" data-sym="${esc(x.id)}">
+          <span class="pill">${CHECK}</span><span class="nm">${esc(x.name)}</span></button>`).join("")}
+    </div>`;
   }
 
+  const slotsEl=document.getElementById("slots");
+  const prog=document.getElementById("progress");
+  if(!html){
+    slotsEl.innerHTML=`<div class="box l-waking"><div class="lid">Get started</div>
+      <p class="hint">Add your medications and symptoms. A fresh checklist appears every day.</p>
+      <div class="backup-btns"><button class="primary" data-add="med">Add medication</button><button class="ghost" data-add="sym">Add symptom</button></div></div>`;
+  } else slotsEl.innerHTML=html;
+  const back = viewDate!==tk ? `<button class="today-link" id="goToday">Today</button>` : "";
+  prog.innerHTML = total
+    ? `<span class="count">${taken}/${total}</span><div class="bar"><i style="width:${Math.round(taken/total*100)}%"></i></div>${back}`
+    : back;
+
+  /* Lists */
+  fillTexts();
+  renderSummary();
   const ml=document.getElementById("medList");
-  if(!state.meds.length){
-    ml.innerHTML=`<div class="empty"><p>No medications.</p></div>`;
-  } else {
-    const sorted=[...state.meds].sort((a,b)=>a.name.localeCompare(b.name));
-    ml.innerHTML=`<ul class="mlist">${sorted.map(m=>`<li><button data-edit="${esc(m.id)}">
-      <span><span class="nm">${esc(m.name)}</span>${m.dose?`<span class="ds">${esc(m.dose)}</span>`:""}</span>
-      <span class="times">${esc(SLOTS.filter(s=>m.slots.includes(s.id)).map(s=>s.label).join(", "))}</span>
-    </button></li>`).join("")}</ul>`;
+  ml.innerHTML = state.meds.length
+    ? [...state.meds].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>`<button class="row" data-edit-med="${esc(m.id)}">
+        <span><span class="nm">${esc(m.name)}</span>${m.dose?`<span class="ds">${esc(m.dose)}</span>`:""}</span>
+        <span class="side">${esc(SLOTS.filter(s=>m.slots.includes(s.id)).map(s=>s.label).join(", "))}</span></button>`).join("")
+    : `<div class="empty-row">No medications. Tap Add.</div>`;
+  const month=new Date().toLocaleDateString([], {month:"short"});
+  const sl=document.getElementById("symList");
+  sl.innerHTML = state.symptoms.length
+    ? state.symptoms.map(x=>{const n=monthCount(x.id);return `<button class="row" data-edit-sym="${esc(x.id)}">
+        <span class="nm">${esc(x.name)}</span><span class="side">${n} ${n===1?"day":"days"} in ${esc(month)}</span></button>`}).join("")
+    : `<div class="empty-row">No symptoms. Tap Add.</div>`;
+}
+
+/* ---------- summary ---------- */
+let sumMode="month", sumAnchor=todayKey();
+function periodOf(mode,anchor){
+  const d=parseKey(anchor);
+  if(mode==="month"){
+    const a=new Date(d.getFullYear(),d.getMonth(),1), b=new Date(d.getFullYear(),d.getMonth()+1,0);
+    return {start:keyOf(a),end:keyOf(b),label:a.toLocaleDateString([], {month:"long",year:"numeric"})};
   }
+  return {start:d.getFullYear()+"-01-01",end:d.getFullYear()+"-12-31",label:String(d.getFullYear())};
+}
+function shiftPeriod(mode,anchor,n){
+  const d=parseKey(anchor);
+  return mode==="month" ? keyOf(new Date(d.getFullYear(),d.getMonth()+n,1)) : keyOf(new Date(d.getFullYear()+n,0,1));
+}
+function daysBetween(a,b){return Math.round((parseKey(b)-parseKey(a))/86400000)+1}
+function firstUse(){
+  let first=todayKey();
+  const scan=o=>{for(const k of Object.keys(o||{})) if(k<first) first=k};
+  scan(state.log);scan(state.slog);scan(state.food);scan(state.notes);
+  for(const v of Object.values(state.pnotes)) scan(v);
+  return first;
+}
+function symCounts(start,end){
+  const c={}; let anyDays=0;
+  for(const [k,v] of Object.entries(state.slog)){
+    if(k<start||k>end) continue;
+    let any=false;
+    for(const x of state.symptoms) if(v[x.id]){c[x.id]=(c[x.id]||0)+1;any=true}
+    if(any) anyDays++;
+  }
+  return {c,anyDays};
+}
+function renderSummary(){
+  const tk=todayKey(), P=periodOf(sumMode,sumAnchor);
+  document.getElementById("sumTitle").textContent=P.label;
+  document.getElementById("sumMonth").setAttribute("aria-pressed",sumMode==="month");
+  document.getElementById("sumYear").setAttribute("aria-pressed",sumMode==="year");
+  document.getElementById("sumNext").disabled = P.end>=tk;
+  const body=document.getElementById("sumBody");
+  const upto = P.end<tk ? P.end : tk;
+  const fu = firstUse();
+  const from = P.start<fu ? fu : P.start;              // don't count days before you started using the app
+  const elapsed = from>upto ? 0 : daysBetween(from,upto);
+  const unit = sumMode==="month" ? "month" : "year";
+  /* Compare with the same stretch of the previous period (e.g. Oct 1–6 vs Sep 1–6) */
+  const prev = periodOf(sumMode,shiftPeriod(sumMode,sumAnchor,-1));
+  const span = daysBetween(P.start,upto);
+  const prevEndK = shiftKey(prev.start,span-1), prevEnd = prevEndK<prev.end ? prevEndK : prev.end;
+  const now=symCounts(from,upto), before=symCounts(prev.start,prevEnd);
+  let html="";
+
+  /* Most prevalent symptoms */
+  if(!state.symptoms.length){
+    html+=`<div class="box l-list"><div class="lid">Top symptoms</div><div class="empty-row">Add symptoms on the Symptoms page to see them here.</div></div>`;
+  } else {
+    const ranked=[...state.symptoms].map(x=>({x,n:now.c[x.id]||0,p:before.c[x.id]||0})).sort((a,b)=>b.n-a.n||a.x.name.localeCompare(b.x.name));
+    html+=`<div class="box l-list"><div class="lid">Top symptoms<span class="st">${elapsed} ${elapsed===1?"day":"days"} tracked</span></div>
+      <div class="big">${now.anyDays}<small>${now.anyDays===1?"day":"days"} with any symptom</small></div>
+      ${ranked.map(r=>{
+        const pct=elapsed?Math.round(r.n/elapsed*100):0, d=r.n-r.p;
+        const chg = d>0?`<span class="up">▲${d}</span>`: d<0?`<span class="down">▼${-d}</span>`:"";
+        return `<div class="stat"><span class="nm">${esc(r.x.name)}</span><span class="num">${r.n} ${r.n===1?"day":"days"} · ${pct}% ${chg}</span><div class="track"><i style="width:${pct}%"></i></div></div>`;
+      }).join("")}
+      <p class="hint">Arrows compare with the same days last ${unit}.</p></div>`;
+  }
+
+  /* Calendar (month) or month-by-month (year) */
+  const maxS=Math.max(1,state.symptoms.length);
+  const shade=n=> n? `hsl(var(--H) var(--s) ${92-Math.round(n/maxS*22)}%)` : "var(--white)";
+  if(sumMode==="month"){
+    const first=parseKey(P.start), days=daysBetween(P.start,P.end);
+    const dows=[...Array(7)].map((_,i)=>new Date(2024,0,7+i).toLocaleDateString([], {weekday:"narrow"}));
+    let cells=dows.map(x=>`<span class="dow">${x}</span>`).join("")+`<span class="blank"></span>`.repeat(first.getDay());
+    for(let i=0;i<days;i++){
+      const k=keyOf(new Date(first.getFullYear(),first.getMonth(),i+1));
+      const n=state.symptoms.filter(x=>(state.slog[k]||{})[x.id]).length;
+      cells+=`<button data-goto="${k}" ${k>tk?"disabled":""} class="${k===tk?"today":""}" style="background:${k>tk?"var(--white)":shade(n)}" aria-label="${k}, ${n} symptoms">${i+1}</button>`;
+    }
+    html+=`<div class="box l-list"><div class="lid">Calendar</div><div class="cal">${cells}</div>
+      <div class="legend">Fewer <i style="background:var(--white)"></i><i style="background:${shade(Math.ceil(maxS/3))}"></i><i style="background:${shade(Math.ceil(maxS*2/3))}"></i><i style="background:${shade(maxS)}"></i> More symptoms · tap a day to open it</div></div>`;
+  } else {
+    const y=+P.start.slice(0,4);
+    let rows="";
+    for(let m=0;m<12;m++){
+      const a=keyOf(new Date(y,m,1)), b=keyOf(new Date(y,m+1,0));
+      if(a>tk) break;
+      if(b<fu) continue;
+      const a2=a<fu?fu:a, e=b<tk?b:tk, len=daysBetween(a2,e), r=symCounts(a2,e);
+      const top=state.symptoms.map(x=>({x,n:r.c[x.id]||0})).sort((p,q)=>q.n-p.n)[0];
+      const pct=Math.round(r.anyDays/len*100);
+      rows+=`<div class="stat"><span class="nm">${new Date(y,m,1).toLocaleDateString([], {month:"long"})}</span><span class="num">${r.anyDays} ${r.anyDays===1?"day":"days"}${top&&top.n?" · most: "+esc(top.x.name):""}</span><div class="track"><i style="width:${pct}%"></i></div></div>`;
+    }
+    html+=`<div class="box l-list"><div class="lid">Days with symptoms, by month</div>${rows||`<div class="empty-row">Nothing yet.</div>`}</div>`;
+  }
+
+  /* Medication consistency */
+  if(state.meds.length){
+    const begin = from;
+    let expected=0, taken=0;
+    if(begin<=upto){
+      const perDay=state.meds.reduce((t,m)=>t+m.slots.length,0);
+      expected=perDay*daysBetween(begin,upto);
+      const valid=new Set(state.meds.flatMap(m=>m.slots.map(sl=>m.id+"|"+sl)));
+      for(const [k,v] of Object.entries(state.log)) if(k>=begin&&k<=upto) for(const id of Object.keys(v)) if(valid.has(id)) taken++;
+    }
+    const pct=expected?Math.round(taken/expected*100):0;
+    html+=`<div class="box l-list"><div class="lid">Medication</div>
+      <div class="big">${expected?pct+"%":"–"}<small>of doses checked off</small></div>
+      <div class="stat"><span class="nm">Doses</span><span class="num">${taken} of ${expected}</span><div class="track"><i style="width:${pct}%"></i></div></div>
+      <p class="hint">Based on your current medication list, counted from when you started using the app.</p></div>`;
+  }
+  body.innerHTML=html;
+}
+
+/* Status bar color follows the page background */
+function updateChrome(){
+  const cs=getComputedStyle(document.body);
+  const colored=matchMedia("(max-width:719px)").matches && ["food","syms"].includes(document.body.dataset.page);
+  document.querySelector('meta[name="theme-color"]').content = colored
+    ? `hsl(${(+cs.getPropertyValue("--h").trim())+(+cs.getPropertyValue("--dh").trim()||0)} ${cs.getPropertyValue("--s").trim()} 96%)` : "#FFFFFF";
 }
 
 /* ---------- check-off sweep ---------- */
 let sweepAnim=null;
 function sweep(){
   const el=document.getElementById("sweep");
-  el.dataset.day=parseKey(viewDate).getDay();
   if(sweepAnim) sweepAnim.cancel();
   el.style.visibility="visible";
   const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
   sweepAnim = reduce
-    ? el.animate([{opacity:0,transform:"none"},{opacity:.6,offset:.3},{opacity:0}],{duration:500,easing:"ease-out"})
+    ? el.animate([{opacity:0,transform:"none"},{opacity:.7,offset:.3},{opacity:0}],{duration:500,easing:"ease-out"})
     : el.animate([{transform:"translateY(-100%)"},{transform:"translateY(100%)"}],{duration:700,easing:"cubic-bezier(.45,0,.25,1)"});
   sweepAnim.onfinish=()=>{el.style.visibility="hidden";sweepAnim=null};
 }
 
 /* ---------- events ---------- */
 document.getElementById("slots").addEventListener("click",e=>{
-  const med=e.target.closest(".med"), all=e.target.closest("[data-all]"), add=e.target.closest("[data-add]");
-  if(add){openEditor(null);return}
+  const med=e.target.closest(".med"), sym=e.target.closest(".sym"), all=e.target.closest("[data-all]"), add=e.target.closest("[data-add]");
+  if(add){openEditor(add.dataset.add,null);return}
+  if(sym){
+    const sd=state.slog[viewDate]||(state.slog[viewDate]={});
+    const id=sym.dataset.sym;
+    if(sd[id]) delete sd[id]; else sd[id]=Date.now();
+    if(!Object.keys(sd).length) delete state.slog[viewDate];
+    commit(); return;
+  }
   if(!med&&!all) return;
   const day=state.log[viewDate]||(state.log[viewDate]={});
   if(med){
@@ -349,66 +626,83 @@ document.getElementById("slots").addEventListener("click",e=>{
   if(!Object.keys(day).length) delete state.log[viewDate];
   commit();
 });
-document.getElementById("progress").addEventListener("click",e=>{if(e.target.id==="goToday"){viewDate=todayKey();render()}});
-document.getElementById("prevDay").onclick=()=>{viewDate=shiftKey(viewDate,-1);render()};
-document.getElementById("nextDay").onclick=()=>{if(viewDate<todayKey()){viewDate=shiftKey(viewDate,1);render()}};
-document.getElementById("medList").addEventListener("click",e=>{const b=e.target.closest("[data-edit]");if(b)openEditor(b.dataset.edit)});
-document.getElementById("addMed").onclick=()=>openEditor(null);
+document.getElementById("progress").addEventListener("click",e=>{if(e.target.id==="goToday"){flushText();viewDate=todayKey();render()}});
+function flushText(){ if(textTimer){clearTimeout(textTimer);textTimer=null;persist()} if(document.activeElement&&document.activeElement.tagName==="TEXTAREA") document.activeElement.blur() }
+document.getElementById("prevDay").onclick=()=>{flushText();viewDate=shiftKey(viewDate,-1);render()};
+document.getElementById("nextDay").onclick=()=>{if(viewDate<todayKey()){flushText();viewDate=shiftKey(viewDate,1);render()}};
+for(const ta of document.querySelectorAll("textarea")) ta.addEventListener("input",()=>onTextInput(ta));
+window.addEventListener("pagehide",()=>{ if(textTimer){clearTimeout(textTimer);persist()} });
+document.addEventListener("visibilitychange",()=>{ if(document.hidden&&textTimer){clearTimeout(textTimer);textTimer=null;persist()} });
+document.getElementById("medList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-med]");if(b)openEditor("med",b.dataset.editMed)});
+document.getElementById("symList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-sym]");if(b)openEditor("sym",b.dataset.editSym)});
+document.getElementById("addMed").onclick=()=>openEditor("med",null);
+document.getElementById("addSym").onclick=()=>openEditor("sym",null);
 
-for(const t of document.querySelectorAll('[role="tab"]')){
-  t.onclick=()=>{
-    for(const o of document.querySelectorAll('[role="tab"]')){
-      const on=o===t;o.setAttribute("aria-selected",on);
-      document.getElementById(o.getAttribute("aria-controls")).style.display=on?"block":"none";
-    }
-  };
+function selectTab(name){
+  for(const o of document.querySelectorAll('[role="tab"]')) o.setAttribute("aria-selected",o.dataset.tab===name);
+  document.body.dataset.page=name; updateChrome();
+  for(const v of document.querySelectorAll(".view")) v.style.display = v.dataset.tab.split(" ").includes(name) ? "block" : "none";
+  window.scrollTo(0,0);
 }
+for(const t of document.querySelectorAll('[role="tab"]')) t.onclick=()=>{flushText();selectTab(t.dataset.tab)};
+document.getElementById("sumMonth").onclick=()=>{sumMode="month";renderSummary()};
+document.getElementById("sumYear").onclick=()=>{sumMode="year";renderSummary()};
+document.getElementById("sumPrev").onclick=()=>{sumAnchor=shiftPeriod(sumMode,sumAnchor,-1);renderSummary()};
+document.getElementById("sumNext").onclick=()=>{const n=shiftPeriod(sumMode,sumAnchor,1);if(n<=todayKey()){sumAnchor=n;renderSummary()}};
+document.getElementById("sumBody").addEventListener("click",e=>{
+  const b=e.target.closest("[data-goto]"); if(!b) return;
+  flushText(); viewDate=b.dataset.goto; render();
+  if(matchMedia("(max-width:719px)").matches) selectTab("today"); else window.scrollTo(0,0);
+});
 
 /* ---------- editor ---------- */
-const dlg=document.getElementById("dlg"), form=document.getElementById("medForm");
-document.getElementById("slotPick").innerHTML=SLOTS.map(s=>`<label class="c-${s.id}"><input type="checkbox" name="slot" value="${s.id}"><span>${s.label}</span></label>`).join("");
-function openEditor(id){
-  editingId=id;
-  const m=id?state.meds.find(x=>x.id===id):null;
-  document.getElementById("dlgTitle").textContent=m?"Edit medication":"Add medication";
-  document.getElementById("saveMed").textContent=m?"Save":"Add";
-  document.getElementById("delMed").style.visibility=m?"visible":"hidden";
-  form.elements["name"].value=m?m.name:""; form.elements["dose"].value=m?m.dose||"":""; form.elements["notes"].value=m?m.notes||"":"";
-  for(const c of form.querySelectorAll('[name="slot"]')) c.checked=m?m.slots.includes(c.value):false;
+const dlg=document.getElementById("dlg"), form=document.getElementById("itemForm"), F=n=>form.elements[n];
+document.getElementById("slotPick").innerHTML=SLOTS.map(s=>`<label><input type="checkbox" name="slot" value="${s.id}"><span>${s.label}</span></label>`).join("");
+function openEditor(kind,id){
+  editing={kind,id};
+  const isMed=kind==="med";
+  const item=id?(isMed?state.meds:state.symptoms).find(x=>x.id===id):null;
+  form.classList.toggle("is-sym",!isMed);
+  document.getElementById("dlgTitle").textContent=(item?"Edit ":"Add ")+(isMed?"medication":"symptom");
+  document.getElementById("saveItem").textContent=item?"Save":"Add";
+  document.getElementById("delItem").style.visibility=item?"visible":"hidden";
+  F("name").value=item?item.name:"";
+  F("dose").value=item&&isMed?item.dose||"":"";
+  F("notes").value=item&&isMed?item.notes||"":"";
+  for(const c of form.querySelectorAll('[name="slot"]')) c.checked=item&&isMed?item.slots.includes(c.value):false;
+  F("name").placeholder=isMed?"":"e.g. headache, nausea";
   document.getElementById("formErr").textContent="";
   dlg.showModal();
-  if(!m) form.elements["name"].focus();
+  if(!item) F("name").focus();
 }
 document.getElementById("cancel").onclick=()=>dlg.close();
 dlg.addEventListener("close",render);
 form.addEventListener("submit",e=>{
   e.preventDefault();
-  const name=form.elements["name"].value.trim();
-  const slots=[...form.querySelectorAll('[name="slot"]:checked')].map(c=>c.value);
   const err=document.getElementById("formErr");
-  if(!name){err.textContent="Enter the medication name.";form.elements["name"].focus();return}
-  if(!slots.length){err.textContent="Pick at least one time of day.";return}
-  const data={name,dose:form.elements["dose"].value.trim(),notes:form.elements["notes"].value.trim(),slots};
-  if(editingId){Object.assign(state.meds.find(x=>x.id===editingId),data)}
-  else state.meds.push({id:uid(),...data});
+  const name=F("name").value.trim();
+  if(!name){err.textContent="Enter a name.";F("name").focus();return}
+  if(editing.kind==="med"){
+    const slots=[...form.querySelectorAll('[name="slot"]:checked')].map(c=>c.value);
+    if(!slots.length){err.textContent="Pick at least one time.";return}
+    const data={name,dose:F("dose").value.trim(),notes:F("notes").value.trim(),slots};
+    if(editing.id) Object.assign(state.meds.find(x=>x.id===editing.id),data);
+    else state.meds.push({id:uid(),...data});
+  } else {
+    if(editing.id) state.symptoms.find(x=>x.id===editing.id).name=name;
+    else state.symptoms.push({id:uid(),name});
+  }
   dlg.close(); commit();
 });
-document.getElementById("delMed").onclick=()=>{
-  const m=state.meds.find(x=>x.id===editingId);
-  if(!m) return;
-  if(!confirm(`Delete ${m.name}? It will be removed from your daily checklist.`)) return;
-  state.meds=state.meds.filter(x=>x.id!==editingId);
+document.getElementById("delItem").onclick=()=>{
+  const isMed=editing.kind==="med", list=isMed?state.meds:state.symptoms;
+  const item=list.find(x=>x.id===editing.id);
+  if(!item) return;
+  if(!confirm(`Delete ${item.name}?`+(isMed?"":" Its history will no longer be counted."))) return;
+  if(isMed) state.meds=state.meds.filter(x=>x.id!==editing.id);
+  else state.symptoms=state.symptoms.filter(x=>x.id!==editing.id);
   dlg.close(); commit();
 };
-
-/* ---------- new day rollover ---------- */
-let lastToday=todayKey();
-function checkRollover(){
-  const tk=todayKey();
-  if(tk!==lastToday){ if(viewDate===lastToday) viewDate=tk; lastToday=tk; render(); }
-}
-setInterval(checkRollover,60000);
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)checkRollover()});
 
 /* ---------- backup ---------- */
 const backupMsg=document.getElementById("backupMsg");
@@ -428,11 +722,20 @@ document.getElementById("importFile").onchange=async e=>{
   try{
     const data=JSON.parse(await f.text());
     if(!data||!Array.isArray(data.meds)) throw 0;
-    if(!confirm("Replace your current medications and history with this backup?")) return;
+    if(!confirm("Replace everything in the app with this backup?")) return;
     state=normalize(data); commit();
     backupMsg.textContent="Backup restored.";
-  }catch(err){backupMsg.textContent="That file isn't a Daily meds backup. Choose a file saved with \"Save backup\"."}
+  }catch(err){backupMsg.textContent="That file isn't a Daily meds backup."}
 };
+
+/* ---------- new day rollover ---------- */
+let lastToday=todayKey();
+function checkRollover(){
+  const tk=todayKey();
+  if(tk!==lastToday){ flushText(); if(viewDate===lastToday) viewDate=tk; lastToday=tk; render(); }
+}
+setInterval(checkRollover,60000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)checkRollover()});
 
 /* ---------- offline support ---------- */
 if("serviceWorker" in navigator){
