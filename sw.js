@@ -1,6 +1,6 @@
 // Bump this version whenever you change index.html so phones pick up the update.
-const CACHE = "daily-meds-v36";
-const SHELL = ["./", "index.html", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "check.html"];
+const CACHE = "daily-meds-v37";
+const SHELL = ["./", "index.html", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "check.html", "help.html"];
 
 self.addEventListener("install", e => {
   // Cache files one by one so a single missing file can't stop the app installing.

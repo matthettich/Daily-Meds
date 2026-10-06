@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daily meds help</title>
+<meta name="theme-color" content="#FFFFFF">
+<meta name="color-scheme" content="only light">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#111111;--muted:#4A4A4A;--rule:#111111;--hair:rgba(17,17,17,.16);--white:#FFFFFF;
+  --h:262;--s:70%;--tx:#2F4A0A;color-scheme:only light}
+/* Same day colors as the app */
+body[data-day="0"]{--h:22; --s:85%;--tx:#1B4A6B}
+body[data-day="1"]{--h:262;--s:70%;--tx:#2F4A0A}
+body[data-day="2"]{--h:338;--s:80%;--tx:#0A4A44}
+body[data-day="3"]{--h:176;--s:55%;--tx:#7A1F3D}
+body[data-day="4"]{--h:44; --s:75%;--tx:#3A2F86}
+body[data-day="5"]{--h:152;--s:50%;--tx:#7A1E5E}
+body[data-day="6"]{--h:208;--s:75%;--tx:#8A3412}
+*,*::before,*::after{box-sizing:border-box;border-radius:0}
+body{margin:0;color:var(--ink);background:var(--white);
+  font-family:Futura,"Futura PT","Jost","Century Gothic",system-ui,sans-serif;font-size:15px;line-height:1.5;
+  padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+.wrap{max-width:720px;margin:0 auto;padding:16px 12px 40px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 14px}
+h1{font-size:26px;line-height:1.1;margin:0;font-weight:500;letter-spacing:-.01em}
+h1 small{display:block;font-size:13px;font-weight:400;color:var(--muted);letter-spacing:.02em;margin-bottom:2px}
+.back{border:1px solid var(--rule);background:var(--white);color:var(--ink);text-decoration:none;padding:8px 14px;min-height:40px;display:inline-flex;align-items:center;white-space:nowrap}
+nav.toc{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px}
+nav.toc a{border:1px solid var(--rule);background:var(--white);color:var(--ink);text-decoration:none;font-size:14px;padding:4px 10px;min-height:32px;display:inline-flex;align-items:center}
+.box{border:3px solid var(--rule);margin-top:12px;background:hsl(var(--H) var(--s) var(--l));scroll-margin-top:12px}
+.box:nth-of-type(odd){--H:calc(var(--h) + 22);--l:93%}
+.box:nth-of-type(even){--H:var(--h);--l:96%}
+.lid{min-height:38px;padding:7px 10px;background:var(--white);color:var(--tx);border-bottom:3px solid var(--rule);font-weight:500;font-size:17px}
+.lid h2{margin:0;font:inherit}
+.body{padding:4px 12px 12px}
+.body p{margin:10px 0 0}
+.body ul{margin:10px 0 0;padding-left:20px}
+.body li+li{margin-top:6px}
+.body h3{font-size:15px;font-weight:500;margin:14px 0 0}
+b{font-weight:500}
+.body a{color:var(--ink);text-underline-offset:3px}
+.chip{display:inline-block;border:1px solid var(--rule);background:var(--white);padding:0 8px;font-size:14px;white-space:nowrap}
+.foot{text-align:center;margin-top:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1><small>Daily meds</small>Help</h1>
+    <a class="back" href="./">← Back to app</a>
+  </div>
+
+  <nav class="toc" aria-label="Sections">
+    <a href="#today">Today</a><a href="#meals">Meals</a><a href="#meds">Meds</a><a href="#symptoms">Symptoms</a>
+    <a href="#food">Food</a><a href="#summary">Summary</a><a href="#data">Your data</a><a href="#install">Install &amp; updates</a>
+  </nav>
+
+  <section class="box" id="today">
+    <div class="lid"><h2>Today</h2></div>
+    <div class="body">
+      <p>Today is your daily checklist. Medications are grouped by time of day: Waking, Morning, Afternoon, Evening and Bedtime. A fresh checklist appears every day.</p>
+      <ul>
+        <li><b>Tap a medication</b> to check it off. The time you took it shows on the right. Tap it again to uncheck it.</li>
+        <li><b>Take all</b> checks off everything in that time of day at once.</li>
+        <li>The bar at the top shows how many of today's doses are checked off.</li>
+        <li>Use the <b>‹ ›</b> arrows to look at or fill in past days. Tap the date, or <b>Back to today</b>, to return.</li>
+        <li><b>Notes</b> at the bottom is for anything about the day. It saves as you type.</li>
+      </ul>
+      <p>On a wide screen, like the Fold opened up, all the pages show side by side instead of as tabs.</p>
+    </div>
+  </section>
+
+  <section class="box" id="meals">
+    <div class="lid"><h2>Meals</h2></div>
+    <div class="body">
+      <p>Each day has Breakfast, Lunch, Dinner and After dinner boxes on the Today page.</p>
+      <ul>
+        <li><b>Add food…</b> picks from your food list. Choose <b>+ New food…</b> to type one that isn't there yet.</li>
+        <li>Choose the same food again to count another serving. It shows as <span class="chip">Coffee ×2</span>.</li>
+        <li>Tap <b>×</b> on a food to remove one serving.</li>
+        <li><b>Restaurant…</b> records where you ate. Pick <b>Not eating out</b> to clear it.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="box" id="meds">
+    <div class="lid"><h2>Meds</h2></div>
+    <div class="body">
+      <p>The Meds page is your medication list.</p>
+      <ul>
+        <li><b>Add</b> a medication with its name, dose, the times of day you take it, and an optional note such as "with food". Pick every time you take it; it appears once in each.</li>
+        <li><b>Tap a medication</b> to change it after a doctor visit, or to delete it.</li>
+      </ul>
+      <p>This page also has the Backup box. See <a href="#data">Your data</a>.</p>
+    </div>
+  </section>
+
+  <section class="box" id="symptoms">
+    <div class="lid"><h2>Symptoms</h2></div>
+    <div class="body">
+      <ul>
+        <li>On Today, use <b>Add symptom…</b> to log a symptom for that day, or <b>+ New symptom…</b> to create one. Tap <b>×</b> to remove it.</li>
+        <li>The Symptoms page lists every symptom you track and how many days you've had it this month. Tap one to rename or delete it.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="box" id="food">
+    <div class="lid"><h2>Food</h2></div>
+    <div class="body">
+      <ul>
+        <li>The Food page holds your lists of foods and restaurants, with how often each came up this month.</li>
+        <li>Tap one to rename it or delete it. Deleting a food or restaurant removes it from past meals too.</li>
+        <li>If you add a name that already exists, the app reuses it instead of making a duplicate.</li>
+      </ul>
+      <p>The Meds, Symptoms and Food pages each have their own <b>Notes</b> box for the day shown at the top right of it.</p>
+    </div>
+  </section>
+
+  <section class="box" id="summary">
+    <div class="lid"><h2>Summary</h2></div>
+    <div class="body">
+      <p>Switch between <b>Month</b> and <b>Year</b>, and use the arrows to go back in time.</p>
+      <ul>
+        <li><b>Top symptoms</b> ranks symptoms by how many days you had them. Arrows compare with the same days of the previous month or year: ▲ more, ▼ fewer.</li>
+        <li>The <b>Calendar</b> shades each day by how many symptoms you logged. Tap a day to open it.</li>
+        <li><b>Medication</b> shows the share of doses you checked off, counted from when you started using the app.</li>
+      </ul>
+      <h3>Export for AI</h3>
+      <p>Downloads a spreadsheet (CSV) with one row per day: doses taken and missed, symptoms, each meal's foods and restaurant, and your notes. Share it with your doctor, or upload it to Claude and ask whether symptoms tend to follow certain foods, restaurants or missed doses.</p>
+    </div>
+  </section>
+
+  <section class="box" id="data">
+    <div class="lid"><h2>Your data</h2></div>
+    <div class="body">
+      <p>Everything is stored on this phone only. Nothing is sent anywhere, and the app works without internet.</p>
+      <ul>
+        <li><b>Save backup</b> (on the Meds page) downloads a file with all your data. Do this before switching phones, uninstalling, or clearing browser data.</li>
+        <li><b>Restore from backup</b> loads that file. It replaces everything currently in the app.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="box" id="install">
+    <div class="lid"><h2>Install &amp; updates</h2></div>
+    <div class="body">
+      <p>Open the app in Chrome or Samsung Internet, open the browser menu, and tap <b>Install app</b> or <b>Add to Home screen</b>. It opens full-screen like a normal app.</p>
+      <p>Updates download in the background. If something new doesn't show up, close the app fully and open it again.</p>
+      <p>If the app misbehaves, open <a href="check.html">the check page</a> and screenshot it.</p>
+    </div>
+  </section>
+
+  <p class="foot"><a class="back" href="./">← Back to app</a></p>
+</div>
+<script>document.body.dataset.day=new Date().getDay()</script>
+</body>
+</html>

@@ -75,7 +75,7 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
 .tabs button+button{border-left:1px solid var(--rule)}
 .tabs button[aria-selected="true"]{background:var(--ink);color:var(--white)}
 
-.wrap{max-width:1100px;margin:0 auto;padding:16px 12px 40px}
+.wrap{max-width:1100px;margin:0 auto;padding:16px 12px 24px}
 .cols{display:grid;gap:12px 24px;align-items:start}
 .col{display:flex;flex-direction:column;gap:12px;min-width:0}
 @media (min-width:720px){
@@ -220,6 +220,11 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .cal .blank{aspect-ratio:1}
 .legend{display:flex;align-items:center;gap:6px;padding:0 10px 10px;font-size:12px;color:var(--muted)}
 .legend i{width:14px;height:14px;border:1px solid var(--rule);display:inline-block}
+/* Help: a small box at the very bottom center of every page */
+body{display:flex;flex-direction:column}
+.wrap{flex:1 0 auto;width:100%}
+.helpfoot{display:flex;justify-content:center;padding:0 12px 24px}
+.helpfoot a{border:1px solid var(--rule);background:var(--white);color:var(--ink);text-decoration:none;font-size:13px;padding:4px 14px;min-height:32px;display:inline-flex;align-items:center}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -315,6 +320,7 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
    </div>
   </div>
 </div>
+<footer class="helpfoot"><a href="help.html">Help</a></footer>
 
 <div id="sweep" aria-hidden="true"></div>
 <dialog id="dlg">
