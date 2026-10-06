@@ -170,6 +170,9 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 #sweep{position:fixed;left:0;right:0;top:0;height:100vh;z-index:50;pointer-events:none;visibility:hidden;
   background:linear-gradient(to bottom,rgba(255,255,255,0) 0%,rgba(255,255,255,.92) 18%,rgba(255,255,255,.92) 82%,rgba(255,255,255,0) 100%)}
 /* ---------- Meals on Today ---------- */
+/* Meals keep the Food page's look: its version of the day color, colored boxes, white title bars */
+.pg-white .box.meal{--H:calc(var(--h) + 22);background:hsl(var(--H) var(--s) var(--l))}
+.pg-white .box.meal .lid{background:var(--white)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 10px 0}
 .chip{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--rule);background:var(--white);padding:0 0 0 10px;font-size:14px;min-height:32px}
 .chip button{border:0;border-left:1px solid var(--rule);background:transparent;width:30px;align-self:stretch;font-size:16px;line-height:1;margin-left:6px}
@@ -327,8 +330,8 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 
 <script>
 const MEALS = [
-  {id:"breakfast",label:"Breakfast",l:"l-morning"},{id:"lunch",label:"Lunch",l:"l-afternoon"},
-  {id:"dinner",label:"Dinner",l:"l-evening"},{id:"after",label:"After dinner",l:"l-bedtime"}
+  {id:"breakfast",label:"Breakfast",l:"l-waking"},{id:"lunch",label:"Lunch",l:"l-morning"},
+  {id:"dinner",label:"Dinner",l:"l-afternoon"},{id:"after",label:"After dinner",l:"l-evening"}
 ];
 const SLOTS = [
   {id:"waking",label:"Waking"},{id:"morning",label:"Morning"},{id:"afternoon",label:"Afternoon"},
@@ -469,7 +472,7 @@ function render(){
   for(const ml of MEALS){
     const m=mday[ml.id]||{}, ids=(m.foods||[]).filter(id=>byId(state.foods,id));
     const place=m.place&&byId(state.places,m.place);
-    html+=`<div class="box ${ml.l}">
+    html+=`<div class="box meal ${ml.l}">
       <div class="lid">${ml.label}${place?`<span class="place">at ${esc(place.name)}</span>`:""}</div>
       <div class="chips">${ids.length?ids.map(id=>`<span class="chip">${esc(byId(state.foods,id).name)}<button data-rm="${esc(id)}" data-meal="${ml.id}" aria-label="Remove ${esc(byId(state.foods,id).name)}">×</button></span>`).join(""):`<span class="none">Nothing added</span>`}</div>
       ${legacy[ml.id]?`<p class="legacy">${esc(legacy[ml.id])}</p>`:""}
