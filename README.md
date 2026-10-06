@@ -18,7 +18,7 @@ Open the link in Chrome or Samsung Internet, open the browser menu, and tap
 **Install app** or **Add to Home screen**. It opens full-screen like a normal app
 and works without internet.
 
-## Install it on iPhone
+## Install it on your phone (iPhone)
 
 Open the Safari app on your iPhone and go to the website you want to save. Tap the Share button (the square with an arrow pointing upward at the bottom of the screen). Scroll down the list of options and tap Add to Home Screen. If you do not see it, scroll to the bottom, tap Edit Actions, and then add Add to Home Screen. Type a name for your web app shortcut if you want to change it. Turn on the Open as Web App toggle to make it run in a full-screen, standalone view. Tap Add in the top-right corner.
 
