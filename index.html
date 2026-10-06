@@ -170,7 +170,9 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .actions .danger{margin-right:auto}
 .is-sym .med-only{display:none}
 .is-extra .timed-only{display:none}
-.chip .t{margin-left:6px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+/* The dose time is a button: tap it to change the time */
+.chip button.t{border:0;width:auto;align-self:center;margin-left:6px;padding:4px 2px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;
+  text-decoration:underline dotted;text-underline-offset:3px}
 
 /* Check-off sweep: a white wave down the screen */
 #sweep{position:fixed;left:0;right:0;top:0;height:100vh;z-index:50;pointer-events:none;visibility:hidden;
@@ -329,6 +331,19 @@ body{display:flex;flex-direction:column}
 <footer class="helpfoot"><a href="help.html">Help</a></footer>
 
 <div id="sweep" aria-hidden="true"></div>
+<dialog id="xdlg">
+  <form method="dialog" id="xform">
+    <h3 id="xdlgTitle">Dose</h3>
+    <div class="body">
+      <label class="f">Time taken<input type="time" id="xtime" required></label>
+      <div class="actions">
+        <button type="button" class="danger" id="xremove">Remove dose</button>
+        <button type="button" class="ghost" id="xcancel">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </div>
+  </form>
+</dialog>
 <dialog id="dlg">
   <form method="dialog" id="itemForm" novalidate>
     <h3 id="dlgTitle">Add medication</h3>
@@ -490,7 +505,7 @@ function render(){
     const opt=m=>`<option value="${esc(m.id)}">${esc(m.name)}${m.dose?" · "+esc(m.dose):""}</option>`;
     html+=`<div class="box l-extra">
       <div class="lid">Additional medication<span class="st">${doses.length?doses.length+(doses.length===1?" dose":" doses"):"None"}</span></div>
-      <div class="chips">${doses.length?doses.map(e=>{const m=anyMed(e.id);return `<span class="chip">${esc(m.name)}<span class="t">${fmtTime(e.t)}</span><button data-rmx="${e.i}" aria-label="Remove ${esc(m.name)} at ${fmtTime(e.t)}">×</button></span>`}).join(""):`<span class="none">Nothing extra taken</span>`}</div>
+      <div class="chips">${doses.length?doses.map(e=>{const m=anyMed(e.id);return `<span class="chip">${esc(m.name)}<button class="t" data-editx="${e.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-rmx="${e.i}" aria-label="Remove ${esc(m.name)} at ${fmtTime(e.t)}">×</button></span>`}).join(""):`<span class="none">Nothing extra taken</span>`}</div>
       <div class="pickers one">
         <select data-pick="xmed" aria-label="Add an additional medication">
           <option value="">Add medication…</option>
@@ -760,6 +775,8 @@ function sweep(){
 document.getElementById("slots").addEventListener("click",e=>{
   const med=e.target.closest(".med"), sym=e.target.closest(".sym"), all=e.target.closest("[data-all]"), add=e.target.closest("[data-add]");
   const rm=e.target.closest("[data-rm]"), rmsym=e.target.closest("[data-rmsym]"), rmx=e.target.closest("[data-rmx]");
+  const editx=e.target.closest("[data-editx]");
+  if(editx){ openDoseTime(viewDate,+editx.dataset.editx); return; }
   if(rmx){ const list=state.xlog[viewDate]||[]; list.splice(+rmx.dataset.rmx,1); if(!list.length) delete state.xlog[viewDate]; commit(); return; }
   if(rmsym){ const sd=state.slog[viewDate]||{}; delete sd[rmsym.dataset.rmsym]; if(!Object.keys(sd).length) delete state.slog[viewDate]; commit(); return; }
   if(add){openEditor(add.dataset.add,null);return}
@@ -784,7 +801,32 @@ document.getElementById("slots").addEventListener("click",e=>{
   if(!Object.keys(day).length) delete state.log[viewDate];
   commit();
 });
-function logExtra(date,id){ (state.xlog[date]||(state.xlog[date]=[])).push({id,t:Date.now()}); }
+/* Log a dose on `date` at the current clock time (so past days get the right date), kept in time order */
+function logExtra(date,id){
+  const now=new Date(), d=parseKey(date); d.setHours(now.getHours(),now.getMinutes(),now.getSeconds());
+  const list=state.xlog[date]||(state.xlog[date]=[]); list.push({id,t:d.getTime()}); list.sort((a,b)=>a.t-b.t);
+}
+/* Edit a dose's time */
+const xdlg=document.getElementById("xdlg"); let xedit=null;
+function openDoseTime(date,i){
+  const e=(state.xlog[date]||[])[i], m=e&&anyMed(e.id); if(!m) return;
+  xedit={date,i};
+  const d=new Date(e.t);
+  document.getElementById("xdlgTitle").textContent=m.name+(m.dose?" · "+m.dose:"");
+  document.getElementById("xtime").value=String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+  xdlg.showModal();
+}
+document.getElementById("xform").addEventListener("submit",ev=>{
+  ev.preventDefault();
+  const v=document.getElementById("xtime").value, list=state.xlog[xedit.date]||[], e=list[xedit.i];
+  if(e&&/^\d\d:\d\d/.test(v)){ const d=parseKey(xedit.date); d.setHours(+v.slice(0,2),+v.slice(3,5),0); e.t=d.getTime(); list.sort((a,b)=>a.t-b.t); }
+  xdlg.close(); commit();
+});
+document.getElementById("xcancel").onclick=()=>xdlg.close();
+document.getElementById("xremove").onclick=()=>{
+  const list=state.xlog[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete state.xlog[xedit.date];
+  xdlg.close(); commit();
+};
 /* A meal's foods list can hold the same food more than once; this tallies them in first-added order */
 function countFoods(list){const c=new Map();for(const id of list||[])c.set(id,(c.get(id)||0)+1);return c}
 function mealOf(date,meal){const d=state.meals[date]||(state.meals[date]={});return d[meal]||(d[meal]={foods:[]})}
