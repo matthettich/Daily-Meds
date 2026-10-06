@@ -89,6 +89,10 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
 .day{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin:4px 0 10px}
 .day h1{font-size:26px;line-height:1.1;margin:0;font-weight:500;letter-spacing:-.01em}
 .day h1 small{display:block;font-size:13px;font-weight:400;color:var(--muted);letter-spacing:.02em;margin-bottom:2px}
+/* Tapping the date jumps back to today */
+.daybtn{display:block;border:0;background:transparent;padding:0;margin:0;text-align:left;font:inherit;color:inherit;cursor:default}
+.daybtn.away{cursor:pointer}
+.daybtn .back{display:inline-block;margin-left:8px;padding:1px 8px;border:1px solid var(--rule);background:var(--white);color:var(--ink);font-size:12px;letter-spacing:0}
 .daynav{display:flex;border:1px solid var(--rule)}
 .icon-btn{width:40px;height:40px;border:0;background:var(--white);display:grid;place-items:center;color:var(--ink)}
 .icon-btn+.icon-btn{border-left:1px solid var(--rule)}
@@ -234,7 +238,7 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
    <div class="col colL">
     <section class="view" data-tab="today">
       <div class="day">
-        <h1 id="dayTitle"></h1>
+        <h1><button class="daybtn" id="dayTitle" type="button"></button></h1>
         <div class="daynav">
           <button class="icon-btn" id="prevDay" aria-label="Previous day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
           <button class="icon-btn" id="nextDay" aria-label="Next day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
@@ -432,8 +436,11 @@ function render(){
   document.body.dataset.day=d.getDay();
   updateChrome();
   const rel = viewDate===tk ? "Today" : viewDate===shiftKey(tk,-1) ? "Yesterday" : d.toLocaleDateString([], {year:"numeric"});
-  document.getElementById("dayTitle").innerHTML =
-    `<small>${esc(rel)}</small>${esc(d.toLocaleDateString([], {weekday:"long", month:"short", day:"numeric"}))}`;
+  const away = viewDate!==tk, dayBtn=document.getElementById("dayTitle");
+  dayBtn.innerHTML =
+    `<small>${esc(rel)}${away?`<span class="back">↩ Back to today</span>`:""}</small>${esc(d.toLocaleDateString([], {weekday:"long", month:"short", day:"numeric"}))}`;
+  dayBtn.classList.toggle("away",away);
+  dayBtn.setAttribute("aria-label", away ? "Showing "+d.toLocaleDateString([], {weekday:"long", month:"long", day:"numeric"})+". Tap to go back to today" : "Today");
   document.getElementById("nextDay").disabled = viewDate>=tk;
 
   /* Today: medication slots */
@@ -740,6 +747,7 @@ document.getElementById("slots").addEventListener("change",e=>{
   tidyMeals(viewDate); commit();
 });
 document.getElementById("progress").addEventListener("click",e=>{if(e.target.id==="goToday"){flushText();viewDate=todayKey();render()}});
+document.getElementById("dayTitle").addEventListener("click",()=>{ if(viewDate!==todayKey()){flushText();viewDate=todayKey();render();} });
 function flushText(){ if(textTimer){clearTimeout(textTimer);textTimer=null;persist()} if(document.activeElement&&document.activeElement.tagName==="TEXTAREA") document.activeElement.blur() }
 document.getElementById("prevDay").onclick=()=>{flushText();viewDate=shiftKey(viewDate,-1);render()};
 document.getElementById("nextDay").onclick=()=>{if(viewDate<todayKey()){flushText();viewDate=shiftKey(viewDate,1);render()}};
