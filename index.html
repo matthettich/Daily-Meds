@@ -5,11 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Daily meds</title>
 <meta name="theme-color" content="#EFEFEF">
+<meta name="color-scheme" content="only light">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500&display=swap" rel="stylesheet">
@@ -21,7 +22,7 @@
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
-  color-scheme:light;
+  color-scheme:only light;
 }
 *,*::before,*::after{box-sizing:inherit;border-radius:0}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -135,6 +136,21 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .actions{display:flex;gap:8px;align-items:center;justify-content:flex-end}
 .actions .danger{margin-right:auto}
 @media (max-width:420px){.slotpick label+label{border-left:0}.slotpick label{flex:1 1 33%;border-left:0;border-top:0}}
+/* Check-off sweep: the day's color wipes down the screen */
+#sweep{position:fixed;left:0;right:0;top:0;height:100vh;z-index:50;pointer-events:none;visibility:hidden;
+  --h:262;--s:70%;
+  background:linear-gradient(to bottom,
+    hsl(var(--h) var(--s) 81% / 0) 0%,
+    hsl(var(--h) var(--s) 81% / .9) 18%,
+    hsl(var(--h) var(--s) 88% / .9) 82%,
+    hsl(var(--h) var(--s) 95% / 0) 100%)}
+#sweep[data-day="0"]{--h:22; --s:85%}
+#sweep[data-day="1"]{--h:262;--s:70%}
+#sweep[data-day="2"]{--h:338;--s:80%}
+#sweep[data-day="3"]{--h:176;--s:55%}
+#sweep[data-day="4"]{--h:44; --s:75%}
+#sweep[data-day="5"]{--h:152;--s:50%}
+#sweep[data-day="6"]{--h:208;--s:75%}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -184,6 +200,7 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
   </div>
 </div>
 
+<div id="sweep" aria-hidden="true"></div>
 <dialog id="dlg">
   <form method="dialog" id="medForm" novalidate>
     <h3 id="dlgTitle">Add medication</h3>
@@ -301,6 +318,20 @@ function render(){
   }
 }
 
+/* ---------- check-off sweep ---------- */
+let sweepAnim=null;
+function sweep(){
+  const el=document.getElementById("sweep");
+  el.dataset.day=parseKey(viewDate).getDay();
+  if(sweepAnim) sweepAnim.cancel();
+  el.style.visibility="visible";
+  const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  sweepAnim = reduce
+    ? el.animate([{opacity:0,transform:"none"},{opacity:.6,offset:.3},{opacity:0}],{duration:500,easing:"ease-out"})
+    : el.animate([{transform:"translateY(-100%)"},{transform:"translateY(100%)"}],{duration:700,easing:"cubic-bezier(.45,0,.25,1)"});
+  sweepAnim.onfinish=()=>{el.style.visibility="hidden";sweepAnim=null};
+}
+
 /* ---------- events ---------- */
 document.getElementById("slots").addEventListener("click",e=>{
   const med=e.target.closest(".med"), all=e.target.closest("[data-all]"), add=e.target.closest("[data-add]");
@@ -309,10 +340,11 @@ document.getElementById("slots").addEventListener("click",e=>{
   const day=state.log[viewDate]||(state.log[viewDate]={});
   if(med){
     const k=med.dataset.k;
-    if(day[k]) delete day[k]; else day[k]=Date.now();
+    if(day[k]) delete day[k]; else {day[k]=Date.now(); sweep();}
   } else {
     const now=Date.now();
     for(const m of medsFor(all.dataset.all)){const k=m.id+"|"+all.dataset.all;if(!day[k])day[k]=now}
+    sweep();
   }
   if(!Object.keys(day).length) delete state.log[viewDate];
   commit();
