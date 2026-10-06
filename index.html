@@ -173,6 +173,10 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 /* Meals keep the Food page's look: its version of the day color, colored boxes, white title bars */
 .pg-white .box.meal{--H:calc(var(--h) + 22);background:hsl(var(--H) var(--s) var(--l))}
 .pg-white .box.meal .lid{background:var(--white)}
+/* Symptoms on Today match the Symptoms page: its version of the day color, colored box, white title bar */
+.pg-white .box.l-sym{--H:calc(var(--h) + 44);--l:90%;background:hsl(var(--H) var(--s) var(--l))}
+/* ...but its title bar is filled with a deeper shade so it stands apart from the meals */
+.pg-white .box.l-sym .lid{background:hsl(var(--H) var(--s) 70%);color:var(--ink)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 10px 0}
 .chip{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--rule);background:var(--white);padding:0 0 0 10px;font-size:14px;min-height:32px}
 .chip button{border:0;border-left:1px solid var(--rule);background:transparent;width:30px;align-self:stretch;font-size:16px;line-height:1;margin-left:6px}
