@@ -99,7 +99,12 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
 .icon-btn:disabled{color:#BBB;cursor:default}
 .icon-btn svg{width:16px;height:16px}
 
-.progress{display:flex;align-items:center;gap:10px;margin:-4px 0 12px;font-size:13px;color:var(--muted)}
+/* Section dividers on Today: a small label and a thin line */
+.sect{display:flex;align-items:center;gap:10px;margin:26px 0 0;font-size:12px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.sect::after{content:"";flex:1;height:1px;background:var(--rule)}
+.sect.first{margin:0 0 10px}
+.sect + .box{margin-top:10px}
+.progress{display:flex;align-items:center;gap:10px;margin:0 0 12px;font-size:13px;color:var(--muted)}
 .progress:empty{display:none}
 .progress .count{color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
 .bar{flex:1;height:6px;border:1px solid var(--rule);background:var(--white)}
@@ -257,6 +262,7 @@ body{display:flex;flex-direction:column}
     </section>
 
     <section class="view pg-white pg-today" id="v-today" data-tab="today">
+      <div class="sect first" role="heading" aria-level="2">Medication</div>
       <div class="progress" id="progress"></div>
       <div id="slots"></div>
     </section>
@@ -518,6 +524,7 @@ function render(){
   }
 
   /* Today: symptoms */
+  html+=`<div class="sect" role="heading" aria-level="2">Symptoms</div>`;
   const sday=state.slog[viewDate]||{};
   {
     const symsSorted=[...state.symptoms].sort((a,b)=>a.name.localeCompare(b.name));
@@ -536,6 +543,7 @@ function render(){
   }
 
   /* Today: meals */
+  html+=`<div class="sect" role="heading" aria-level="2">Food</div>`;
   const mday=state.meals[viewDate]||{}, legacy=state.food[viewDate]||{};
   const byId=(list,id)=>list.find(x=>x.id===id);
   const foodsSorted=[...state.foods].sort((a,b)=>a.name.localeCompare(b.name));
