@@ -3,6 +3,12 @@
 Track daily medications, symptoms, food and notes, with monthly and yearly summaries.
 Works offline and can be installed on your phone's home screen.
 
+## Put it online with GitHub Pages
+
+1. Create a new repository on GitHub (for example `daily-meds`).
+2. Upload everything in this folder (`index.html`, `manifest.webmanifest`, `sw.js`, the icon files, this README).
+3. In the repo, go to **Settings → Pages**, set **Source** to "Deploy from a branch", pick `main` and `/ (root)`, and save.
+4. After a minute your app is at `https://<your-username>.github.io/daily-meds/`.
 
 ## Install it on your phone (Samsung / Android)
 

@@ -179,6 +179,7 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .chips .none{font-size:13px;color:var(--muted);padding:6px 0}
 .legacy{margin:8px 10px 0;font-size:13px;color:var(--muted);white-space:pre-wrap}
 .pickers{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px}
+.pickers.one{grid-template-columns:1fr}
 .pickers select{appearance:none;-webkit-appearance:none;width:100%;min-height:40px;border:1px solid var(--rule);border-radius:0;
   background:var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23111' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 8px center/14px;
   padding:8px 28px 8px 10px;font:inherit;font-size:14px;color:var(--ink)}
@@ -455,12 +456,19 @@ function render(){
 
   /* Today: symptoms */
   const sday=state.slog[viewDate]||{};
-  if(state.symptoms.length){
-    const had=state.symptoms.filter(x=>sday[x.id]).length;
+  {
+    const symsSorted=[...state.symptoms].sort((a,b)=>a.name.localeCompare(b.name));
+    const had=symsSorted.filter(x=>sday[x.id]);
     html+=`<div class="box l-sym">
-      <div class="lid">Symptoms<span class="st">${had?had+" today":"None"}</span></div>
-      ${state.symptoms.map(x=>`<button class="row sym" role="checkbox" aria-checked="${sday[x.id]?"true":"false"}" data-sym="${esc(x.id)}">
-          <span class="pill">${CHECK}</span><span class="nm">${esc(x.name)}</span></button>`).join("")}
+      <div class="lid">Symptoms<span class="st">${had.length?had.length+" today":"None"}</span></div>
+      <div class="chips">${had.length?had.map(x=>`<span class="chip">${esc(x.name)}<button data-rmsym="${esc(x.id)}" aria-label="Remove ${esc(x.name)}">×</button></span>`).join(""):`<span class="none">No symptoms today</span>`}</div>
+      <div class="pickers one">
+        <select data-pick="sym" aria-label="Add a symptom">
+          <option value="">Add symptom…</option>
+          ${symsSorted.filter(x=>!sday[x.id]).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join("")}
+          <option value="__new">+ New symptom…</option>
+        </select>
+      </div>
     </div>`;
   }
 
@@ -594,7 +602,8 @@ function renderSummary(){
     const ranked=[...state.symptoms].map(x=>({x,n:now.c[x.id]||0,p:before.c[x.id]||0})).sort((a,b)=>b.n-a.n||a.x.name.localeCompare(b.x.name));
     html+=`<div class="box l-list"><div class="lid">Top symptoms<span class="st">${elapsed} ${elapsed===1?"day":"days"} tracked</span></div>
       <div class="big">${now.anyDays}<small>${now.anyDays===1?"day":"days"} with any symptom</small></div>
-      ${ranked.map(r=>{
+      ${ranked.filter(r=>r.n>0).length?"":`<div class="empty-row">No symptoms logged this ${unit}.</div>`}
+      ${ranked.filter(r=>r.n>0).map(r=>{
         const pct=elapsed?Math.round(r.n/elapsed*100):0, d=r.n-r.p;
         const chg = d>0?`<span class="up">▲${d}</span>`: d<0?`<span class="down">▼${-d}</span>`:"";
         return `<div class="stat"><span class="nm">${esc(r.x.name)}</span><span class="num">${r.n} ${r.n===1?"day":"days"} · ${pct}% ${chg}</span><div class="track"><i style="width:${pct}%"></i></div></div>`;
@@ -647,6 +656,13 @@ function renderSummary(){
       <div class="stat"><span class="nm">Doses</span><span class="num">${taken} of ${expected}</span><div class="track"><i style="width:${pct}%"></i></div></div>
       <p class="hint">Based on your current medication list, counted from when you started using the app.</p></div>`;
   }
+  /* Export for AI */
+  const yr=P.start.slice(0,4);
+  html+=`<div class="box l-list"><div class="lid">Export for AI</div>
+    <p class="hint">A spreadsheet with one row per day: doses taken and missed, symptoms, each meal's foods and restaurant, and your notes. Upload it to Claude or another AI and ask something like:</p>
+    <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses line up with symptoms?"</p>
+    <div class="backup-btns"><button class="ghost" data-export="year">Download ${esc(yr)}</button><button class="ghost" data-export="all">Download everything</button></div>
+    <p class="hint" id="exportMsg" role="status"></p></div>`;
   body.innerHTML=html;
 }
 
@@ -674,7 +690,8 @@ function sweep(){
 /* ---------- events ---------- */
 document.getElementById("slots").addEventListener("click",e=>{
   const med=e.target.closest(".med"), sym=e.target.closest(".sym"), all=e.target.closest("[data-all]"), add=e.target.closest("[data-add]");
-  const rm=e.target.closest("[data-rm]");
+  const rm=e.target.closest("[data-rm]"), rmsym=e.target.closest("[data-rmsym]");
+  if(rmsym){ const sd=state.slog[viewDate]||{}; delete sd[rmsym.dataset.rmsym]; if(!Object.keys(sd).length) delete state.slog[viewDate]; commit(); return; }
   if(add){openEditor(add.dataset.add,null);return}
   if(rm){ const m=mealOf(viewDate,rm.dataset.meal); m.foods=m.foods.filter(x=>x!==rm.dataset.rm); tidyMeals(viewDate); commit(); return; }
   if(sym){
@@ -705,6 +722,12 @@ function tidyMeals(date){
 }
 document.getElementById("slots").addEventListener("change",e=>{
   const sel=e.target.closest("select[data-pick]"); if(!sel) return;
+  if(sel.dataset.pick==="sym"){
+    const v=sel.value;
+    if(v==="__new"){ sel.value=""; openEditor("sym",null,{date:viewDate,sym:true}); return; }
+    if(v){ const sd=state.slog[viewDate]||(state.slog[viewDate]={}); sd[v]=Date.now(); commit(); }
+    return;
+  }
   const meal=sel.dataset.meal, v=sel.value, kind=sel.dataset.pick;
   if(v==="__new"){ sel.value=kind==="food"?"":(mealOf(viewDate,meal).place||""); openEditor(kind==="food"?"food":"place",null,{date:viewDate,meal}); return; }
   const m=mealOf(viewDate,meal);
@@ -792,7 +815,8 @@ form.addEventListener("submit",e=>{
     let item=K.list().find(x=>x.name.toLowerCase()===name.toLowerCase());
     if(!item){item={id:uid(),name};K.list().push(item)}
     const p=editing.pending;
-    if(p){ const m=mealOf(p.date,p.meal);
+    if(p&&p.sym){ const sd=state.slog[p.date]||(state.slog[p.date]={}); sd[item.id]=Date.now(); }
+    else if(p){ const m=mealOf(p.date,p.meal);
       if(editing.kind==="food"){ if(!m.foods.includes(item.id)) m.foods.push(item.id) } else m.place=item.id; }
   }
   dlg.close(); commit();
@@ -806,16 +830,68 @@ document.getElementById("delItem").onclick=()=>{
   dlg.close(); commit();
 };
 
-/* ---------- backup ---------- */
-const backupMsg=document.getElementById("backupMsg");
-document.getElementById("exportBtn").onclick=()=>{
-  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+/* ---------- file saving (swapped for the downloads capability when published) ---------- */
+async function saveFile(name,text,mime){
+  const blob=new Blob([text],{type:mime});
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="daily-meds-backup-"+todayKey()+".json";
+  a.href=URL.createObjectURL(blob); a.download=name;
   document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  backupMsg.textContent="Backup saved to your downloads.";
+  return true;
+}
+
+/* ---------- CSV export: one row per day, every day in range (empty days included so delays are easy to spot) ---------- */
+function buildCSV(start,end){
+  const q=v=>{v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const nameOf=(list,id)=>(list.find(x=>x.id===id)||{}).name;
+  const syms=[...state.symptoms].sort((a,b)=>a.name.localeCompare(b.name));
+  const places=[...state.places].sort((a,b)=>a.name.localeCompare(b.name));
+  const sched=state.meds.flatMap(m=>m.slots.map(sl=>({key:m.id+"|"+sl,label:m.name+" ("+(SLOTS.find(x=>x.id===sl)||{}).label+")"})));
+  const head=["date","weekday","doses_taken","doses_scheduled","missed_doses","symptoms","symptom_count",
+    ...syms.map(x=>"symptom: "+x.name),
+    ...MEALS.flatMap(m=>[m.label.toLowerCase().replace(/ /g,"_")+"_foods",m.label.toLowerCase().replace(/ /g,"_")+"_restaurant"]),
+    "restaurants_today",...places.map(x=>"ate at: "+x.name),
+    "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms"];
+  const rows=[head.map(q).join(",")];
+  for(let k=start;k<=end;k=shiftKey(k,1)){
+    const log=state.log[k]||{}, sl=state.slog[k]||{}, meals=state.meals[k]||{}, typed=state.food[k]||{};
+    const taken=sched.filter(x=>log[x.key]), missed=sched.filter(x=>!log[x.key]);
+    const had=syms.filter(x=>sl[x.id]);
+    const placesToday=[...new Set(MEALS.map(m=>(meals[m.id]||{}).place).filter(Boolean))];
+    const row=[k,parseKey(k).toLocaleDateString("en-US",{weekday:"long"}),
+      taken.length,sched.length,missed.map(x=>x.label).join("; "),
+      had.map(x=>x.name).join("; "),had.length,
+      ...syms.map(x=>sl[x.id]?1:0),
+      ...MEALS.flatMap(m=>{const e=meals[m.id]||{};return [(e.foods||[]).map(id=>nameOf(state.foods,id)).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
+      placesToday.map(id=>nameOf(state.places,id)).filter(Boolean).join("; "),
+      ...places.map(x=>placesToday.includes(x.id)?1:0),
+      MEALS.filter(m=>typed[m.id]).map(m=>m.label+": "+typed[m.id]).join(" | "),
+      state.notes[k]||"",...["food","meds","syms"].map(n=>(state.pnotes[n]||{})[k]||"")];
+    rows.push(row.map(q).join(","));
+  }
+  return "\ufeff"+rows.join("\r\n");
+}
+document.getElementById("sumBody").addEventListener("click",async e=>{
+  const b=e.target.closest("[data-export]"); if(!b) return;
+  flushText();
+  const tk=todayKey(), fu=firstUse(), msg=document.getElementById("exportMsg");
+  let start,end,name;
+  if(b.dataset.export==="year"){
+    const y=periodOf("year",sumAnchor);
+    start=y.start<fu?fu:y.start; end=y.end<tk?y.end:tk; name="daily-meds-"+y.start.slice(0,4)+".csv";
+  } else { start=fu; end=tk; name="daily-meds-all-"+tk+".csv"; }
+  if(start>end){msg.textContent="Nothing recorded in that period yet.";return}
+  try{ const ok=await saveFile(name,buildCSV(start,end),"text/csv"); msg.textContent= ok===false ? "" : `Saved ${daysBetween(start,end)} days to ${name}.`; }
+  catch(err){ msg.textContent="Couldn't save the file."; }
+});
+
+/* ---------- backup ---------- */
+const backupMsg=document.getElementById("backupMsg");
+document.getElementById("exportBtn").onclick=async()=>{
+  flushText();
+  try{ const ok=await saveFile("daily-meds-backup-"+todayKey()+".json",JSON.stringify(state,null,2),"application/json");
+       backupMsg.textContent= ok===false ? "" : "Backup saved to your downloads."; }
+  catch(e){ backupMsg.textContent="Couldn't save the backup."; }
 };
 document.getElementById("importBtn").onclick=()=>document.getElementById("importFile").click();
 document.getElementById("importFile").onchange=async e=>{
