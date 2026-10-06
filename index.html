@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daily meds</title>
+<meta name="theme-color" content="#EFEFEF">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FFFFFF; --panel:#EFEFEF; --ink:#111111; --muted:#555555; --rule:#111111; --hair:#DADADA;
+  --focus:#111111; --danger:#C0392B;
+  /* Day colors live on #slots[data-day]; each slot gets a little darker through the day */
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:inherit;border-radius:0}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:Futura,"Futura PT","Jost","Century Gothic",system-ui,sans-serif;
+  font-size:15px;line-height:1.4;-webkit-tap-highlight-color:transparent}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+/* One color per day: Sun peach, Mon lavender, Tue pink, Wed turquoise, Thu mustard, Fri seafoam, Sat blue */
+#slots{--h:262;--s:70%;--tx:#2F4A0A}
+#slots[data-day="0"]{--h:22; --s:85%;--tx:#1B4A6B}
+#slots[data-day="1"]{--h:262;--s:70%;--tx:#2F4A0A}
+#slots[data-day="2"]{--h:338;--s:80%;--tx:#0A4A44}
+#slots[data-day="3"]{--h:176;--s:55%;--tx:#7A1F3D}
+#slots[data-day="4"]{--h:44; --s:75%;--tx:#3A2F86}
+#slots[data-day="5"]{--h:152;--s:50%;--tx:#7A1E5E}
+#slots[data-day="6"]{--h:208;--s:75%;--tx:#8A3412}
+.c-waking{--l:95%} .c-morning{--l:91.5%} .c-afternoon{--l:88%} .c-evening{--l:84.5%} .c-bedtime{--l:81%}
+
+/* Top bar */
+header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:var(--panel);border-bottom:1px solid var(--rule);padding:8px 12px}
+.brand{font-weight:500;letter-spacing:.02em}
+.tabs{display:flex;border:1px solid var(--rule);background:var(--bg)}
+.tabs button{border:0;background:transparent;padding:6px 14px}
+.tabs button+button{border-left:1px solid var(--rule)}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+
+.wrap{max-width:1100px;margin:0 auto;padding:16px 12px 40px}
+.cols{display:grid;gap:24px}
+@media (min-width:720px){
+  .cols{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
+  .tabs{display:none}
+  .view{display:block!important}
+}
+
+/* Day header */
+.day{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin:4px 0 10px}
+.day h1{font-size:26px;line-height:1.1;margin:0;font-weight:500;letter-spacing:-.01em}
+.day h1 small{display:block;font-size:13px;font-weight:400;color:var(--muted);letter-spacing:.02em;margin-bottom:2px}
+.daynav{display:flex;border:1px solid var(--rule)}
+.icon-btn{width:40px;height:40px;border:0;background:var(--bg);display:grid;place-items:center;color:var(--ink)}
+.icon-btn+.icon-btn{border-left:1px solid var(--rule)}
+.icon-btn:disabled{color:var(--hair);cursor:default}
+.icon-btn svg{width:16px;height:16px}
+
+.progress{display:flex;align-items:center;gap:10px;margin:0 0 4px;font-size:13px;color:var(--muted)}
+.progress .count{color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bar{flex:1;height:6px;border:1px solid var(--rule)}
+.bar i{display:block;height:100%;background:var(--ink);width:0;transition:width .2s}
+.today-link{border:0;background:none;color:var(--ink);padding:0;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+
+/* Slot modules */
+.box{border:3px solid var(--rule);margin-top:12px;background:var(--bg)}
+.box .lid{font-size:17px;display:flex;align-items:center;gap:8px;min-height:36px;margin:0;padding:0 0 0 10px;
+  background:hsl(var(--h) var(--s) var(--l));color:var(--tx);border-bottom:3px solid var(--rule);font-weight:500}
+.box .lid .st{margin-left:auto;font-weight:500;font-size:13px;padding-right:10px;font-variant-numeric:tabular-nums}
+.box .all{align-self:stretch;border:0;border-left:1px solid var(--ink);background:transparent;color:var(--tx);font-size:13px;padding:0 12px}
+.box .all:focus-visible{outline:2px solid var(--ink);outline-offset:-5px}
+.med{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;min-height:52px;border-top:1px solid var(--hair)}
+.box .lid + .med{border-top:0}
+.pill{flex:none;width:22px;height:22px;border:1px solid var(--rule);display:grid;place-items:center;background:var(--bg)}
+.pill svg{width:14px;height:14px;opacity:0;color:var(--bg)}
+.med[aria-checked="true"] .pill{background:var(--ink)}
+.med[aria-checked="true"] .pill svg{opacity:1}
+.med .nm{font-weight:500;display:block}
+.med .ds{font-size:13px;color:var(--muted)}
+.med[aria-checked="true"] .nm{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1px}
+.med .when{margin-left:auto;font-size:13px;white-space:nowrap;color:var(--muted);font-variant-numeric:tabular-nums}
+.med .note{display:block;font-size:13px;color:var(--muted)}
+
+/* Med list */
+.listhead{display:flex;align-items:center;justify-content:space-between;margin:4px 0 10px;min-height:40px}
+.listhead h2{margin:0;font-size:20px;font-weight:500}
+.primary{border:1px solid var(--ink);background:var(--ink);color:var(--bg);padding:8px 14px;min-height:40px}
+.ghost{border:1px solid var(--rule);background:var(--bg);padding:8px 14px;min-height:40px}
+.danger{border:0;background:transparent;color:var(--danger);padding:8px 0}
+.mlist{list-style:none;margin:0;padding:0;border:1px solid var(--rule)}
+.mlist li+li{border-top:1px solid var(--hair)}
+.mlist button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:transparent;padding:12px 10px}
+.mlist .nm{font-weight:500}
+.mlist .ds{color:var(--muted);font-size:13px;margin-left:6px}
+.times{margin-left:auto;font-size:13px;color:var(--muted);text-align:right}
+.empty{border:1px solid var(--rule);padding:20px;color:var(--muted)}
+.empty p{margin:0 0 12px}
+.hint{font-size:13px;color:var(--muted);margin-top:12px}
+.backup{margin-top:28px;border:1px solid var(--rule)}
+.backup h2{margin:0;font-size:15px;font-weight:500;background:var(--panel);border-bottom:1px solid var(--rule);padding:8px 10px}
+.backup .hint{margin:10px}
+.backup-btns{display:flex;flex-wrap:wrap;gap:8px;margin:10px}
+
+/* Dialog */
+dialog{border:1px solid var(--rule);padding:0;width:min(480px,calc(100vw - 24px));background:var(--bg);color:var(--ink);max-height:calc(100% - 24px)}
+dialog::backdrop{background:rgba(255,255,255,.8)}
+dialog h3{margin:0;font-size:15px;font-weight:500;background:var(--panel);border-bottom:1px solid var(--rule);padding:10px 14px}
+dialog .body{padding:14px}
+label.f{display:block;margin-bottom:12px;font-size:13px;color:var(--muted)}
+label.f input{display:block;width:100%;margin-top:4px;padding:10px;border:1px solid var(--rule);background:var(--bg);font-size:15px;color:var(--ink)}
+fieldset{border:0;padding:0;margin:0 0 12px}
+legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
+.slotpick{display:flex;flex-wrap:wrap;border:1px solid var(--rule)}
+.slotpick label{position:relative;flex:1 1 auto}
+.slotpick label+label{border-left:1px solid var(--rule)}
+.slotpick input{position:absolute;opacity:0;inset:0;margin:0}
+.slotpick span{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px;min-height:40px;font-size:14px}
+.slotpick input:checked+span{background:var(--ink);color:var(--bg)}
+.slotpick input:focus-visible+span{outline:2px solid var(--focus);outline-offset:-4px}
+.err{color:var(--danger);font-size:13px;min-height:1.2em;margin:0 0 8px}
+.actions{display:flex;gap:8px;align-items:center;justify-content:flex-end}
+.actions .danger{margin-right:auto}
+@media (max-width:420px){.slotpick label+label{border-left:0}.slotpick label{flex:1 1 33%;border-left:0;border-top:0}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+
+
+</head>
+<body>
+<header class="top">
+    <span class="brand">Daily meds</span>
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-today" aria-selected="true" aria-controls="v-today">Today</button>
+      <button role="tab" id="tab-meds" aria-selected="false" aria-controls="v-meds">Medications</button>
+    </div>
+  </header>
+<div class="wrap">
+  <div class="cols">
+    <section class="view" id="v-today" role="tabpanel" aria-labelledby="tab-today">
+      <div class="day">
+        <h1 id="dayTitle"></h1>
+        <div class="daynav">
+          <button class="icon-btn" id="prevDay" aria-label="Previous day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <button class="icon-btn" id="nextDay" aria-label="Next day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+        </div>
+      </div>
+      <div class="progress" id="progress"></div>
+      <div id="slots"></div>
+    </section>
+
+    <section class="view" id="v-meds" role="tabpanel" aria-labelledby="tab-meds" style="display:none">
+      <div class="listhead">
+        <h2>Medications</h2>
+        <button class="primary" id="addMed">Add</button>
+      </div>
+      <div id="medList"></div>
+      <p class="hint">Tap a medication to edit or delete it.</p>
+      <div class="backup">
+        <h2>Backup</h2>
+        <p class="hint">Stored on this device only. Save a backup before switching phones or clearing browser data.</p>
+        <div class="backup-btns">
+          <button class="ghost" id="exportBtn">Save backup</button>
+          <button class="ghost" id="importBtn">Restore from backup</button>
+          <input type="file" id="importFile" accept="application/json,.json" hidden>
+        </div>
+        <p class="hint" id="backupMsg" role="status"></p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<dialog id="dlg">
+  <form method="dialog" id="medForm" novalidate>
+    <h3 id="dlgTitle">Add medication</h3>
+    <div class="body">
+    <label class="f">Name<input name="name" autocomplete="off" required></label>
+    <label class="f">Dose<input name="dose" placeholder="e.g. 50 mg, 2 tablets" autocomplete="off"></label>
+    <fieldset>
+      <legend>Times</legend>
+      <div class="slotpick" id="slotPick"></div>
+    </fieldset>
+    <label class="f">Note<input name="notes" placeholder="e.g. with food" autocomplete="off"></label>
+    <p class="err" id="formErr" role="alert"></p>
+    <div class="actions">
+      <button type="button" class="danger" id="delMed">Delete</button>
+      <button type="button" class="ghost" id="cancel">Cancel</button>
+      <button type="submit" class="primary" id="saveMed">Save</button>
+    </div>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const SLOTS = [
+  {id:"waking",    label:"Waking",    icon:'<path class="s" d="M2 18a10 10 0 0120 0z"/>'},
+  {id:"morning",   label:"Morning",   icon:'<circle class="s" cx="12" cy="12" r="10"/>'},
+  {id:"afternoon", label:"Afternoon", icon:'<rect class="s" x="3" y="3" width="18" height="18"/>'},
+  {id:"evening",   label:"Evening",   icon:'<path class="s" d="M12 2.5l10.5 19h-21z"/>'},
+  {id:"bedtime",   label:"Bedtime",   icon:'<path class="s" d="M12 1.5L22.5 12 12 22.5 1.5 12z"/>'}
+];
+const shape=(s,cls="")=>`<svg viewBox="0 0 24 24" ${cls}>${s.icon}</svg>`;
+const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const LS_KEY = "daily-meds-v1";
+const KEEP_DAYS = 90;
+
+let state = {meds:[], log:{}, updated:0};
+let viewDate = todayKey();
+let editingId = null;
+
+/* ---------- dates ---------- */
+function keyOf(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function todayKey(){return keyOf(new Date())}
+function parseKey(k){const [y,m,d]=k.split("-").map(Number);return new Date(y,m-1,d)}
+function shiftKey(k,n){const d=parseKey(k);d.setDate(d.getDate()+n);return keyOf(d)}
+function fmtTime(ts){return new Date(ts).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function uid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4)}
+
+/* ---------- storage ---------- */
+function loadLocal(){
+  try{const raw=localStorage.getItem(LS_KEY);if(raw){const s=JSON.parse(raw);if(s&&Array.isArray(s.meds))state=normalize(s)}}catch(e){}
+}
+function normalize(s){return {meds:Array.isArray(s.meds)?s.meds:[], log:(s.log&&typeof s.log==="object")?s.log:{}, updated:Number(s.updated)||0}}
+function prune(){
+  const cutoff=shiftKey(todayKey(),-KEEP_DAYS);
+  for(const k of Object.keys(state.log)) if(k<cutoff) delete state.log[k];
+}
+function commit(){
+  state.updated=Date.now();
+  prune();
+  try{localStorage.setItem(LS_KEY,JSON.stringify(state))}catch(e){}
+  render();
+}
+
+/* ---------- render ---------- */
+function medsFor(slot){return state.meds.filter(m=>m.slots&&m.slots.includes(slot))}
+function render(){
+  const tk=todayKey();
+  if(viewDate>tk) viewDate=tk;
+  const d=parseKey(viewDate);
+  const rel = viewDate===tk ? "Today" : viewDate===shiftKey(tk,-1) ? "Yesterday" : d.toLocaleDateString([], {year:"numeric"});
+  document.getElementById("dayTitle").innerHTML =
+    `<small>${esc(rel)}</small>${esc(d.toLocaleDateString([], {weekday:"long", month:"short", day:"numeric"}))}`;
+  document.getElementById("nextDay").disabled = viewDate>=tk;
+
+  const day = state.log[viewDate] || {};
+  let total=0, taken=0, html="";
+  for(const s of SLOTS){
+    const list=medsFor(s.id);
+    if(!list.length) continue;
+    const doneCount=list.filter(m=>day[m.id+"|"+s.id]).length;
+    total+=list.length; taken+=doneCount;
+    const allDone=doneCount===list.length;
+    html+=`<div class="box c-${s.id}${allDone?" done":""}">
+      <div class="lid">${s.label}<span class="st">${allDone?"Done":doneCount+"/"+list.length}</span>${list.length>1 && !allDone ? `<button class="all" data-all="${s.id}">Take all</button>` : ""}</div>
+      ${list.map(m=>{
+        const k=m.id+"|"+s.id, ts=day[k];
+        return `<button class="med" role="checkbox" aria-checked="${ts?"true":"false"}" data-k="${esc(k)}">
+          <span class="pill">${CHECK}</span>
+          <span><span class="nm">${esc(m.name)}</span>${m.dose||m.notes?`<span class="ds">${esc([m.dose,m.notes].filter(Boolean).join(" · "))}</span>`:""}</span>
+          ${ts?`<span class="when">${fmtTime(ts)}</span>`:""}
+        </button>`}).join("")}
+    </div>`;
+  }
+  const slotsEl=document.getElementById("slots");
+  slotsEl.dataset.day=d.getDay();
+  if(!total){
+    slotsEl.innerHTML=`<div class="empty"><p>No medications. Add one to start a daily checklist.</p><button class="primary" data-add>Add medication</button></div>`;
+    document.getElementById("progress").innerHTML="";
+  } else {
+    slotsEl.innerHTML=html;
+    const back = viewDate!==tk ? ` <button class="today-link" id="goToday">Today</button>` : "";
+    document.getElementById("progress").innerHTML =
+      `<span class="count">${taken}/${total}</span><div class="bar"><i style="width:${Math.round(taken/total*100)}%"></i></div>${back}`;
+  }
+
+  const ml=document.getElementById("medList");
+  if(!state.meds.length){
+    ml.innerHTML=`<div class="empty"><p>No medications.</p></div>`;
+  } else {
+    const sorted=[...state.meds].sort((a,b)=>a.name.localeCompare(b.name));
+    ml.innerHTML=`<ul class="mlist">${sorted.map(m=>`<li><button data-edit="${esc(m.id)}">
+      <span><span class="nm">${esc(m.name)}</span>${m.dose?`<span class="ds">${esc(m.dose)}</span>`:""}</span>
+      <span class="times">${esc(SLOTS.filter(s=>m.slots.includes(s.id)).map(s=>s.label).join(", "))}</span>
+    </button></li>`).join("")}</ul>`;
+  }
+}
+
+/* ---------- events ---------- */
+document.getElementById("slots").addEventListener("click",e=>{
+  const med=e.target.closest(".med"), all=e.target.closest("[data-all]"), add=e.target.closest("[data-add]");
+  if(add){openEditor(null);return}
+  if(!med&&!all) return;
+  const day=state.log[viewDate]||(state.log[viewDate]={});
+  if(med){
+    const k=med.dataset.k;
+    if(day[k]) delete day[k]; else day[k]=Date.now();
+  } else {
+    const now=Date.now();
+    for(const m of medsFor(all.dataset.all)){const k=m.id+"|"+all.dataset.all;if(!day[k])day[k]=now}
+  }
+  if(!Object.keys(day).length) delete state.log[viewDate];
+  commit();
+});
+document.getElementById("progress").addEventListener("click",e=>{if(e.target.id==="goToday"){viewDate=todayKey();render()}});
+document.getElementById("prevDay").onclick=()=>{viewDate=shiftKey(viewDate,-1);render()};
+document.getElementById("nextDay").onclick=()=>{if(viewDate<todayKey()){viewDate=shiftKey(viewDate,1);render()}};
+document.getElementById("medList").addEventListener("click",e=>{const b=e.target.closest("[data-edit]");if(b)openEditor(b.dataset.edit)});
+document.getElementById("addMed").onclick=()=>openEditor(null);
+
+for(const t of document.querySelectorAll('[role="tab"]')){
+  t.onclick=()=>{
+    for(const o of document.querySelectorAll('[role="tab"]')){
+      const on=o===t;o.setAttribute("aria-selected",on);
+      document.getElementById(o.getAttribute("aria-controls")).style.display=on?"block":"none";
+    }
+  };
+}
+
+/* ---------- editor ---------- */
+const dlg=document.getElementById("dlg"), form=document.getElementById("medForm");
+document.getElementById("slotPick").innerHTML=SLOTS.map(s=>`<label class="c-${s.id}"><input type="checkbox" name="slot" value="${s.id}"><span>${s.label}</span></label>`).join("");
+function openEditor(id){
+  editingId=id;
+  const m=id?state.meds.find(x=>x.id===id):null;
+  document.getElementById("dlgTitle").textContent=m?"Edit medication":"Add medication";
+  document.getElementById("saveMed").textContent=m?"Save":"Add";
+  document.getElementById("delMed").style.visibility=m?"visible":"hidden";
+  form.elements["name"].value=m?m.name:""; form.elements["dose"].value=m?m.dose||"":""; form.elements["notes"].value=m?m.notes||"":"";
+  for(const c of form.querySelectorAll('[name="slot"]')) c.checked=m?m.slots.includes(c.value):false;
+  document.getElementById("formErr").textContent="";
+  dlg.showModal();
+  if(!m) form.elements["name"].focus();
+}
+document.getElementById("cancel").onclick=()=>dlg.close();
+dlg.addEventListener("close",render);
+form.addEventListener("submit",e=>{
+  e.preventDefault();
+  const name=form.elements["name"].value.trim();
+  const slots=[...form.querySelectorAll('[name="slot"]:checked')].map(c=>c.value);
+  const err=document.getElementById("formErr");
+  if(!name){err.textContent="Enter the medication name.";form.elements["name"].focus();return}
+  if(!slots.length){err.textContent="Pick at least one time of day.";return}
+  const data={name,dose:form.elements["dose"].value.trim(),notes:form.elements["notes"].value.trim(),slots};
+  if(editingId){Object.assign(state.meds.find(x=>x.id===editingId),data)}
+  else state.meds.push({id:uid(),...data});
+  dlg.close(); commit();
+});
+document.getElementById("delMed").onclick=()=>{
+  const m=state.meds.find(x=>x.id===editingId);
+  if(!m) return;
+  if(!confirm(`Delete ${m.name}? It will be removed from your daily checklist.`)) return;
+  state.meds=state.meds.filter(x=>x.id!==editingId);
+  dlg.close(); commit();
+};
+
+/* ---------- new day rollover ---------- */
+let lastToday=todayKey();
+function checkRollover(){
+  const tk=todayKey();
+  if(tk!==lastToday){ if(viewDate===lastToday) viewDate=tk; lastToday=tk; render(); }
+}
+setInterval(checkRollover,60000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)checkRollover()});
+
+/* ---------- backup ---------- */
+const backupMsg=document.getElementById("backupMsg");
+document.getElementById("exportBtn").onclick=()=>{
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="daily-meds-backup-"+todayKey()+".json";
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  backupMsg.textContent="Backup saved to your downloads.";
+};
+document.getElementById("importBtn").onclick=()=>document.getElementById("importFile").click();
+document.getElementById("importFile").onchange=async e=>{
+  const f=e.target.files[0]; e.target.value="";
+  if(!f) return;
+  try{
+    const data=JSON.parse(await f.text());
+    if(!data||!Array.isArray(data.meds)) throw 0;
+    if(!confirm("Replace your current medications and history with this backup?")) return;
+    state=normalize(data); commit();
+    backupMsg.textContent="Backup restored.";
+  }catch(err){backupMsg.textContent="That file isn't a Daily meds backup. Choose a file saved with \"Save backup\"."}
+};
+
+/* ---------- offline support ---------- */
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+
+loadLocal();
+render();
+</script>
+</body>
+</html>
