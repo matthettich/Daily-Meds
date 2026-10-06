@@ -169,6 +169,19 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 /* Check-off sweep: a white wave down the screen */
 #sweep{position:fixed;left:0;right:0;top:0;height:100vh;z-index:50;pointer-events:none;visibility:hidden;
   background:linear-gradient(to bottom,rgba(255,255,255,0) 0%,rgba(255,255,255,.92) 18%,rgba(255,255,255,.92) 82%,rgba(255,255,255,0) 100%)}
+/* ---------- Meals on Today ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 10px 0}
+.chip{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--rule);background:var(--white);padding:0 0 0 10px;font-size:14px;min-height:32px}
+.chip button{border:0;border-left:1px solid var(--rule);background:transparent;width:30px;align-self:stretch;font-size:16px;line-height:1;margin-left:6px}
+.chips .none{font-size:13px;color:var(--muted);padding:6px 0}
+.legacy{margin:8px 10px 0;font-size:13px;color:var(--muted);white-space:pre-wrap}
+.pickers{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px}
+.pickers select{appearance:none;-webkit-appearance:none;width:100%;min-height:40px;border:1px solid var(--rule);border-radius:0;
+  background:var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23111' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 8px center/14px;
+  padding:8px 28px 8px 10px;font:inherit;font-size:14px;color:var(--ink)}
+.pickers select:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+.lid .place{margin-left:auto;padding-right:10px;font-size:13px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
+
 /* ---------- Summary ---------- */
 .sumbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
 .sumbar .seg{margin-right:auto}
@@ -211,7 +224,7 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 <div class="wrap">
   <div class="cols">
    <div class="col colL">
-    <section class="view" data-tab="today food">
+    <section class="view" data-tab="today">
       <div class="day">
         <h1 id="dayTitle"></h1>
         <div class="daynav">
@@ -226,20 +239,24 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
       <div id="slots"></div>
     </section>
 
-    <section class="view pg-color pg-food" data-tab="food" style="display:none">
-      <div class="box l-waking"><div class="lid"><label for="f-breakfast">Breakfast</label><span class="saved" data-saved="breakfast">Saved</span></div><textarea id="f-breakfast" data-food="breakfast" rows="2" placeholder="What did you have?"></textarea></div>
-      <div class="box l-morning"><div class="lid"><label for="f-lunch">Lunch</label><span class="saved" data-saved="lunch">Saved</span></div><textarea id="f-lunch" data-food="lunch" rows="2" placeholder="What did you have?"></textarea></div>
-      <div class="box l-afternoon"><div class="lid"><label for="f-dinner">Dinner</label><span class="saved" data-saved="dinner">Saved</span></div><textarea id="f-dinner" data-food="dinner" rows="2" placeholder="What did you have?"></textarea></div>
-      <div class="box l-evening"><div class="lid"><label for="f-after">After dinner</label><span class="saved" data-saved="after">Saved</span></div><textarea id="f-after" data-food="after" rows="2" placeholder="Snacks, drinks…"></textarea></div>
-      <div class="box l-notes"><div class="lid"><label for="n-food">Notes</label><span class="saved" data-saved="note-food">Saved</span></div><textarea id="n-food" data-note="food" rows="2" placeholder="How did food sit today?"></textarea></div>
-    </section>
-
     <section class="view pg-white pg-today" data-tab="today">
       <div class="box l-notes"><div class="lid"><label for="dayNotes">Notes</label><span class="saved" data-saved="note-today">Saved</span></div><textarea id="dayNotes" data-note="today" rows="3" placeholder="How was today?"></textarea></div>
     </section>
    </div>
 
    <div class="col colR">
+    <section class="view pg-color pg-food" data-tab="food" style="display:none">
+      <div class="box l-list">
+        <div class="lid"><h2>Foods</h2><button class="act add" id="addFood">Add</button></div>
+        <div id="foodList"></div>
+      </div>
+      <div class="box l-list">
+        <div class="lid"><h2>Restaurants</h2><button class="act add" id="addPlace">Add</button></div>
+        <div id="placeList"></div>
+      </div>
+      <div class="box l-notes"><div class="lid"><label for="n-food">Notes</label><span class="saved" data-saved="note-food">Saved</span><span class="st notedate"></span></div><textarea id="n-food" data-note="food" rows="2" placeholder="How did food sit today?"></textarea></div>
+    </section>
+
     <section class="view pg-white pg-meds" data-tab="meds" style="display:none">
       <div class="box l-list">
         <div class="lid"><h2>Medications</h2><button class="act add" id="addMed">Add</button></div>
@@ -309,6 +326,10 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 </dialog>
 
 <script>
+const MEALS = [
+  {id:"breakfast",label:"Breakfast",l:"l-morning"},{id:"lunch",label:"Lunch",l:"l-afternoon"},
+  {id:"dinner",label:"Dinner",l:"l-evening"},{id:"after",label:"After dinner",l:"l-bedtime"}
+];
 const SLOTS = [
   {id:"waking",label:"Waking"},{id:"morning",label:"Morning"},{id:"afternoon",label:"Afternoon"},
   {id:"evening",label:"Evening"},{id:"bedtime",label:"Bedtime"}
@@ -317,7 +338,7 @@ const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 const LS_KEY = "daily-meds-v1";
 const KEEP_MED_DAYS = 400;   // medication check-offs; symptom history is kept for monthly records
 
-let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, updated:0};
+let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, updated:0};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
 
@@ -335,7 +356,9 @@ function normalize(s){
   const obj=v=>(v&&typeof v==="object"&&!Array.isArray(v))?v:{};
   return {meds:Array.isArray(s.meds)?s.meds:[], log:obj(s.log),
           symptoms:Array.isArray(s.symptoms)?s.symptoms:[], slog:obj(s.slog),
-          food:obj(s.food), notes:obj(s.notes), pnotes:obj(s.pnotes), updated:Number(s.updated)||0};
+          food:obj(s.food), notes:obj(s.notes), pnotes:obj(s.pnotes),
+          foods:Array.isArray(s.foods)?s.foods:[], places:Array.isArray(s.places)?s.places:[], meals:obj(s.meals),
+          updated:Number(s.updated)||0};
 }
 function loadLocal(){
   try{const raw=localStorage.getItem(LS_KEY);if(raw){const s=JSON.parse(raw);if(s&&Array.isArray(s.meds))state=normalize(s)}}catch(e){}
@@ -438,13 +461,41 @@ function render(){
     </div>`;
   }
 
+  /* Today: meals */
+  const mday=state.meals[viewDate]||{}, legacy=state.food[viewDate]||{};
+  const byId=(list,id)=>list.find(x=>x.id===id);
+  const foodsSorted=[...state.foods].sort((a,b)=>a.name.localeCompare(b.name));
+  const placesSorted=[...state.places].sort((a,b)=>a.name.localeCompare(b.name));
+  for(const ml of MEALS){
+    const m=mday[ml.id]||{}, ids=(m.foods||[]).filter(id=>byId(state.foods,id));
+    const place=m.place&&byId(state.places,m.place);
+    html+=`<div class="box ${ml.l}">
+      <div class="lid">${ml.label}${place?`<span class="place">at ${esc(place.name)}</span>`:""}</div>
+      <div class="chips">${ids.length?ids.map(id=>`<span class="chip">${esc(byId(state.foods,id).name)}<button data-rm="${esc(id)}" data-meal="${ml.id}" aria-label="Remove ${esc(byId(state.foods,id).name)}">×</button></span>`).join(""):`<span class="none">Nothing added</span>`}</div>
+      ${legacy[ml.id]?`<p class="legacy">${esc(legacy[ml.id])}</p>`:""}
+      <div class="pickers">
+        <select data-pick="food" data-meal="${ml.id}" aria-label="Add food to ${ml.label}">
+          <option value="">Add food…</option>
+          ${foodsSorted.filter(f=>!ids.includes(f.id)).map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}
+          <option value="__new">+ New food…</option>
+        </select>
+        <select data-pick="place" data-meal="${ml.id}" aria-label="Restaurant for ${ml.label}">
+          <option value="">${place?"Not eating out":"Restaurant…"}</option>
+          ${placesSorted.map(p=>`<option value="${esc(p.id)}" ${place&&place.id===p.id?"selected":""}>${esc(p.name)}</option>`).join("")}
+          <option value="__new">+ New restaurant…</option>
+        </select>
+      </div>
+    </div>`;
+  }
+
   const slotsEl=document.getElementById("slots");
   const prog=document.getElementById("progress");
-  if(!html){
-    slotsEl.innerHTML=`<div class="box l-waking"><div class="lid">Get started</div>
-      <p class="hint">Add your medications and symptoms. A fresh checklist appears every day.</p>
-      <div class="backup-btns"><button class="primary" data-add="med">Add medication</button><button class="ghost" data-add="sym">Add symptom</button></div></div>`;
-  } else slotsEl.innerHTML=html;
+  if(!state.meds.length&&!state.symptoms.length){
+    html=`<div class="box l-waking"><div class="lid">Get started</div>
+      <p class="hint">Add your medications, symptoms and foods. A fresh checklist appears every day.</p>
+      <div class="backup-btns"><button class="primary" data-add="med">Add medication</button><button class="ghost" data-add="sym">Add symptom</button></div></div>`+html;
+  }
+  slotsEl.innerHTML=html;
   const back = viewDate!==tk ? `<button class="today-link" id="goToday">Today</button>` : "";
   prog.innerHTML = total
     ? `<span class="count">${taken}/${total}</span><div class="bar"><i style="width:${Math.round(taken/total*100)}%"></i></div>${back}`
@@ -465,6 +516,21 @@ function render(){
     ? state.symptoms.map(x=>{const n=monthCount(x.id);return `<button class="row" data-edit-sym="${esc(x.id)}">
         <span class="nm">${esc(x.name)}</span><span class="side">${n} ${n===1?"day":"days"} in ${esc(month)}</span></button>`}).join("")
     : `<div class="empty-row">No symptoms. Tap Add.</div>`;
+  const mealCount=(field,id)=>{
+    const prefix=todayKey().slice(0,7); let days=0, times=0;
+    for(const [k,v] of Object.entries(state.meals)){ if(!k.startsWith(prefix)) continue;
+      let hit=0; for(const m of Object.values(v)) if(field==="foods"?(m.foods||[]).includes(id):m.place===id) hit++;
+      if(hit){days++;times+=hit} }
+    return field==="foods"?days:times;
+  };
+  document.getElementById("foodList").innerHTML = state.foods.length
+    ? [...state.foods].sort((a,b)=>a.name.localeCompare(b.name)).map(x=>{const n=mealCount("foods",x.id);return `<button class="row" data-edit-food="${esc(x.id)}">
+        <span class="nm">${esc(x.name)}</span><span class="side">${n} ${n===1?"day":"days"} in ${esc(month)}</span></button>`}).join("")
+    : `<div class="empty-row">No foods. Tap Add.</div>`;
+  document.getElementById("placeList").innerHTML = state.places.length
+    ? [...state.places].sort((a,b)=>a.name.localeCompare(b.name)).map(x=>{const n=mealCount("place",x.id);return `<button class="row" data-edit-place="${esc(x.id)}">
+        <span class="nm">${esc(x.name)}</span><span class="side">${n} ${n===1?"visit":"visits"} in ${esc(month)}</span></button>`}).join("")
+    : `<div class="empty-row">No restaurants. Tap Add.</div>`;
 }
 
 /* ---------- summary ---------- */
@@ -605,7 +671,9 @@ function sweep(){
 /* ---------- events ---------- */
 document.getElementById("slots").addEventListener("click",e=>{
   const med=e.target.closest(".med"), sym=e.target.closest(".sym"), all=e.target.closest("[data-all]"), add=e.target.closest("[data-add]");
+  const rm=e.target.closest("[data-rm]");
   if(add){openEditor(add.dataset.add,null);return}
+  if(rm){ const m=mealOf(viewDate,rm.dataset.meal); m.foods=m.foods.filter(x=>x!==rm.dataset.rm); tidyMeals(viewDate); commit(); return; }
   if(sym){
     const sd=state.slog[viewDate]||(state.slog[viewDate]={});
     const id=sym.dataset.sym;
@@ -626,6 +694,21 @@ document.getElementById("slots").addEventListener("click",e=>{
   if(!Object.keys(day).length) delete state.log[viewDate];
   commit();
 });
+function mealOf(date,meal){const d=state.meals[date]||(state.meals[date]={});return d[meal]||(d[meal]={foods:[]})}
+function tidyMeals(date){
+  const d=state.meals[date]; if(!d) return;
+  for(const [k,m] of Object.entries(d)) if(!(m.foods||[]).length&&!m.place) delete d[k];
+  if(!Object.keys(d).length) delete state.meals[date];
+}
+document.getElementById("slots").addEventListener("change",e=>{
+  const sel=e.target.closest("select[data-pick]"); if(!sel) return;
+  const meal=sel.dataset.meal, v=sel.value, kind=sel.dataset.pick;
+  if(v==="__new"){ sel.value=kind==="food"?"":(mealOf(viewDate,meal).place||""); openEditor(kind==="food"?"food":"place",null,{date:viewDate,meal}); return; }
+  const m=mealOf(viewDate,meal);
+  if(kind==="food"){ if(v&&!m.foods.includes(v)) m.foods.push(v); }
+  else { if(v) m.place=v; else delete m.place; }
+  tidyMeals(viewDate); commit();
+});
 document.getElementById("progress").addEventListener("click",e=>{if(e.target.id==="goToday"){flushText();viewDate=todayKey();render()}});
 function flushText(){ if(textTimer){clearTimeout(textTimer);textTimer=null;persist()} if(document.activeElement&&document.activeElement.tagName==="TEXTAREA") document.activeElement.blur() }
 document.getElementById("prevDay").onclick=()=>{flushText();viewDate=shiftKey(viewDate,-1);render()};
@@ -637,6 +720,10 @@ document.getElementById("medList").addEventListener("click",e=>{const b=e.target
 document.getElementById("symList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-sym]");if(b)openEditor("sym",b.dataset.editSym)});
 document.getElementById("addMed").onclick=()=>openEditor("med",null);
 document.getElementById("addSym").onclick=()=>openEditor("sym",null);
+document.getElementById("addFood").onclick=()=>openEditor("food",null);
+document.getElementById("addPlace").onclick=()=>openEditor("place",null);
+document.getElementById("foodList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-food]");if(b)openEditor("food",b.dataset.editFood)});
+document.getElementById("placeList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-place]");if(b)openEditor("place",b.dataset.editPlace)});
 
 function selectTab(name){
   for(const o of document.querySelectorAll('[role="tab"]')) o.setAttribute("aria-selected",o.dataset.tab===name);
@@ -658,19 +745,25 @@ document.getElementById("sumBody").addEventListener("click",e=>{
 /* ---------- editor ---------- */
 const dlg=document.getElementById("dlg"), form=document.getElementById("itemForm"), F=n=>form.elements[n];
 document.getElementById("slotPick").innerHTML=SLOTS.map(s=>`<label><input type="checkbox" name="slot" value="${s.id}"><span>${s.label}</span></label>`).join("");
-function openEditor(kind,id){
-  editing={kind,id};
-  const isMed=kind==="med";
-  const item=id?(isMed?state.meds:state.symptoms).find(x=>x.id===id):null;
+const KINDS={
+  med:  {list:()=>state.meds,     set:v=>state.meds=v,     word:"medication", ph:""},
+  sym:  {list:()=>state.symptoms, set:v=>state.symptoms=v, word:"symptom",    ph:"e.g. headache, nausea"},
+  food: {list:()=>state.foods,    set:v=>state.foods=v,    word:"food",       ph:"e.g. oatmeal, coffee"},
+  place:{list:()=>state.places,   set:v=>state.places=v,   word:"restaurant", ph:"e.g. Chipotle"}
+};
+function openEditor(kind,id,pending){
+  editing={kind,id,pending:pending||null};
+  const K=KINDS[kind], isMed=kind==="med";
+  const item=id?K.list().find(x=>x.id===id):null;
   form.classList.toggle("is-sym",!isMed);
-  document.getElementById("dlgTitle").textContent=(item?"Edit ":"Add ")+(isMed?"medication":"symptom");
+  document.getElementById("dlgTitle").textContent=(item?"Edit ":"Add ")+K.word;
   document.getElementById("saveItem").textContent=item?"Save":"Add";
   document.getElementById("delItem").style.visibility=item?"visible":"hidden";
   F("name").value=item?item.name:"";
   F("dose").value=item&&isMed?item.dose||"":"";
   F("notes").value=item&&isMed?item.notes||"":"";
   for(const c of form.querySelectorAll('[name="slot"]')) c.checked=item&&isMed?item.slots.includes(c.value):false;
-  F("name").placeholder=isMed?"":"e.g. headache, nausea";
+  F("name").placeholder=K.ph;
   document.getElementById("formErr").textContent="";
   dlg.showModal();
   if(!item) F("name").focus();
@@ -682,25 +775,31 @@ form.addEventListener("submit",e=>{
   const err=document.getElementById("formErr");
   const name=F("name").value.trim();
   if(!name){err.textContent="Enter a name.";F("name").focus();return}
+  const K=KINDS[editing.kind];
   if(editing.kind==="med"){
     const slots=[...form.querySelectorAll('[name="slot"]:checked')].map(c=>c.value);
     if(!slots.length){err.textContent="Pick at least one time.";return}
     const data={name,dose:F("dose").value.trim(),notes:F("notes").value.trim(),slots};
     if(editing.id) Object.assign(state.meds.find(x=>x.id===editing.id),data);
     else state.meds.push({id:uid(),...data});
+  } else if(editing.id){
+    K.list().find(x=>x.id===editing.id).name=name;
   } else {
-    if(editing.id) state.symptoms.find(x=>x.id===editing.id).name=name;
-    else state.symptoms.push({id:uid(),name});
+    /* Reuse an existing entry with the same name instead of making a duplicate */
+    let item=K.list().find(x=>x.name.toLowerCase()===name.toLowerCase());
+    if(!item){item={id:uid(),name};K.list().push(item)}
+    const p=editing.pending;
+    if(p){ const m=mealOf(p.date,p.meal);
+      if(editing.kind==="food"){ if(!m.foods.includes(item.id)) m.foods.push(item.id) } else m.place=item.id; }
   }
   dlg.close(); commit();
 });
 document.getElementById("delItem").onclick=()=>{
-  const isMed=editing.kind==="med", list=isMed?state.meds:state.symptoms;
-  const item=list.find(x=>x.id===editing.id);
+  const K=KINDS[editing.kind], item=K.list().find(x=>x.id===editing.id);
   if(!item) return;
-  if(!confirm(`Delete ${item.name}?`+(isMed?"":" Its history will no longer be counted."))) return;
-  if(isMed) state.meds=state.meds.filter(x=>x.id!==editing.id);
-  else state.symptoms=state.symptoms.filter(x=>x.id!==editing.id);
+  const note={med:"",sym:" Its history will no longer be counted.",food:" It will be removed from past meals.",place:" It will be removed from past meals."}[editing.kind];
+  if(!confirm(`Delete ${item.name}?`+note)) return;
+  K.set(K.list().filter(x=>x.id!==editing.id));
   dlg.close(); commit();
 };
 
@@ -725,7 +824,7 @@ document.getElementById("importFile").onchange=async e=>{
     if(!confirm("Replace everything in the app with this backup?")) return;
     state=normalize(data); commit();
     backupMsg.textContent="Backup restored.";
-  }catch(err){backupMsg.textContent="That file isn't a Daily meds backup."}
+  }catch(err){backupMsg.textContent="That file isn't a backup from this app."}
 };
 
 /* ---------- new day rollover ---------- */

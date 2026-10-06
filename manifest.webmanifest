@@ -1,7 +1,7 @@
 {
   "name": "Daily meds",
   "short_name": "Meds",
-  "description": "A fresh medication checklist every day.",
+  "description": "Daily medications, symptoms, food and notes.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

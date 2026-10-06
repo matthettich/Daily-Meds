@@ -1,6 +1,6 @@
 # Daily meds
 
-A simple medication checklist that gives you a fresh list every day.
+Track daily medications, symptoms, food and notes, with monthly and yearly summaries.
 Works offline and can be installed on your phone's home screen.
 
 ## Put it online with GitHub Pages

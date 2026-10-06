@@ -1,5 +1,5 @@
 // Bump this version whenever you change index.html so phones pick up the update.
-const CACHE = "daily-meds-v26";
+const CACHE = "daily-meds-v28";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "check.html"];
 
 self.addEventListener("install", e => {
