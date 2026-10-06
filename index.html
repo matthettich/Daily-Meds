@@ -88,10 +88,12 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
 /* Day header */
 .day{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin:4px 0 10px}
 .day h1{font-size:26px;line-height:1.1;margin:0;font-weight:500;letter-spacing:-.01em}
-/* Date title: weekday in the meds color, month in the symptoms color, day number in the food color (deeper shades so they read on white) */
-.day h1 .wd{color:hsl(var(--h) var(--s) 32%)}
-.day h1 .mo{color:hsl(calc(var(--h) + 44) var(--s) 32%)}
-.day h1 .dn{color:hsl(calc(var(--h) + 22) var(--s) 32%)}
+/* Date title: black text with a pastel stripe under each part, in the same colors as the boxes below —
+   weekday = meds, month = symptoms, day number = food */
+.day h1 .wd,.day h1 .mo,.day h1 .dn{background-repeat:no-repeat;background-size:100% .36em;background-position:0 88%;padding:0 .04em}
+.day h1 .wd{background-image:linear-gradient(hsl(var(--h) var(--s) 81%),hsl(var(--h) var(--s) 81%))}
+.day h1 .mo{background-image:linear-gradient(hsl(calc(var(--h) + 44) var(--s) 70%),hsl(calc(var(--h) + 44) var(--s) 70%))}
+.day h1 .dn{background-image:linear-gradient(hsl(calc(var(--h) + 22) var(--s) 81%),hsl(calc(var(--h) + 22) var(--s) 81%))}
 .day h1 small{display:block;font-size:13px;font-weight:400;color:var(--muted);letter-spacing:.02em;margin-bottom:2px}
 /* Tapping the date jumps back to today */
 .daybtn{display:block;border:0;background:transparent;padding:0;margin:0;text-align:left;font:inherit;color:inherit;cursor:default}
