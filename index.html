@@ -199,6 +199,10 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 10px 0}
 .chip{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--rule);background:var(--white);padding:0 0 0 10px;font-size:14px;min-height:32px}
 .chip button{border:0;border-left:1px solid var(--rule);background:transparent;width:30px;align-self:stretch;font-size:16px;line-height:1;margin-left:6px}
+/* "All day" switch in the symptom time box */
+.allday{display:flex;align-items:center;gap:10px;min-height:40px;margin:0 0 10px;font-size:15px}
+.allday input{width:22px;height:22px;margin:0;accent-color:var(--ink)}
+#xtimeRow.off{opacity:.4}
 .chip .qty{margin-left:6px;font-size:13px;color:var(--muted)}
 .chips .none{font-size:13px;color:var(--muted);padding:6px 0}
 .legacy{margin:8px 10px 0;font-size:13px;color:var(--muted);white-space:pre-wrap}
@@ -347,7 +351,8 @@ body{display:flex;flex-direction:column}
   <form method="dialog" id="xform">
     <h3 id="xdlgTitle">Dose</h3>
     <div class="body">
-      <label class="f"><span id="xlabel">Time taken</span><input type="time" id="xtime" required></label>
+      <label class="allday" id="xalldayRow"><input type="checkbox" id="xallday"><span>All day</span></label>
+      <label class="f" id="xtimeRow"><span id="xlabel">Time taken</span><input type="time" id="xtime"></label>
       <div class="actions">
         <button type="button" class="danger" id="xremove">Remove dose</button>
         <button type="button" class="ghost" id="xcancel">Cancel</button>
@@ -537,7 +542,7 @@ function render(){
     const had=symsSorted.filter(x=>sday[x.id]);
     html+=`<div class="box l-sym">
       <div class="lid">Symptoms<span class="st">${had.length?had.length+" today":"None"}</span></div>
-      <div class="chips">${had.length?[...had].sort((a,b)=>sday[a.id]-sday[b.id]).map(x=>`<span class="chip">${esc(x.name)}${realTime(sday[x.id])?`<button class="t" data-editsym="${esc(x.id)}" aria-label="Change time of ${esc(x.name)}, now ${fmtTime(sday[x.id])}">${fmtTime(sday[x.id])}</button>`:""}<button data-rmsym="${esc(x.id)}" aria-label="Remove ${esc(x.name)}">×</button></span>`).join(""):`<span class="none">No symptoms today</span>`}</div>
+      <div class="chips">${had.length?[...had].sort((a,b)=>symSortKey(sday[a.id])-symSortKey(sday[b.id])).map(x=>{const lb=symLabel(sday[x.id]);return `<span class="chip">${esc(x.name)}${lb?`<button class="t" data-editsym="${esc(x.id)}" aria-label="Change time of ${esc(x.name)}, now ${lb}">${lb}</button>`:""}<button data-rmsym="${esc(x.id)}" aria-label="Remove ${esc(x.name)}">×</button></span>`}).join(""):`<span class="none">No symptoms today</span>`}</div>
       <div class="pickers one">
         <select data-pick="sym" aria-label="Add a symptom">
           <option value="">Add symptom…</option>
@@ -823,11 +828,18 @@ function realTime(t){ return typeof t==="number" && t>1e11; }
 function logExtra(date,id){
   const list=state.xlog[date]||(state.xlog[date]=[]); list.push({id,t:stampFor(date)}); list.sort((a,b)=>a.t-b.t);
 }
+/* A symptom's value is a timestamp, or ALLDAY when it lasted the whole day */
+const ALLDAY="all";
+function symSortKey(v){ return v===ALLDAY ? -1 : realTime(v) ? v : 0; }
+function symLabel(v){ return v===ALLDAY ? "All day" : realTime(v) ? fmtTime(v) : ""; }
 function logSym(date,id){ (state.slog[date]||(state.slog[date]={}))[id]=stampFor(date); }
 /* Edit a dose's time */
 const xdlg=document.getElementById("xdlg"); let xedit=null;
-function openTimeDialog(title,label,removeText,t){
-  const d=new Date(t);
+function openTimeDialog(title,label,removeText,t,allDay){
+  const d=new Date(realTime(t)?t:Date.now());
+  document.getElementById("xalldayRow").style.display = allDay===undefined ? "none" : "";
+  document.getElementById("xallday").checked = !!allDay;
+  syncAllDay();
   document.getElementById("xdlgTitle").textContent=title;
   document.getElementById("xlabel").textContent=label;
   document.getElementById("xremove").textContent=removeText;
@@ -840,14 +852,20 @@ function openDoseTime(date,i){
   openTimeDialog(m.name+(m.dose?" · "+m.dose:""),"Time taken","Remove dose",e.t);
 }
 function openSymTime(date,id){
-  const t=(state.slog[date]||{})[id], x=state.symptoms.find(s=>s.id===id); if(!x||!realTime(t)) return;
+  const t=(state.slog[date]||{})[id], x=state.symptoms.find(s=>s.id===id); if(!x||!t) return;
   xedit={kind:"sym",date,id};
-  openTimeDialog(x.name,"Time noticed","Remove symptom",t);
+  openTimeDialog(x.name,"Time noticed","Remove symptom",t,t===ALLDAY);
 }
+function syncAllDay(){
+  const on=document.getElementById("xallday").checked && document.getElementById("xalldayRow").style.display!=="none";
+  document.getElementById("xtime").disabled=on; document.getElementById("xtimeRow").classList.toggle("off",on);
+}
+document.getElementById("xallday").addEventListener("change",syncAllDay);
 document.getElementById("xform").addEventListener("submit",ev=>{
   ev.preventDefault();
   const v=document.getElementById("xtime").value;
-  if(/^\d\d:\d\d/.test(v)){
+  if(xedit.kind==="sym"&&document.getElementById("xallday").checked){ const sd=state.slog[xedit.date]; if(sd&&sd[xedit.id]) sd[xedit.id]=ALLDAY; }
+  else if(/^\d\d:\d\d/.test(v)){
     const d=parseKey(xedit.date); d.setHours(+v.slice(0,2),+v.slice(3,5),0);
     if(xedit.kind==="sym"){ const sd=state.slog[xedit.date]; if(sd&&sd[xedit.id]) sd[xedit.id]=d.getTime(); }
     else { const list=state.xlog[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=d.getTime(); list.sort((a,b)=>a.t-b.t); } }
@@ -1025,7 +1043,7 @@ function buildCSV(start,end){
     const row=[k,parseKey(k).toLocaleDateString("en-US",{weekday:"long"}),
       taken.length,sched.length,missed.map(x=>x.label).join("; "),
       xd.map(e=>{const m=anyMed(e.id);return m.name+(m.dose?" ("+m.dose+")":"")+" at "+fmtTime(e.t)}).join("; "),xd.length,
-      [...had].sort((a,b)=>sl[a.id]-sl[b.id]).map(x=>x.name+(realTime(sl[x.id])?" at "+fmtTime(sl[x.id]):"")).join("; "),had.length,
+      [...had].sort((a,b)=>symSortKey(sl[a.id])-symSortKey(sl[b.id])).map(x=>x.name+(sl[x.id]===ALLDAY?" (all day)":realTime(sl[x.id])?" at "+fmtTime(sl[x.id]):"")).join("; "),had.length,
       ...syms.map(x=>sl[x.id]?1:0),
       ...MEALS.flatMap(m=>{const e=meals[m.id]||{};return [[...countFoods(e.foods)].map(([id,n])=>{const nm=nameOf(state.foods,id);return nm&&(n>1?nm+" x"+n:nm)}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
       placesToday.map(id=>nameOf(state.places,id)).filter(Boolean).join("; "),
