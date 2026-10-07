@@ -222,6 +222,8 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .seg button+button{border-left:1px solid var(--rule)}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--white)}
 .sumbar h2{flex:1 1 100%;margin:4px 0 0;font-size:26px;font-weight:500;letter-spacing:-.01em}
+/* Month name on Summary gets a stripe in that month's color, like the date on Today */
+.sumbar h2 .mt{background:linear-gradient(hsl(var(--H) var(--s) 78%),hsl(var(--H) var(--s) 78%)) no-repeat 0 88%/100% .36em;padding:0 .04em}
 .stat{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px;border-top:1px solid var(--hair);align-items:center}
 .lid + .stat{border-top:0}
 .stat .nm{font-weight:500}
@@ -664,9 +666,21 @@ function symCounts(start,end){
   }
   return {c,anyDays};
 }
+/* Each month has its own pastel color on the Summary page: [hue, saturation] */
+const MONTH_COLORS=[[208,70],[338,70],[140,45],[275,55],[95,50],[22,80],[180,55],[0,70],[42,75],[255,60],[60,55],[160,45]];
+function monthHsl(m,l){const [h,sat]=MONTH_COLORS[m];return `hsl(${h} ${sat}% ${l}%)`}
 function renderSummary(){
   const tk=todayKey(), P=periodOf(sumMode,sumAnchor);
-  document.getElementById("sumTitle").textContent=P.label;
+  /* Month view: the whole summary takes that month's color. Year view: the day's color, with each month's bar in its own color */
+  const sec=document.querySelector(".view.pg-sum");
+  if(sumMode==="month"){
+    const m=parseKey(P.start).getMonth(), [h,sat]=MONTH_COLORS[m];
+    sec.style.setProperty("--H",h); sec.style.setProperty("--s",sat+"%");
+    document.getElementById("sumTitle").innerHTML=`<span class="mt">${esc(parseKey(P.start).toLocaleDateString([], {month:"long"}))}</span> ${P.start.slice(0,4)}`;
+  } else {
+    sec.style.removeProperty("--H"); sec.style.removeProperty("--s");
+    document.getElementById("sumTitle").textContent=P.label;
+  }
   document.getElementById("sumMonth").setAttribute("aria-pressed",sumMode==="month");
   document.getElementById("sumYear").setAttribute("aria-pressed",sumMode==="year");
   document.getElementById("sumNext").disabled = P.end>=tk;
@@ -723,7 +737,7 @@ function renderSummary(){
       const a2=a<fu?fu:a, e=b<tk?b:tk, len=daysBetween(a2,e), r=symCounts(a2,e);
       const top=state.symptoms.map(x=>({x,n:r.c[x.id]||0})).sort((p,q)=>q.n-p.n)[0];
       const pct=Math.round(r.anyDays/len*100);
-      rows+=`<div class="stat"><span class="nm">${new Date(y,m,1).toLocaleDateString([], {month:"long"})}</span><span class="num">${r.anyDays} ${r.anyDays===1?"day":"days"}${top&&top.n?" · most: "+esc(top.x.name):""}</span><div class="track"><i style="width:${pct}%"></i></div></div>`;
+      rows+=`<div class="stat"><span class="nm">${new Date(y,m,1).toLocaleDateString([], {month:"long"})}</span><span class="num">${r.anyDays} ${r.anyDays===1?"day":"days"}${top&&top.n?" · most: "+esc(top.x.name):""}</span><div class="track"><i style="width:${pct}%;background:${monthHsl(m,72)}"></i></div></div>`;
     }
     html+=`<div class="box l-list"><div class="lid">Days with symptoms, by month</div>${rows||`<div class="empty-row">Nothing yet.</div>`}</div>`;
   }
