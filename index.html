@@ -637,9 +637,11 @@ function render(){
   /* Today: supplements */
   {
     const doses=(state.suplog[viewDate]||[]).map((e,i)=>({...e,i})).filter(e=>suppOf(e.id));
+    /* One chip per supplement: ×N when taken more than once; time and × act on the latest dose */
+    const groups=new Map(); for(const e of doses){ const g=groups.get(e.id); if(g){g.n++;g.last=e} else groups.set(e.id,{n:1,last:e}) }
     html+=`<div class="box l-supp">
       <div class="lid">Supplements<span class="st">${doses.length?doses.length+" taken":"None"}</span></div>
-      <div class="chips">${doses.length?doses.map(e=>{const m=suppOf(e.id);return `<span class="chip">${esc(m.name)}<button class="t" data-edits="${e.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-rms="${e.i}" aria-label="Remove ${esc(m.name)} at ${fmtTime(e.t)}">×</button></span>`}).join(""):`<span class="none">No supplements taken</span>`}</div>
+      <div class="chips">${groups.size?[...groups].map(([id,g])=>{const m=suppOf(id),e=g.last;return `<span class="chip">${esc(m.name)}${g.n>1?`<span class="qty">×${g.n}</span>`:""}<button class="t" data-edits="${e.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-rms="${e.i}" aria-label="Remove one ${esc(m.name)}">×</button></span>`}).join(""):`<span class="none">No supplements taken</span>`}</div>
       <div class="pickers one">
         <select data-pick="supp" aria-label="Add a supplement">
           <option value="">Add supplement…</option>
@@ -1446,7 +1448,7 @@ function buildCSV(start,end){
     const row=[k,parseKey(k).toLocaleDateString("en-US",{weekday:"long"}),
       taken.length,sched.length,missed.map(x=>x.label).join("; "),
       xd.map(e=>{const m=anyMed(e.id);return m.name+(m.dose?" ("+m.dose+")":"")+" at "+fmtTime(e.t)}).join("; "),xd.length,
-      sd.map(e=>{const m=suppOf(e.id);return m.name+(m.dose?" ("+m.dose+")":"")+" at "+fmtTime(e.t)}).join("; "),sd.length,
+      [...new Set(sd.map(e=>e.id))].map(id=>{const m=suppOf(id), ts=sd.filter(e=>e.id===id).map(e=>fmtTime(e.t));return m.name+(m.dose?" ("+m.dose+")":"")+(ts.length>1?" x"+ts.length:"")+" at "+ts.join(", ")}).join("; "),sd.length,
       [...had].sort((a,b)=>symSortKey(sl[a.id])-symSortKey(sl[b.id])).map(x=>x.name+(sl[x.id]===ALLDAY?" (all day)":realTime(sl[x.id])?" at "+fmtTime(sl[x.id]):"")).join("; "),had.length,
       ...syms.map(x=>sl[x.id]?1:0),
       ...MEALS.flatMap(m=>{const e=meals[m.id]||{};return [[...countFoods(e.foods)].map(([id,n])=>{const nm=nameOf(state.foods,id);return nm&&(n>1?nm+" x"+n:nm)}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
