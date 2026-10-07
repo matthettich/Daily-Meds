@@ -69,10 +69,9 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
   header.top{position:fixed;top:auto;bottom:0;left:0;right:0;padding:0 0 env(safe-area-inset-bottom,0px);
     border-top:1px solid var(--rule);box-shadow:0 -7px 0 hsl(var(--h) var(--s) 78%)}
   body{padding-bottom:70px}
-  /* Six equal text tabs in one row; short labels (Symp, Recap) keep the text large */
+  /* Three equal text tabs: Today, Recap, Settings */
   header.top .tabs{border:0}
-  header.top .tabs button{flex:1 1 0;min-width:0;min-height:62px;padding:0 3px;white-space:nowrap;
-    font-size:clamp(13px,4.3vw,17px);font-weight:500;letter-spacing:0}
+  header.top .tabs button{flex:1 1 0;min-width:0;min-height:62px;padding:0 4px;white-space:nowrap;font-size:17px;font-weight:500}
 }
 .tabs{display:flex;flex:1;border:1px solid var(--rule);background:transparent}
 .tabs button{flex:1;border:0;background:transparent;padding:8px 4px;min-height:40px}
@@ -258,6 +257,13 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 #welcome li:nth-child(4){--c:calc(var(--h) - 55)} #welcome li:nth-child(5){--c:calc(var(--h) - 22)}
 #welcome li:nth-child(2n)::before{border-radius:50%}
 #welcome .fine{font-size:13px;color:var(--muted)}
+/* Settings: one long page. Colored sections sit on a full-width band of that section's color */
+.sset{padding-bottom:18px}
+.sset.band{background:hsl(var(--H) var(--s) 96%);margin:0 -12px;padding:2px 12px 18px;border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)}
+.sset .sect{margin-top:18px}
+.sset .sect.first{margin:0}
+.sset .sect + .box{margin-top:10px}
+@media (min-width:720px){.sset.band{margin:0;padding:2px 12px 18px;border:1px solid var(--hair)}.pg-sum{margin-bottom:24px}}
 /* Weather vs symptoms table */
 .wxt{display:grid;grid-template-columns:1fr auto auto;gap:0 14px;padding:4px 10px 10px;font-variant-numeric:tabular-nums;align-items:baseline}
 .wxt span{padding:7px 0;border-top:1px solid var(--hair);text-align:right;white-space:nowrap}
@@ -282,12 +288,9 @@ body{display:flex;flex-direction:column}
 <header class="top">
   <span class="brand">Daily meds</span>
   <div class="tabs" role="tablist">
-    <button role="tab" data-tab="today" aria-selected="true" title="Today">Today</button>
-    <button role="tab" data-tab="food" aria-selected="false" title="Food">Food</button>
-    <button role="tab" data-tab="meds" aria-selected="false" title="Meds">Meds</button>
-    <button role="tab" data-tab="syms" aria-selected="false" title="Symptoms" aria-label="Symptoms">Symp</button>
-    <button role="tab" data-tab="mood" aria-selected="false" title="Mood">Mood</button>
-    <button role="tab" data-tab="sum" aria-selected="false" title="Summary" aria-label="Summary">Recap</button>
+    <button role="tab" data-tab="today" aria-selected="true">Today</button>
+    <button role="tab" data-tab="sum" aria-selected="false">Recap</button>
+    <button role="tab" data-tab="set" aria-selected="false">Settings</button>
   </div>
 </header>
 <div class="wrap">
@@ -315,46 +318,6 @@ body{display:flex;flex-direction:column}
    </div>
 
    <div class="col colR">
-    <section class="view pg-color pg-food" data-tab="food" style="display:none">
-      <div class="box l-list">
-        <div class="lid"><h2>Foods</h2><button class="act add" id="addFood">Add</button></div>
-        <div id="foodList"></div>
-      </div>
-      <div class="box l-list">
-        <div class="lid"><h2>Restaurants</h2><button class="act add" id="addPlace">Add</button></div>
-        <div id="placeList"></div>
-      </div>
-      <div class="box l-notes"><div class="lid"><label for="n-food">Notes</label><span class="saved" data-saved="note-food">Saved</span><span class="st notedate"></span></div><textarea id="n-food" data-note="food" rows="2" placeholder="How did food sit today?"></textarea></div>
-    </section>
-
-    <section class="view pg-white pg-meds" data-tab="meds" style="display:none">
-      <div class="box l-list">
-        <div class="lid"><h2>Medications</h2><button class="act add" id="addMed">Add</button></div>
-        <div id="medList"></div>
-      </div>
-      <div class="box l-list">
-        <div class="lid"><h2>Additional medications</h2><button class="act add" id="addExtra">Add</button></div>
-        <div id="extraList"></div>
-      </div>
-      <div class="box l-notes"><div class="lid"><label for="n-meds">Notes</label><span class="saved" data-saved="note-meds">Saved</span><span class="st notedate"></span></div><textarea id="n-meds" data-note="meds" rows="2" placeholder="Side effects, doctor changes…"></textarea></div>
-    </section>
-
-    <section class="view pg-color pg-syms" data-tab="syms" style="display:none">
-      <div class="box l-list">
-        <div class="lid"><h2>Symptoms</h2><button class="act add" id="addSym">Add</button></div>
-        <div id="symList"></div>
-      </div>
-      <div class="box l-notes"><div class="lid"><label for="n-syms">Notes</label><span class="saved" data-saved="note-syms">Saved</span><span class="st notedate"></span></div><textarea id="n-syms" data-note="syms" rows="2" placeholder="Anything about how you felt…"></textarea></div>
-    </section>
-
-    <section class="view pg-color pg-mood" data-tab="mood" style="display:none">
-      <div class="box l-list">
-        <div class="lid"><h2>Moods &amp; emotions</h2><button class="act add" id="addMood">Add</button></div>
-        <div id="moodList"></div>
-      </div>
-      <div class="box l-notes"><div class="lid"><label for="n-mood">Notes</label><span class="saved" data-saved="note-mood">Saved</span><span class="st notedate"></span></div><textarea id="n-mood" data-note="mood" rows="2" placeholder="What shaped your mood today?"></textarea></div>
-    </section>
-
     <section class="view pg-white pg-sum" data-tab="sum" style="display:none">
       <div class="sumbar">
         <h2 id="sumTitle"></h2>
@@ -367,9 +330,60 @@ body{display:flex;flex-direction:column}
         </div>
       </div>
       <div id="sumBody"></div>
+      <div class="box l-list">
+        <div class="lid"><h2>Weather</h2></div>
+        <p class="hint" id="wxWhere">Weather and air quality are saved with each day so you can compare them with symptoms on this page.</p>
+        <div class="backup-btns"><button class="ghost" id="wxGeo">Use my location</button></div>
+        <form class="wxset" id="wxCityForm"><input id="wxCity" placeholder="or type a city" autocomplete="off" aria-label="City"><button class="ghost" type="submit">Set</button></form>
+        <p class="hint">Pollen in the US needs a free Google Pollen API key. Paste it here and today's tree, grass and weed pollen is saved each day you open the app.</p>
+        <form class="wxset" id="wxKeyForm"><input id="wxKey" placeholder="Google Pollen API key" autocomplete="off" aria-label="Google Pollen API key"><button class="ghost" type="submit">Save</button></form>
+        <p class="hint" id="wxMsg" role="status"></p>
+      </div>
     </section>
 
-    <section class="view pg-white pg-meds" data-tab="meds" style="display:none">
+    <!-- Settings: one long page, a band per section in that section's color -->
+    <section class="view pg-white pg-meds sset" data-tab="set" style="display:none">
+      <div class="sect first" role="heading" aria-level="2">Medication</div>
+      <div class="box l-list">
+        <div class="lid"><h2>Medications</h2><button class="act add" id="addMed">Add</button></div>
+        <div id="medList"></div>
+      </div>
+      <div class="box l-list">
+        <div class="lid"><h2>Additional medications</h2><button class="act add" id="addExtra">Add</button></div>
+        <div id="extraList"></div>
+      </div>
+    </section>
+
+    <section class="view pg-color pg-syms sset band" data-tab="set" style="display:none">
+      <div class="sect" role="heading" aria-level="2">Symptoms</div>
+      <div class="box l-list">
+        <div class="lid"><h2>Symptoms</h2><button class="act add" id="addSym">Add</button></div>
+        <div id="symList"></div>
+      </div>
+    </section>
+
+    <section class="view pg-color pg-food sset band" data-tab="set" style="display:none">
+      <div class="sect" role="heading" aria-level="2">Food</div>
+      <div class="box l-list">
+        <div class="lid"><h2>Foods</h2><button class="act add" id="addFood">Add</button></div>
+        <div id="foodList"></div>
+      </div>
+      <div class="box l-list">
+        <div class="lid"><h2>Restaurants</h2><button class="act add" id="addPlace">Add</button></div>
+        <div id="placeList"></div>
+      </div>
+    </section>
+
+    <section class="view pg-color pg-mood sset band" data-tab="set" style="display:none">
+      <div class="sect" role="heading" aria-level="2">Mood &amp; emotions</div>
+      <div class="box l-list">
+        <div class="lid"><h2>Moods &amp; emotions</h2><button class="act add" id="addMood">Add</button></div>
+        <div id="moodList"></div>
+      </div>
+    </section>
+
+    <section class="view pg-white sset" data-tab="set" style="display:none">
+      <div class="sect" role="heading" aria-level="2">Your data</div>
       <div class="box l-list">
         <div class="lid"><h2>Backup</h2></div>
         <p class="hint">Stored on this device only. Save a backup before switching phones or clearing browser data.</p>
@@ -379,15 +393,6 @@ body{display:flex;flex-direction:column}
           <input type="file" id="importFile" accept="application/json,.json" hidden>
         </div>
         <p class="hint" id="backupMsg" role="status"></p>
-      </div>
-      <div class="box l-list">
-        <div class="lid"><h2>Weather</h2></div>
-        <p class="hint" id="wxWhere">Weather and air quality are saved with each day so you can compare them with symptoms on the Summary page.</p>
-        <div class="backup-btns"><button class="ghost" id="wxGeo">Use my location</button></div>
-        <form class="wxset" id="wxCityForm"><input id="wxCity" placeholder="or type a city" autocomplete="off" aria-label="City"><button class="ghost" type="submit">Set</button></form>
-        <p class="hint">Pollen in the US needs a free Google Pollen API key. Paste it here and today's tree, grass and weed pollen is saved each day you open the app.</p>
-        <form class="wxset" id="wxKeyForm"><input id="wxKey" placeholder="Google Pollen API key" autocomplete="off" aria-label="Google Pollen API key"><button class="ghost" type="submit">Save</button></form>
-        <p class="hint" id="wxMsg" role="status"></p>
       </div>
     </section>
    </div>
@@ -405,7 +410,7 @@ body{display:flex;flex-direction:column}
       <li><b>Log symptoms, meals and mood</b> on the Today page in a few taps.</li>
       <li><b>Summary</b> shows patterns over the month, like symptoms that follow certain foods or weather, to talk over with your doctor.</li>
       <li><b>Your data stays on this phone.</b> Nothing is uploaded. If you turn on weather, only your rough location is sent to get the forecast.</li>
-      <li><b>Save a backup</b> now and then (Meds page, Backup), especially before switching phones or clearing browser data.</li>
+      <li><b>Save a backup</b> now and then (Settings, Your data), especially before switching phones or clearing browser data.</li>
     </ul>
     <p class="fine">Tip: add the app to your home screen from your browser's menu. This app keeps records; it doesn't give medical advice.</p>
     <div class="actions">
@@ -549,6 +554,10 @@ function fillTexts(){
 }
 
 /* ---------- render ---------- */
+/* A notes box at the end of each Today section; its text is kept per day (state.pnotes[key][date]) */
+function noteBox(key,cls,label,ph){
+  return `<div class="box ${cls} l-notes"><div class="lid"><label for="n-${key}">${label}</label><span class="saved" data-saved="note-${key}">Saved</span></div><textarea id="n-${key}" data-note="${key}" rows="2" placeholder="${ph}"></textarea></div>`;
+}
 function medsFor(slot){return state.meds.filter(m=>m.slots&&m.slots.includes(slot))}
 /* An additional dose can point at an as-needed med or a regular one */
 function anyMed(id){return state.extras.find(x=>x.id===id)||state.meds.find(x=>x.id===id)}
@@ -613,6 +622,8 @@ function render(){
     </div>`;
   }
 
+  html+=noteBox("meds","","Medication notes","Side effects, doctor changes…");
+
   /* Today: symptoms */
   html+=`<div class="sect" role="heading" aria-level="2">Symptoms</div>`;
   const sday=state.slog[viewDate]||{};
@@ -631,6 +642,8 @@ function render(){
       </div>
     </div>`;
   }
+
+  html+=noteBox("syms","l-sym","Symptom notes","Anything about how you felt…");
 
   /* Today: meals */
   html+=`<div class="sect" role="heading" aria-level="2">Food</div>`;
@@ -660,6 +673,8 @@ function render(){
     </div>`;
   }
 
+  html+=noteBox("food","meal","Food notes","How did food sit today?");
+
   /* Today: mood & emotions, morning / afternoon / evening */
   html+=`<div class="sect" role="heading" aria-level="2">Mood &amp; emotions</div>`;
   const moday=state.mlog[viewDate]||{};
@@ -678,6 +693,8 @@ function render(){
       </div>
     </div>`;
   }
+
+  html+=noteBox("mood","mood","Mood notes","What shaped your mood today?");
 
   const slotsEl=document.getElementById("slots");
   const prog=document.getElementById("progress");
@@ -800,7 +817,7 @@ function renderSummary(){
 
   /* Most prevalent symptoms */
   if(!state.symptoms.length){
-    html+=`<div class="box l-list"><div class="lid">Top symptoms</div><div class="empty-row">Add symptoms on the Symptoms page to see them here.</div></div>`;
+    html+=`<div class="box l-list"><div class="lid">Top symptoms</div><div class="empty-row">Add symptoms in Settings to see them here.</div></div>`;
   } else {
     const ranked=[...state.symptoms].map(x=>({x,n:now.c[x.id]||0,p:before.c[x.id]||0})).sort((a,b)=>b.n-a.n||a.x.name.localeCompare(b.x.name));
     html+=`<div class="box l-list"><div class="lid">Top symptoms<span class="st">${elapsed} ${elapsed===1?"day":"days"} tracked</span></div>
@@ -904,7 +921,7 @@ function renderSummary(){
 /* Status bar color follows the page background */
 function updateChrome(){
   const cs=getComputedStyle(document.body);
-  const colored=matchMedia("(max-width:719px)").matches && ["food","syms","mood"].includes(document.body.dataset.page);
+  const colored=false;
   document.querySelector('meta[name="theme-color"]').content = colored
     ? `hsl(${(+cs.getPropertyValue("--h").trim())+(+cs.getPropertyValue("--dh").trim()||0)} ${cs.getPropertyValue("--s").trim()} 96%)` : "#FFFFFF";
 }
@@ -930,7 +947,7 @@ function wxStatus(t){const el=document.getElementById("wxMsg"); if(el) el.textCo
 function wxWhereText(){
   const el=document.getElementById("wxWhere"); if(!el) return;
   el.textContent = state.wxloc ? `Saving weather for ${state.wxloc.label}. Change it below if you move.`
-    : "Weather and air quality are saved with each day so you can compare them with symptoms on the Summary page. Pick a location to turn it on.";
+    : "Weather and air quality are saved with each day so you can compare them with symptoms on this page. Pick a location to turn it on.";
   document.getElementById("wxKey").value = state.pollenKey ? "••••••••"+state.pollenKey.slice(-4) : "";
 }
 async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}
@@ -1028,7 +1045,7 @@ function wxSummary(from,upto){
   if(!state.wxloc) return `<div class="box l-list"><div class="lid">Weather &amp; symptoms</div>
     <p class="hint">Save the weather, air quality and pollen with each day, then see whether symptoms line up with them.</p>
     <div class="backup-btns"><button class="ghost" data-wxgeo>Use my location</button></div>
-    <p class="hint">Or set a city on the Meds page.</p></div>`;
+    <p class="hint">Or type a city in the Weather box below.</p></div>`;
   const tk=todayKey(), t=state.weather[tk];
   const now = t ? `<div class="wxnow"><b>Today</b> ${fmtTemp(t.hi)} / ${fmtTemp(t.lo)} · ${esc(WMO[t.code]||"")}${t.aqi!=null?" · AQI "+t.aqi:""}${t.pollen?" · pollen: tree "+t.pollen.tree+", grass "+t.pollen.grass+", weed "+t.pollen.weed:""}</div>` : "";
   const hasSym=k=>{const v=state.slog[k]||{};return wxSym==="any"?state.symptoms.some(x=>v[x.id]):!!v[wxSym]};
@@ -1219,6 +1236,7 @@ function flushText(){ if(textTimer){clearTimeout(textTimer);textTimer=null;persi
 document.getElementById("prevDay").onclick=()=>{flushText();viewDate=shiftKey(viewDate,-1);render()};
 document.getElementById("nextDay").onclick=()=>{if(viewDate<todayKey()){flushText();viewDate=shiftKey(viewDate,1);render()}};
 for(const ta of document.querySelectorAll("textarea")) ta.addEventListener("input",()=>onTextInput(ta));
+document.getElementById("slots").addEventListener("input",e=>{ if(e.target.matches("textarea[data-note]")) onTextInput(e.target); });
 window.addEventListener("pagehide",()=>{ if(textTimer){clearTimeout(textTimer);persist()} });
 document.addEventListener("visibilitychange",()=>{ if(document.hidden&&textTimer){clearTimeout(textTimer);textTimer=null;persist()} });
 document.getElementById("medList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-med]");if(b)openEditor("med",b.dataset.editMed)});
