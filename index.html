@@ -69,14 +69,12 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
   header.top{position:fixed;top:auto;bottom:0;left:0;right:0;padding:0 0 env(safe-area-inset-bottom,0px);
     border-top:1px solid var(--rule);box-shadow:0 -7px 0 hsl(var(--h) var(--s) 78%)}
   body{padding-bottom:70px}
-  /* Six tabs as icons with a tiny label; icon lines are 3px, the same as the box frames */
+  /* Six text tabs in one row. Each button is as wide as its word (plus equal padding),
+     so long names like Symptoms get more room and the text can be bigger */
   header.top .tabs{border:0}
-  header.top .tabs button{min-height:62px;padding:7px 0 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
-  header.top .tabs .ic{display:block;width:26px;height:26px;overflow:visible}
-  header.top .tabs .ic *{vector-effect:non-scaling-stroke}
-  header.top .tabs .tl{font-size:11px;line-height:1;letter-spacing:.02em}
+  header.top .tabs button{flex:1 1 auto;min-height:62px;padding:0 5px;white-space:nowrap;
+    font-size:clamp(12px,3.75vw,16px);font-weight:500;letter-spacing:0}
 }
-.tabs .ic{display:none}
 .tabs{display:flex;flex:1;border:1px solid var(--rule);background:transparent}
 .tabs button{flex:1;border:0;background:transparent;padding:8px 4px;min-height:40px}
 .tabs button+button{border-left:1px solid var(--rule)}
@@ -285,12 +283,12 @@ body{display:flex;flex-direction:column}
 <header class="top">
   <span class="brand">Daily meds</span>
   <div class="tabs" role="tablist">
-    <button role="tab" data-tab="today" aria-selected="true" title="Today"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter" aria-hidden="true"><rect x="2" y="3" width="20" height="19"/><path d="M2 9h20"/><rect x="13" y="13" width="5" height="5" fill="currentColor" stroke="none"/></svg><span class="tl">Today</span></button>
-    <button role="tab" data-tab="food" aria-selected="false" title="Food"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4.5"/></svg><span class="tl">Food</span></button>
-    <button role="tab" data-tab="meds" aria-selected="false" title="Meds"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter" aria-hidden="true"><g transform="rotate(-45 12 12)"><path d="M12 7.5H6.5a4.5 4.5 0 0 0 0 9H12z" fill="currentColor"/><rect x="2" y="7.5" width="20" height="9" rx="4.5"/></g></svg><span class="tl">Meds</span></button>
-    <button role="tab" data-tab="syms" aria-selected="false" title="Symptoms"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter" aria-hidden="true"><path d="M1 13h4l3.5-9 7 16L19 11h4"/></svg><span class="tl">Symptoms</span></button>
-    <button role="tab" data-tab="mood" aria-selected="false" title="Mood"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter" aria-hidden="true"><circle cx="12" cy="12" r="10"/><rect x="7.5" y="7.5" width="2.5" height="2.5" fill="currentColor" stroke="none"/><rect x="14" y="7.5" width="2.5" height="2.5" fill="currentColor" stroke="none"/><path d="M7.5 14a4.5 4.5 0 0 0 9 0"/></svg><span class="tl">Mood</span></button>
-    <button role="tab" data-tab="sum" aria-selected="false" title="Summary"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter" aria-hidden="true"><path d="M2 22h20M5.5 22v-7M12 22V9.5M18.5 22V3"/></svg><span class="tl">Summary</span></button>
+    <button role="tab" data-tab="today" aria-selected="true" title="Today">Today</button>
+    <button role="tab" data-tab="food" aria-selected="false" title="Food">Food</button>
+    <button role="tab" data-tab="meds" aria-selected="false" title="Meds">Meds</button>
+    <button role="tab" data-tab="syms" aria-selected="false" title="Symptoms">Symptoms</button>
+    <button role="tab" data-tab="mood" aria-selected="false" title="Mood">Mood</button>
+    <button role="tab" data-tab="sum" aria-selected="false" title="Summary">Summary</button>
   </div>
 </header>
 <div class="wrap">
