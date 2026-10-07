@@ -57,7 +57,7 @@ b{font-weight:500}
 
   <nav class="toc" aria-label="Sections">
     <a href="#today">Today</a><a href="#meals">Meals</a><a href="#meds">Meds</a><a href="#symptoms">Symptoms</a>
-    <a href="#food">Food</a><a href="#summary">Summary</a><a href="#data">Your data</a><a href="#install">Install &amp; updates</a>
+    <a href="#food">Food</a><a href="#mood">Mood</a><a href="#weather">Weather</a><a href="#summary">Summary</a><a href="#data">Your data</a><a href="#install">Install &amp; updates</a>
   </nav>
 
   <section class="box" id="today">
@@ -127,7 +127,30 @@ b{font-weight:500}
         <li>Tap one to rename it or delete it. Deleting a food or restaurant removes it from past meals too.</li>
         <li>If you add a name that already exists, the app reuses it instead of making a duplicate.</li>
       </ul>
-      <p>The Meds, Symptoms and Food pages each have their own <b>Notes</b> box for the day shown at the top right of it.</p>
+      <p>The Meds, Symptoms, Food and Mood pages each have their own <b>Notes</b> box for the day shown at the top right of it.</p>
+    </div>
+  </section>
+
+  <section class="box" id="mood">
+    <div class="lid"><h2>Mood &amp; emotions</h2></div>
+    <div class="body">
+      <ul>
+        <li>On Today, below the meals, there are <b>Morning</b>, <b>Afternoon</b> and <b>Evening</b> boxes. Use <b>Add mood or emotion…</b> to log how you felt, as many as fit. Tap <b>×</b> to remove one.</li>
+        <li>The Mood page holds your list. It starts with a few common ones; tap one to rename or delete it, or <b>Add</b> your own.</li>
+        <li>Summary shows which moods came up most, and the export has a column for each time of day.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="box" id="weather">
+    <div class="lid"><h2>Weather</h2></div>
+    <div class="body">
+      <p>Set a location in the <b>Weather</b> box on the Meds page (or tap <b>Use my location</b> on Summary). From then on the app saves each day's temperature, rain, humidity, air pressure and air quality, and fills in the past three months.</p>
+      <ul>
+        <li>Summary's <b>Weather &amp; symptoms</b> box compares days you had symptoms with days you didn't. Pick one symptom to narrow it down.</li>
+        <li><b>Pollen</b> in the US needs a free Google Pollen API key. Pollen only comes as a forecast, so it's saved for each day you open the app and can't be filled in for past days.</li>
+        <li>Weather comes from Open-Meteo. Only your location is sent, rounded to about a kilometer.</li>
+      </ul>
     </div>
   </section>
 
@@ -141,7 +164,7 @@ b{font-weight:500}
         <li><b>Medication</b> shows the share of doses you checked off, counted from when you started using the app.</li>
       </ul>
       <h3>Export for AI</h3>
-      <p>Downloads a spreadsheet (CSV) with one row per day: doses taken and missed, symptoms, each meal's foods and restaurant, and your notes. Share it with your doctor, or upload it to Claude and ask whether symptoms tend to follow certain foods, restaurants or missed doses.</p>
+      <p>Downloads a spreadsheet (CSV) with one row per day: doses taken and missed, symptoms, each meal's foods and restaurant, mood, weather, air quality, pollen, and your notes. Share it with your doctor, or upload it to Claude and ask whether symptoms tend to follow certain foods, restaurants or missed doses.</p>
     </div>
   </section>
 

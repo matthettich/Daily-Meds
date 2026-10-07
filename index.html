@@ -35,11 +35,11 @@ body[data-day="5"]{--h:152;--s:50%;--tx:#7A1E5E}
 body[data-day="6"]{--h:208;--s:75%;--tx:#8A3412}
 /* Phone (folded): pages alternate white and colored — Today white, Food colored, Meds white, Symptoms colored */
 /* Each page is its own version of the day's color (a small hue shift) */
-.pg-today{--dh:0} .pg-food{--dh:22} .pg-meds{--dh:-22} .pg-syms{--dh:44} .pg-sum{--dh:-44}
+.pg-today{--dh:0} .pg-food{--dh:22} .pg-meds{--dh:-22} .pg-syms{--dh:44} .pg-sum{--dh:-44} .pg-mood{--dh:-55}
 .view{--H:calc(var(--h) + var(--dh,0))}
-body[data-page="food"]{--dh:22} body[data-page="syms"]{--dh:44}
+body[data-page="food"]{--dh:22} body[data-page="syms"]{--dh:44} body[data-page="mood"]{--dh:-55}
 @media (max-width:719px){
-  body[data-page="food"],body[data-page="syms"]{background:hsl(calc(var(--h) + var(--dh)) var(--s) 96%)}
+  body[data-page="food"],body[data-page="syms"],body[data-page="mood"]{background:hsl(calc(var(--h) + var(--dh)) var(--s) 96%)}
 }
 /* White pages: colored title bars, white entry boxes. Colored pages: white title bars, colored entry boxes. */
 .pg-white .box{background:var(--white)}
@@ -67,8 +67,8 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
   .brand{display:none}
   /* Phone: page tabs live in a bar along the bottom, within thumb reach */
   header.top{position:fixed;top:auto;bottom:0;left:0;right:0;padding:0 0 env(safe-area-inset-bottom,0px);
-    border-top:1px solid var(--rule)}
-  body{padding-bottom:53px}
+    border-top:1px solid var(--rule);box-shadow:0 -7px 0 hsl(var(--h) var(--s) 78%)}
+  body{padding-bottom:60px}
   .tabs{border:0}
   .tabs button{min-height:52px}
 }
@@ -199,6 +199,10 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .pg-white .box.l-sym{--H:calc(var(--h) + 44);--l:90%;background:hsl(var(--H) var(--s) var(--l))}
 /* ...but its title bar is filled with a deeper shade so it stands apart from the meals */
 .pg-white .box.l-sym .lid{background:hsl(var(--H) var(--s) 70%);color:var(--ink)}
+/* Mood on Today: styled like the medication boxes (white body, colored title bar), in the Mood page's version of the day color,
+   deepening through the day */
+.pg-white .box.mood{--H:calc(var(--h) - 55)}
+.l-mmorning{--l:90%} .l-mafternoon{--l:86%} .l-mevening{--l:82%}
 .chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 10px 0}
 .chip{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--rule);background:var(--white);padding:0 0 0 10px;font-size:14px;min-height:32px}
 .chip button{border:0;border-left:1px solid var(--rule);background:transparent;width:30px;align-self:stretch;font-size:16px;line-height:1;margin-left:6px}
@@ -244,6 +248,18 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .cal .blank{aspect-ratio:1}
 .legend{display:flex;align-items:center;gap:6px;padding:0 10px 10px;font-size:12px;color:var(--muted)}
 .legend i{width:14px;height:14px;border:1px solid var(--rule);display:inline-block}
+/* Weather vs symptoms table */
+.wxt{display:grid;grid-template-columns:1fr auto auto;gap:0 14px;padding:4px 10px 10px;font-variant-numeric:tabular-nums;align-items:baseline}
+.wxt span{padding:7px 0;border-top:1px solid var(--hair);text-align:right;white-space:nowrap}
+.wxt span.k{text-align:left;font-weight:500;white-space:normal}
+.wxt .h{border-top:0;font-size:12px;color:var(--muted);font-weight:400;padding-top:2px}
+.wxt span.v{color:var(--muted)}
+.wxt span.v.hi{color:var(--ink);font-weight:500;text-decoration:underline;text-decoration-color:hsl(var(--H) var(--s) 62%);text-decoration-thickness:4px;text-underline-offset:2px}
+.wxpick{display:flex;align-items:center;gap:8px;padding:10px 10px 0;font-size:13px;color:var(--muted)}
+.wxpick select{flex:1;min-height:36px;border:1px solid var(--rule);background:var(--white);font:inherit;font-size:14px;color:var(--ink);padding:4px 8px}
+.wxnow{padding:10px 10px 0;font-size:14px}
+.wxset{display:flex;gap:8px;margin:0 10px 10px}
+.wxset input{flex:1;min-width:0;min-height:40px;padding:8px 10px;border:1px solid var(--rule);background:var(--white);font:inherit;color:var(--ink)}
 /* Help: a small box at the very bottom center of every page */
 body{display:flex;flex-direction:column}
 .wrap{flex:1 0 auto;width:100%}
@@ -258,6 +274,7 @@ body{display:flex;flex-direction:column}
   <div class="tabs" role="tablist">
     <button role="tab" data-tab="today" aria-selected="true">Today</button>
     <button role="tab" data-tab="food" aria-selected="false">Food</button>
+    <button role="tab" data-tab="mood" aria-selected="false">Mood</button>
     <button role="tab" data-tab="meds" aria-selected="false">Meds</button>
     <button role="tab" data-tab="syms" aria-selected="false">Symptoms</button>
     <button role="tab" data-tab="sum" aria-selected="false">Summary</button>
@@ -298,6 +315,14 @@ body{display:flex;flex-direction:column}
         <div id="placeList"></div>
       </div>
       <div class="box l-notes"><div class="lid"><label for="n-food">Notes</label><span class="saved" data-saved="note-food">Saved</span><span class="st notedate"></span></div><textarea id="n-food" data-note="food" rows="2" placeholder="How did food sit today?"></textarea></div>
+    </section>
+
+    <section class="view pg-color pg-mood" data-tab="mood" style="display:none">
+      <div class="box l-list">
+        <div class="lid"><h2>Moods &amp; emotions</h2><button class="act add" id="addMood">Add</button></div>
+        <div id="moodList"></div>
+      </div>
+      <div class="box l-notes"><div class="lid"><label for="n-mood">Notes</label><span class="saved" data-saved="note-mood">Saved</span><span class="st notedate"></span></div><textarea id="n-mood" data-note="mood" rows="2" placeholder="What shaped your mood today?"></textarea></div>
     </section>
 
     <section class="view pg-white pg-meds" data-tab="meds" style="display:none">
@@ -344,6 +369,15 @@ body{display:flex;flex-direction:column}
           <input type="file" id="importFile" accept="application/json,.json" hidden>
         </div>
         <p class="hint" id="backupMsg" role="status"></p>
+      </div>
+      <div class="box l-list">
+        <div class="lid"><h2>Weather</h2></div>
+        <p class="hint" id="wxWhere">Weather and air quality are saved with each day so you can compare them with symptoms on the Summary page.</p>
+        <div class="backup-btns"><button class="ghost" id="wxGeo">Use my location</button></div>
+        <form class="wxset" id="wxCityForm"><input id="wxCity" placeholder="or type a city" autocomplete="off" aria-label="City"><button class="ghost" type="submit">Set</button></form>
+        <p class="hint">Pollen in the US needs a free Google Pollen API key. Paste it here and today's tree, grass and weed pollen is saved each day you open the app.</p>
+        <form class="wxset" id="wxKeyForm"><input id="wxKey" placeholder="Google Pollen API key" autocomplete="off" aria-label="Google Pollen API key"><button class="ghost" type="submit">Save</button></form>
+        <p class="hint" id="wxMsg" role="status"></p>
       </div>
     </section>
    </div>
@@ -392,6 +426,12 @@ const MEALS = [
   {id:"breakfast",label:"Breakfast",l:"l-waking"},{id:"lunch",label:"Lunch",l:"l-morning"},
   {id:"dinner",label:"Dinner",l:"l-afternoon"},{id:"after",label:"After dinner",l:"l-evening"}
 ];
+const MOODTIMES = [
+  {id:"morning",label:"Morning",l:"l-mmorning"},{id:"afternoon",label:"Afternoon",l:"l-mafternoon"},{id:"evening",label:"Evening",l:"l-mevening"}
+];
+/* A starter list of moods; edit or delete any of them on the Mood page */
+const DEFAULT_MOODS = ["Happy","Calm","Content","Energetic","Tired","Anxious","Stressed","Irritable","Sad","Low","Overwhelmed","Hopeful"];
+function defaultMoods(){return DEFAULT_MOODS.map(name=>({id:uid(),name}))}
 const SLOTS = [
   {id:"waking",label:"Waking"},{id:"morning",label:"Morning"},{id:"afternoon",label:"Afternoon"},
   {id:"evening",label:"Evening"},{id:"bedtime",label:"Bedtime"}
@@ -401,7 +441,10 @@ const LS_KEY = "daily-meds-v1";
 const KEEP_MED_DAYS = 400;   // medication check-offs; symptom history is kept for monthly records
 
 /* extras: as-needed medications (Tylenol, aspirin…). xlog: {date:[{id,t}]} — each dose taken, from extras or the regular list */
-let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, updated:0};
+/* moods: mood list. mlog: {date:{morning:[ids],afternoon:[ids],evening:[ids]}}
+   weather: {date:{hi,lo,rain,code,hum,press,aqi,pm25,pollen:{tree,grass,weed},final}} (°C, mm, %, hPa). wxloc: {lat,lon,label} */
+let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{},
+  moods:defaultMoods(), mlog:{}, weather:{}, wxloc:null, pollenKey:"", updated:0};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
 
@@ -422,6 +465,9 @@ function normalize(s){
           food:obj(s.food), notes:obj(s.notes), pnotes:obj(s.pnotes),
           foods:Array.isArray(s.foods)?s.foods:[], places:Array.isArray(s.places)?s.places:[], meals:obj(s.meals),
           extras:Array.isArray(s.extras)?s.extras:[], xlog:obj(s.xlog),
+          moods:Array.isArray(s.moods)?s.moods:defaultMoods(), mlog:obj(s.mlog),
+          weather:obj(s.weather), wxloc:(s.wxloc&&isFinite(s.wxloc.lat)&&isFinite(s.wxloc.lon))?s.wxloc:null,
+          pollenKey:typeof s.pollenKey==="string"?s.pollenKey:"",
           updated:Number(s.updated)||0};
 }
 function loadLocal(){
@@ -586,6 +632,25 @@ function render(){
     </div>`;
   }
 
+  /* Today: mood & emotions, morning / afternoon / evening */
+  html+=`<div class="sect" role="heading" aria-level="2">Mood &amp; emotions</div>`;
+  const moday=state.mlog[viewDate]||{};
+  const moodsSorted=[...state.moods].sort((a,b)=>a.name.localeCompare(b.name));
+  for(const mt of MOODTIMES){
+    const ids=(moday[mt.id]||[]).filter(id=>byId(state.moods,id));
+    html+=`<div class="box mood ${mt.l}">
+      <div class="lid">${mt.label}<span class="st">${ids.length?"":"None"}</span></div>
+      <div class="chips">${ids.length?ids.map(id=>{const nm=byId(state.moods,id).name;return `<span class="chip">${esc(nm)}<button data-rmmood="${esc(id)}" data-mt="${mt.id}" aria-label="Remove ${esc(nm)} from ${mt.label.toLowerCase()}">×</button></span>`}).join(""):`<span class="none">How did you feel?</span>`}</div>
+      <div class="pickers one">
+        <select data-pick="mood" data-mt="${mt.id}" aria-label="Add a mood for ${mt.label.toLowerCase()}">
+          <option value="">Add mood or emotion…</option>
+          ${moodsSorted.filter(x=>!ids.includes(x.id)).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join("")}
+          <option value="__new">+ New mood…</option>
+        </select>
+      </div>
+    </div>`;
+  }
+
   const slotsEl=document.getElementById("slots");
   const prog=document.getElementById("progress");
   if(!state.meds.length&&!state.symptoms.length){
@@ -631,6 +696,11 @@ function render(){
     ? [...state.foods].sort((a,b)=>a.name.localeCompare(b.name)).map(x=>{const n=mealCount("foods",x.id);return `<button class="row" data-edit-food="${esc(x.id)}">
         <span class="nm">${esc(x.name)}</span><span class="side">${n} ${n===1?"day":"days"} in ${esc(month)}</span></button>`}).join("")
     : `<div class="empty-row">No foods. Tap Add.</div>`;
+  const moodDays=id=>{const prefix=todayKey().slice(0,7);let n=0;for(const [k,v] of Object.entries(state.mlog)) if(k.startsWith(prefix)&&Object.values(v).some(a=>a.includes(id))) n++;return n};
+  document.getElementById("moodList").innerHTML = state.moods.length
+    ? [...state.moods].sort((a,b)=>a.name.localeCompare(b.name)).map(x=>{const n=moodDays(x.id);return `<button class="row" data-edit-mood="${esc(x.id)}">
+        <span class="nm">${esc(x.name)}</span><span class="side">${n} ${n===1?"day":"days"} in ${esc(month)}</span></button>`}).join("")
+    : `<div class="empty-row">No moods. Tap Add.</div>`;
   document.getElementById("placeList").innerHTML = state.places.length
     ? [...state.places].sort((a,b)=>a.name.localeCompare(b.name)).map(x=>{const n=mealCount("place",x.id);return `<button class="row" data-edit-place="${esc(x.id)}">
         <span class="nm">${esc(x.name)}</span><span class="side">${n} ${n===1?"visit":"visits"} in ${esc(month)}</span></button>`}).join("")
@@ -655,7 +725,7 @@ function daysBetween(a,b){return Math.round((parseKey(b)-parseKey(a))/86400000)+
 function firstUse(){
   let first=todayKey();
   const scan=o=>{for(const k of Object.keys(o||{})) if(k<first) first=k};
-  scan(state.log);scan(state.slog);scan(state.food);scan(state.notes);scan(state.xlog);
+  scan(state.log);scan(state.slog);scan(state.food);scan(state.notes);scan(state.xlog);scan(state.meals);scan(state.mlog);
   for(const v of Object.values(state.pnotes)) scan(v);
   return first;
 }
@@ -776,11 +846,28 @@ function renderSummary(){
     }
   }
 
+  /* Mood & emotions */
+  {
+    const tally={};
+    for(const [k,v] of Object.entries(state.mlog)){ if(k<from||k>upto) continue;
+      const seen=new Set();
+      for(const ids of Object.values(v)) for(const id of ids){ if(!state.moods.some(x=>x.id===id)) continue;
+        const t=tally[id]||(tally[id]={times:0,days:0}); t.times++; if(!seen.has(id)){seen.add(id);t.days++} } }
+    const rows=Object.entries(tally).map(([id,t])=>({x:state.moods.find(m=>m.id===id),...t})).sort((a,b)=>b.days-a.days||b.times-a.times||a.x.name.localeCompare(b.x.name));
+    const maxD=Math.max(1,...rows.map(r=>r.days));
+    html+=`<div class="box l-list"><div class="lid">Mood &amp; emotions</div>
+      ${rows.length?rows.map(r=>`<div class="stat"><span class="nm">${esc(r.x.name)}</span><span class="num">${r.days} ${r.days===1?"day":"days"}${r.times>r.days?" · "+r.times+" times":""}</span><div class="track"><i style="width:${Math.round(r.days/maxD*100)}%"></i></div></div>`).join("")
+        :`<div class="empty-row">No moods logged this ${unit}.</div>`}</div>`;
+  }
+
+  /* Weather vs symptoms */
+  html+=wxSummary(from,upto);
+
   /* Export for AI */
   const yr=P.start.slice(0,4);
   html+=`<div class="box l-list"><div class="lid">Export for AI</div>
-    <p class="hint">A spreadsheet with one row per day: doses taken and missed, additional medication, symptoms, each meal's foods and restaurant, and your notes. Upload it to Claude or another AI and ask something like:</p>
-    <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses line up with symptoms?"</p>
+    <p class="hint">A spreadsheet with one row per day: doses taken and missed, additional medication, symptoms, each meal's foods and restaurant, mood, weather, air quality, pollen, and your notes. Upload it to Claude or another AI and ask something like:</p>
+    <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses, moods, pressure changes, air quality or pollen line up with symptoms?"</p>
     <div class="backup-btns"><button class="ghost" data-export="year">Download ${esc(yr)}</button><button class="ghost" data-export="all">Download everything</button></div>
     <p class="hint" id="exportMsg" role="status"></p></div>`;
   body.innerHTML=html;
@@ -789,10 +876,170 @@ function renderSummary(){
 /* Status bar color follows the page background */
 function updateChrome(){
   const cs=getComputedStyle(document.body);
-  const colored=matchMedia("(max-width:719px)").matches && ["food","syms"].includes(document.body.dataset.page);
+  const colored=matchMedia("(max-width:719px)").matches && ["food","syms","mood"].includes(document.body.dataset.page);
   document.querySelector('meta[name="theme-color"]').content = colored
     ? `hsl(${(+cs.getPropertyValue("--h").trim())+(+cs.getPropertyValue("--dh").trim()||0)} ${cs.getPropertyValue("--s").trim()} 96%)` : "#FFFFFF";
 }
+
+/* ---------- weather, air quality and pollen ----------
+   Weather and air quality come from Open-Meteo (free, no account). Pollen in the US comes from the Google Pollen API
+   with the user's own key; it only has forecasts, so each day's pollen is saved on the days the app is opened. */
+const WX_PAST=92;
+const US_UNITS=/^en-(US|LR)\b|^my\b/i.test(navigator.language||"en-US");
+const WMO={0:"Clear",1:"Mostly clear",2:"Partly cloudy",3:"Cloudy",45:"Fog",48:"Fog",51:"Light drizzle",53:"Drizzle",55:"Heavy drizzle",
+  56:"Freezing drizzle",57:"Freezing drizzle",61:"Light rain",63:"Rain",65:"Heavy rain",66:"Freezing rain",67:"Freezing rain",
+  71:"Light snow",73:"Snow",75:"Heavy snow",77:"Snow",80:"Showers",81:"Showers",82:"Heavy showers",85:"Snow showers",86:"Snow showers",
+  95:"Thunderstorms",96:"Thunderstorms",99:"Thunderstorms"};
+const POLLEN_WORDS=["None","Very low","Low","Moderate","High","Very high"];
+const r1=v=>v==null||!isFinite(v)?null:Math.round(v*10)/10;
+function fmtTemp(c){return c==null?"–":Math.round(US_UNITS?c*9/5+32:c)+"°"}
+function fmtTempDiff(c){return c==null?"–":Math.round(US_UNITS?c*9/5:c)+"°"}
+function fmtPress(h){return h==null?"–":US_UNITS?(h*0.02953).toFixed(2)+" in":Math.round(h)+" hPa"}
+function fmtPressDiff(h){return h==null?"–":US_UNITS?(h*0.02953).toFixed(2)+" in":h.toFixed(1)+" hPa"}
+function fmtRain(mm){return mm==null?"–":US_UNITS?(mm/25.4).toFixed(2)+" in":mm.toFixed(1)+" mm"}
+let wxBusy=false, wxLast=0;
+function wxStatus(t){const el=document.getElementById("wxMsg"); if(el) el.textContent=t||"";}
+function wxWhereText(){
+  const el=document.getElementById("wxWhere"); if(!el) return;
+  el.textContent = state.wxloc ? `Saving weather for ${state.wxloc.label}. Change it below if you move.`
+    : "Weather and air quality are saved with each day so you can compare them with symptoms on the Summary page. Pick a location to turn it on.";
+  document.getElementById("wxKey").value = state.pollenKey ? "••••••••"+state.pollenKey.slice(-4) : "";
+}
+async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}
+function byDay(h,field){const o={};const t=(h&&h.time)||[],v=(h&&h[field])||[];t.forEach((x,i)=>{if(v[i]==null)return;const k=x.slice(0,10);(o[k]||(o[k]=[])).push(v[i])});return o}
+const mean=a=>a&&a.length?a.reduce((s,v)=>s+v,0)/a.length:null;
+const maxOf=a=>a&&a.length?Math.max(...a):null;
+async function fetchWeather(force){
+  const L=state.wxloc; if(!L||wxBusy||!navigator.onLine) return;
+  if(!force&&Date.now()-wxLast<30*60000) return;
+  const tk=todayKey(), earliest=shiftKey(tk,-WX_PAST);
+  let start=firstUse(); if(start<earliest) start=earliest;
+  let first=null;
+  for(let k=start;k<=tk;k=shiftKey(k,1)){const w=state.weather[k];if(!w||!w.final){first=k;break}}
+  const wantPollen=!!state.pollenKey && !(state.weather[tk]||{}).pollen;
+  if(!first&&!wantPollen&&!force) return;
+  wxBusy=true; wxLast=Date.now(); wxStatus("Updating weather…");
+  let changed=false, err="";
+  try{
+    if(first||force){
+      const past=Math.min(WX_PAST,daysBetween(first||tk,tk)-1+1);
+      const base=`latitude=${L.lat}&longitude=${L.lon}&timezone=auto&past_days=${past}&forecast_days=1`;
+      const [w,a]=await Promise.all([
+        getJSON(`https://api.open-meteo.com/v1/forecast?${base}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code&hourly=relative_humidity_2m,pressure_msl`),
+        getJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?${base}&hourly=us_aqi,pm2_5`).catch(()=>null)
+      ]);
+      const hum=byDay(w.hourly,"relative_humidity_2m"), pr=byDay(w.hourly,"pressure_msl");
+      const aqi=byDay(a&&a.hourly,"us_aqi"), pm=byDay(a&&a.hourly,"pm2_5");
+      const D=w.daily||{};
+      (D.time||[]).forEach((k,i)=>{
+        if(k>tk) return;
+        const old=state.weather[k]||{};
+        if(old.final) return;
+        state.weather[k]={...old, hi:r1(D.temperature_2m_max[i]), lo:r1(D.temperature_2m_min[i]), rain:r1(D.precipitation_sum[i]),
+          code:D.weather_code[i], hum:r1(mean(hum[k])), press:r1(mean(pr[k])),
+          aqi:a?maxOf(aqi[k]):old.aqi??null, pm25:a?r1(mean(pm[k])):old.pm25??null, final:k<tk&&(!pr[k]||pr[k].length>=24)};
+        changed=true;
+      });
+    }
+  }catch(e){ err="Couldn't get the weather right now. It will try again later."; }
+  if(state.pollenKey && !(state.weather[tk]||{}).pollen){
+    try{
+      const j=await getJSON(`https://pollen.googleapis.com/v1/forecast:lookup?key=${encodeURIComponent(state.pollenKey)}&location.latitude=${L.lat}&location.longitude=${L.lon}&days=1&plantsDescription=false`);
+      const info=(j.dailyInfo||[])[0], p={};
+      for(const t of (info&&info.pollenTypeInfo)||[]) p[String(t.code).toLowerCase()] = t.indexInfo&&isFinite(t.indexInfo.value) ? t.indexInfo.value : 0;
+      if(info){ (state.weather[tk]||(state.weather[tk]={})).pollen={tree:p.tree??null,grass:p.grass??null,weed:p.weed??null}; changed=true; }
+    }catch(e){ err=(err?err+" ":"")+"Couldn't get pollen — check the API key."; }
+  }
+  wxBusy=false;
+  if(changed) persist();
+  wxStatus(err);
+  renderSummary();
+}
+function setLocation(loc){
+  state.wxloc=loc;
+  for(const w of Object.values(state.weather)) w.final=false;   // refresh recent days for the new place
+  persist(); wxWhereText(); fetchWeather(true);
+}
+document.getElementById("wxGeo").onclick=()=>{
+  if(!navigator.geolocation){wxStatus("This browser can't share your location. Type a city instead.");return}
+  wxStatus("Finding you…");
+  navigator.geolocation.getCurrentPosition(
+    p=>setLocation({lat:Math.round(p.coords.latitude*100)/100,lon:Math.round(p.coords.longitude*100)/100,label:"your location"}),
+    ()=>wxStatus("Location wasn't shared. Type a city instead."),
+    {maximumAge:3600000,timeout:15000});
+};
+document.getElementById("wxCityForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const q=document.getElementById("wxCity").value.trim(); if(!q) return;
+  wxStatus("Looking up "+q+"…");
+  try{
+    const j=await getJSON(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q.split(",")[0].trim())}&count=10&language=en&format=json`);
+    const hint=(q.split(",")[1]||"").trim().toLowerCase();
+    const list=j.results||[];
+    const r=(hint&&list.find(x=>[x.admin1,x.country,x.country_code].some(v=>v&&v.toLowerCase().startsWith(hint))))||list[0];
+    if(!r){wxStatus("Couldn't find that city.");return}
+    document.getElementById("wxCity").value="";
+    setLocation({lat:Math.round(r.latitude*100)/100,lon:Math.round(r.longitude*100)/100,label:[r.name,r.admin1].filter(Boolean).join(", ")});
+  }catch(err){wxStatus("Couldn't look that up right now.")}
+});
+document.getElementById("wxKeyForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const v=document.getElementById("wxKey").value.trim();
+  if(v.startsWith("••")) return;
+  state.pollenKey=v;
+  const t=state.weather[todayKey()]; if(t) delete t.pollen;
+  persist(); wxWhereText(); wxStatus(v?"Pollen key saved.":"Pollen key removed.");
+  if(v) fetchWeather(true);
+});
+document.getElementById("wxKey").addEventListener("focus",e=>{if(e.target.value.startsWith("••"))e.target.value=""});
+document.getElementById("wxKey").addEventListener("blur",()=>wxWhereText());
+
+/* Compare weather on days with symptoms against days without, for the Summary page */
+let wxSym="any";
+function wxSummary(from,upto){
+  if(!state.wxloc) return `<div class="box l-list"><div class="lid">Weather &amp; symptoms</div>
+    <p class="hint">Save the weather, air quality and pollen with each day, then see whether symptoms line up with them.</p>
+    <div class="backup-btns"><button class="ghost" data-wxgeo>Use my location</button></div>
+    <p class="hint">Or set a city on the Meds page.</p></div>`;
+  const tk=todayKey(), t=state.weather[tk];
+  const now = t ? `<div class="wxnow"><b>Today</b> ${fmtTemp(t.hi)} / ${fmtTemp(t.lo)} · ${esc(WMO[t.code]||"")}${t.aqi!=null?" · AQI "+t.aqi:""}${t.pollen?" · pollen: tree "+t.pollen.tree+", grass "+t.pollen.grass+", weed "+t.pollen.weed:""}</div>` : "";
+  const hasSym=k=>{const v=state.slog[k]||{};return wxSym==="any"?state.symptoms.some(x=>v[x.id]):!!v[wxSym]};
+  const A=[],B=[];
+  for(let k=from;k<=upto;k=shiftKey(k,1)){
+    const w=state.weather[k]; if(!w||w.hi==null) continue;
+    const pw=state.weather[shiftKey(k,-1)];
+    const row={...w, dp:pw&&pw.press!=null&&w.press!=null?Math.abs(w.press-pw.press):null, dt:w.hi!=null&&w.lo!=null?w.hi-w.lo:null};
+    (hasSym(k)?A:B).push(row);
+  }
+  const avg=(L,f)=>{const v=L.map(f).filter(x=>x!=null&&isFinite(x));return v.length?v.reduce((s,x)=>s+x,0)/v.length:null};
+  const pct=(L,f)=>L.length?Math.round(L.filter(f).length/L.length*100)+"%":"–";
+  const pol=f=>r=>r.pollen?r.pollen[f]:null;
+  const rows=[
+    ["High temp",r=>r.hi,fmtTemp],["Low temp",r=>r.lo,fmtTemp],["Day–night swing",r=>r.dt,fmtTempDiff],
+    ["Humidity",r=>r.hum,v=>v==null?"–":Math.round(v)+"%"],["Pressure",r=>r.press,fmtPress],
+    ["Pressure change",r=>r.dp,fmtPressDiff],["Rain or snow",r=>r.rain,fmtRain],
+    ["Air quality (AQI)",r=>r.aqi,v=>v==null?"–":String(Math.round(v))],["PM2.5",r=>r.pm25,v=>v==null?"–":v.toFixed(1)]
+  ];
+  const anyPollen=[...A,...B].some(r=>r.pollen);
+  if(anyPollen) rows.push(["Tree pollen",pol("tree"),v=>v==null?"–":v.toFixed(1)],["Grass pollen",pol("grass"),v=>v==null?"–":v.toFixed(1)],["Weed pollen",pol("weed"),v=>v==null?"–":v.toFixed(1)]);
+  let grid=`<span class="k h"></span><span class="h">Symptom days (${A.length})</span><span class="h">Other days (${B.length})</span>`;
+  for(const [label,f,fmt] of rows){
+    const a=avg(A,f), b=avg(B,f);
+    const big = a!=null&&b!=null&&Math.abs(a-b)>0.08*Math.max(Math.abs(a),Math.abs(b),1);
+    grid+=`<span class="k">${label}</span><span class="v ${big&&a>b?"hi":""}">${fmt(a)}</span><span class="v ${big&&b>a?"hi":""}">${fmt(b)}</span>`;
+  }
+  grid+=`<span class="k">Wet days</span><span class="v">${pct(A,r=>r.rain>=1)}</span><span class="v">${pct(B,r=>r.rain>=1)}</span>`;
+  const opts=`<option value="any" ${wxSym==="any"?"selected":""}>any symptom</option>`+[...state.symptoms].sort((a,b)=>a.name.localeCompare(b.name)).map(x=>`<option value="${esc(x.id)}" ${wxSym===x.id?"selected":""}>${esc(x.name)}</option>`).join("");
+  return `<div class="box l-list"><div class="lid">Weather &amp; symptoms<span class="st">${esc(state.wxloc.label)}</span></div>
+    ${now}
+    <label class="wxpick">Days with<select data-wxsym>${opts}</select></label>
+    ${A.length+B.length?`<div class="wxt">${grid}</div><p class="hint">Averages. Pressure change is vs. the day before; pollen is 0–5. The larger number is underlined when the two differ noticeably. A few weeks of data makes this more reliable.</p>`
+      :`<div class="empty-row">No weather saved for this period yet.</div>`}
+  </div>`;
+}
+document.getElementById("sumBody").addEventListener("change",e=>{const s=e.target.closest("[data-wxsym]");if(s){wxSym=s.value;renderSummary()}});
+document.getElementById("sumBody").addEventListener("click",e=>{if(e.target.closest("[data-wxgeo]"))document.getElementById("wxGeo").click()});
+window.addEventListener("online",()=>fetchWeather(true));
 
 /* ---------- check-off sweep ---------- */
 let sweepAnim=null;
@@ -816,6 +1063,8 @@ document.getElementById("slots").addEventListener("click",e=>{
   const editx=e.target.closest("[data-editx]");
   if(editx){ openDoseTime(viewDate,+editx.dataset.editx); return; }
   if(rmx){ const list=state.xlog[viewDate]||[]; list.splice(+rmx.dataset.rmx,1); if(!list.length) delete state.xlog[viewDate]; commit(); return; }
+  const rmmood=e.target.closest("[data-rmmood]");
+  if(rmmood){ const d=state.mlog[viewDate]||{}, mt=rmmood.dataset.mt; d[mt]=(d[mt]||[]).filter(id=>id!==rmmood.dataset.rmmood); tidyMoods(viewDate); commit(); return; }
   if(rmsym){ const sd=state.slog[viewDate]||{}; delete sd[rmsym.dataset.rmsym]; if(!Object.keys(sd).length) delete state.slog[viewDate]; commit(); return; }
   if(add){openEditor(add.dataset.add,null);return}
   if(rm){ const m=mealOf(viewDate,rm.dataset.meal), i=m.foods.lastIndexOf(rm.dataset.rm); if(i>=0) m.foods.splice(i,1); tidyMeals(viewDate); commit(); return; }
@@ -895,6 +1144,12 @@ document.getElementById("xremove").onclick=()=>{
   else { const list=state.xlog[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete state.xlog[xedit.date]; }
   xdlg.close(); commit();
 };
+function logMood(date,mt,id){ const d=state.mlog[date]||(state.mlog[date]={}), a=d[mt]||(d[mt]=[]); if(!a.includes(id)) a.push(id); }
+function tidyMoods(date){
+  const d=state.mlog[date]; if(!d) return;
+  for(const [k,a] of Object.entries(d)) if(!a.length) delete d[k];
+  if(!Object.keys(d).length) delete state.mlog[date];
+}
 /* A meal's foods list can hold the same food more than once; this tallies them in first-added order */
 function countFoods(list){const c=new Map();for(const id of list||[])c.set(id,(c.get(id)||0)+1);return c}
 function mealOf(date,meal){const d=state.meals[date]||(state.meals[date]={});return d[meal]||(d[meal]={foods:[]})}
@@ -909,6 +1164,12 @@ document.getElementById("slots").addEventListener("change",e=>{
     const v=sel.value;
     if(v==="__new"){ sel.value=""; openEditor("extra",null,{date:viewDate,xmed:true}); return; }
     if(v){ logExtra(viewDate,v); commit(); }
+    return;
+  }
+  if(sel.dataset.pick==="mood"){
+    const v=sel.value, mt=sel.dataset.mt;
+    if(v==="__new"){ sel.value=""; openEditor("mood",null,{date:viewDate,mt,mood:true}); return; }
+    if(v){ logMood(viewDate,mt,v); commit(); }
     return;
   }
   if(sel.dataset.pick==="sym"){
@@ -940,6 +1201,8 @@ document.getElementById("extraList").addEventListener("click",e=>{const b=e.targ
 document.getElementById("addSym").onclick=()=>openEditor("sym",null);
 document.getElementById("addFood").onclick=()=>openEditor("food",null);
 document.getElementById("addPlace").onclick=()=>openEditor("place",null);
+document.getElementById("addMood").onclick=()=>openEditor("mood",null);
+document.getElementById("moodList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-mood]");if(b)openEditor("mood",b.dataset.editMood)});
 document.getElementById("foodList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-food]");if(b)openEditor("food",b.dataset.editFood)});
 document.getElementById("placeList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-place]");if(b)openEditor("place",b.dataset.editPlace)});
 
@@ -968,6 +1231,7 @@ const KINDS={
   sym:  {list:()=>state.symptoms, set:v=>state.symptoms=v, word:"symptom",    ph:"e.g. headache, nausea"},
   food: {list:()=>state.foods,    set:v=>state.foods=v,    word:"food",       ph:"e.g. oatmeal, coffee"},
   place:{list:()=>state.places,   set:v=>state.places=v,   word:"restaurant", ph:"e.g. Chipotle"},
+  mood: {list:()=>state.moods,    set:v=>state.moods=v,    word:"mood or emotion", ph:"e.g. calm, anxious"},
   extra:{list:()=>state.extras,   set:v=>state.extras=v,   word:"additional medication", ph:"e.g. Tylenol, aspirin"}
 };
 function openEditor(kind,id,pending){
@@ -1015,6 +1279,7 @@ form.addEventListener("submit",e=>{
     if(!item){item={id:uid(),name};K.list().push(item)}
     const p=editing.pending;
     if(p&&p.sym){ logSym(p.date,item.id); }
+    else if(p&&p.mood){ logMood(p.date,p.mt,item.id); }
     else if(p){ const m=mealOf(p.date,p.meal);
       if(editing.kind==="food"){ m.foods.push(item.id) } else m.place=item.id; }
   }
@@ -1023,7 +1288,7 @@ form.addEventListener("submit",e=>{
 document.getElementById("delItem").onclick=()=>{
   const K=KINDS[editing.kind], item=K.list().find(x=>x.id===editing.id);
   if(!item) return;
-  const note={med:"",extra:" Its logged doses will no longer be shown.",sym:" Its history will no longer be counted.",food:" It will be removed from past meals.",place:" It will be removed from past meals."}[editing.kind];
+  const note={med:"",extra:" Its logged doses will no longer be shown.",sym:" Its history will no longer be counted.",food:" It will be removed from past meals.",mood:" It will be removed from past days.",place:" It will be removed from past meals."}[editing.kind];
   if(!confirm(`Delete ${item.name}?`+note)) return;
   K.set(K.list().filter(x=>x.id!==editing.id));
   dlg.close(); commit();
@@ -1050,7 +1315,9 @@ function buildCSV(start,end){
     ...syms.map(x=>"symptom: "+x.name),
     ...MEALS.flatMap(m=>[m.label.toLowerCase().replace(/ /g,"_")+"_foods",m.label.toLowerCase().replace(/ /g,"_")+"_restaurant"]),
     "restaurants_today",...places.map(x=>"ate at: "+x.name),
-    "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms"];
+    ...MOODTIMES.map(m=>"mood_"+m.id),
+    "weather","high_"+(US_UNITS?"F":"C"),"low_"+(US_UNITS?"F":"C"),"precip_"+(US_UNITS?"in":"mm"),"humidity_pct","pressure_hpa","pressure_change_hpa","us_aqi","pm2_5","pollen_tree","pollen_grass","pollen_weed",
+    "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood"];
   const rows=[head.map(q).join(",")];
   for(let k=start;k<=end;k=shiftKey(k,1)){
     const log=state.log[k]||{}, sl=state.slog[k]||{}, meals=state.meals[k]||{}, typed=state.food[k]||{};
@@ -1065,8 +1332,14 @@ function buildCSV(start,end){
       ...MEALS.flatMap(m=>{const e=meals[m.id]||{};return [[...countFoods(e.foods)].map(([id,n])=>{const nm=nameOf(state.foods,id);return nm&&(n>1?nm+" x"+n:nm)}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
       placesToday.map(id=>nameOf(state.places,id)).filter(Boolean).join("; "),
       ...places.map(x=>placesToday.includes(x.id)?1:0),
+      ...MOODTIMES.map(m=>((state.mlog[k]||{})[m.id]||[]).map(id=>nameOf(state.moods,id)).filter(Boolean).join("; ")),
+      ...(()=>{const w=state.weather[k], pw=state.weather[shiftKey(k,-1)];
+        if(!w||w.hi==null) return ["","","","","","","","","","","",""];
+        const T=c=>c==null?"":Math.round(US_UNITS?c*9/5+32:c), P=w.pollen||{};
+        return [WMO[w.code]||"",T(w.hi),T(w.lo),w.rain==null?"":US_UNITS?(w.rain/25.4).toFixed(2):w.rain,w.hum??"",w.press??"",
+          pw&&pw.press!=null&&w.press!=null?(w.press-pw.press).toFixed(1):"",w.aqi??"",w.pm25??"",P.tree??"",P.grass??"",P.weed??""]})(),
       MEALS.filter(m=>typed[m.id]).map(m=>m.label+": "+typed[m.id]).join(" | "),
-      state.notes[k]||"",...["food","meds","syms"].map(n=>(state.pnotes[n]||{})[k]||"")];
+      state.notes[k]||"",...["food","meds","syms","mood"].map(n=>(state.pnotes[n]||{})[k]||"")];
     rows.push(row.map(q).join(","));
   }
   return "\ufeff"+rows.join("\r\n");
@@ -1113,7 +1386,7 @@ function checkRollover(){
   if(tk!==lastToday){ flushText(); if(viewDate===lastToday) viewDate=tk; lastToday=tk; render(); }
 }
 setInterval(checkRollover,60000);
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)checkRollover()});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){checkRollover();fetchWeather()}});
 
 /* ---------- offline support ---------- */
 if("serviceWorker" in navigator){
@@ -1122,6 +1395,8 @@ if("serviceWorker" in navigator){
 
 loadLocal();
 render();
+wxWhereText();
+fetchWeather(true);
 </script>
 </body>
 </html>
