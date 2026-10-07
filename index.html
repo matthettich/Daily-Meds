@@ -122,6 +122,9 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
 
 /* Boxes: pastel body, white title bar, black frame */
 .box{border:3px solid var(--rule);margin-top:12px}
+.updb{position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));z-index:50;
+  font:inherit;font-size:15px;font-weight:500;white-space:nowrap;padding:12px 18px;cursor:pointer;
+  background:hsl(var(--h) var(--s) 84%);color:var(--tx);border:3px solid var(--rule)}
 /* Notes: ruled lines */
 .box.l-notes textarea{line-height:26px;padding:6px 10px 0;min-height:110px;
   background-image:linear-gradient(to bottom,transparent 25px,rgba(17,17,17,.22) 25px,rgba(17,17,17,.22) 26px,transparent 26px);
@@ -1514,6 +1517,25 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden){checkRoll
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 }
+
+/* ---------- updates ----------
+   The installed app has no pull-to-refresh, so it checks for a new version when it opens and whenever it
+   comes back to the front, and shows a button when one is ready. Your data is kept either way. */
+const hadSW=!!(navigator.serviceWorker&&navigator.serviceWorker.controller);
+function applyUpdate(){ try{flushText()}catch(e){} location.reload(); }
+function updBanner(){
+  if(document.getElementById("updB")) return;
+  const b=document.createElement("button");
+  b.id="updB"; b.className="updb"; b.type="button"; b.textContent="New version ready · tap to update";
+  b.addEventListener("click",applyUpdate); document.body.append(b);
+}
+async function checkUpdate(){
+  if(!navigator.serviceWorker||location.protocol!=="https:") return;
+  try{ const r=await navigator.serviceWorker.getRegistration(); if(r) await r.update(); }catch(e){}
+}
+if(navigator.serviceWorker) navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadSW) updBanner(); });
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });
+setTimeout(checkUpdate,3000);
 
 loadLocal();
 render();
