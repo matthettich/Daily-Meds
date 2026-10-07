@@ -330,15 +330,6 @@ body{display:flex;flex-direction:column}
         </div>
       </div>
       <div id="sumBody"></div>
-      <div class="box l-list">
-        <div class="lid"><h2>Weather</h2></div>
-        <p class="hint" id="wxWhere">Weather and air quality are saved with each day so you can compare them with symptoms on this page.</p>
-        <div class="backup-btns"><button class="ghost" id="wxGeo">Use my location</button></div>
-        <form class="wxset" id="wxCityForm"><input id="wxCity" placeholder="or type a city" autocomplete="off" aria-label="City"><button class="ghost" type="submit">Set</button></form>
-        <p class="hint">Pollen in the US needs a free Google Pollen API key. Paste it here and today's tree, grass and weed pollen is saved each day you open the app.</p>
-        <form class="wxset" id="wxKeyForm"><input id="wxKey" placeholder="Google Pollen API key" autocomplete="off" aria-label="Google Pollen API key"><button class="ghost" type="submit">Save</button></form>
-        <p class="hint" id="wxMsg" role="status"></p>
-      </div>
     </section>
 
     <!-- Settings: one long page, a band per section in that section's color -->
@@ -393,6 +384,19 @@ body{display:flex;flex-direction:column}
           <input type="file" id="importFile" accept="application/json,.json" hidden>
         </div>
         <p class="hint" id="backupMsg" role="status"></p>
+      </div>
+    </section>
+
+    <section class="view pg-white sset" data-tab="set" style="display:none">
+      <div class="sect" role="heading" aria-level="2">Recap</div>
+      <div class="box l-list">
+        <div class="lid"><h2>Weather</h2></div>
+        <p class="hint" id="wxWhere">Weather and air quality are saved with each day so you can compare them with symptoms on the Recap page.</p>
+        <div class="backup-btns"><button class="ghost" id="wxGeo">Use my location</button></div>
+        <form class="wxset" id="wxCityForm"><input id="wxCity" placeholder="or type a city" autocomplete="off" aria-label="City"><button class="ghost" type="submit">Set</button></form>
+        <p class="hint">Pollen in the US needs a free Google Pollen API key. Paste it here and today's tree, grass and weed pollen is saved each day you open the app.</p>
+        <form class="wxset" id="wxKeyForm"><input id="wxKey" placeholder="Google Pollen API key" autocomplete="off" aria-label="Google Pollen API key"><button class="ghost" type="submit">Save</button></form>
+        <p class="hint" id="wxMsg" role="status"></p>
       </div>
     </section>
    </div>
@@ -947,7 +951,7 @@ function wxStatus(t){const el=document.getElementById("wxMsg"); if(el) el.textCo
 function wxWhereText(){
   const el=document.getElementById("wxWhere"); if(!el) return;
   el.textContent = state.wxloc ? `Saving weather for ${state.wxloc.label}. Change it below if you move.`
-    : "Weather and air quality are saved with each day so you can compare them with symptoms on this page. Pick a location to turn it on.";
+    : "Weather and air quality are saved with each day so you can compare them with symptoms on the Recap page. Pick a location to turn it on.";
   document.getElementById("wxKey").value = state.pollenKey ? "••••••••"+state.pollenKey.slice(-4) : "";
 }
 async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}
@@ -1045,7 +1049,7 @@ function wxSummary(from,upto){
   if(!state.wxloc) return `<div class="box l-list"><div class="lid">Weather &amp; symptoms</div>
     <p class="hint">Save the weather, air quality and pollen with each day, then see whether symptoms line up with them.</p>
     <div class="backup-btns"><button class="ghost" data-wxgeo>Use my location</button></div>
-    <p class="hint">Or type a city in the Weather box below.</p></div>`;
+    <p class="hint">Or type a city in Settings, under Recap.</p></div>`;
   const tk=todayKey(), t=state.weather[tk];
   const now = t ? `<div class="wxnow"><b>Today</b> ${fmtTemp(t.hi)} / ${fmtTemp(t.lo)} · ${esc(WMO[t.code]||"")}${t.aqi!=null?" · AQI "+t.aqi:""}${t.pollen?" · pollen: tree "+t.pollen.tree+", grass "+t.pollen.grass+", weed "+t.pollen.weed:""}</div>` : "";
   const hasSym=k=>{const v=state.slog[k]||{};return wxSym==="any"?state.symptoms.some(x=>v[x.id]):!!v[wxSym]};
