@@ -69,11 +69,10 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
   header.top{position:fixed;top:auto;bottom:0;left:0;right:0;padding:0 0 env(safe-area-inset-bottom,0px);
     border-top:1px solid var(--rule);box-shadow:0 -7px 0 hsl(var(--h) var(--s) 78%)}
   body{padding-bottom:70px}
-  /* Six text tabs in one row. Each button is as wide as its word (plus equal padding),
-     so long names like Symptoms get more room and the text can be bigger */
+  /* Six equal text tabs in one row; short labels (Symp, Recap) keep the text large */
   header.top .tabs{border:0}
-  header.top .tabs button{flex:1 1 auto;min-height:62px;padding:0 5px;white-space:nowrap;
-    font-size:clamp(12px,3.75vw,16px);font-weight:500;letter-spacing:0}
+  header.top .tabs button{flex:1 1 0;min-width:0;min-height:62px;padding:0 3px;white-space:nowrap;
+    font-size:clamp(13px,4.3vw,17px);font-weight:500;letter-spacing:0}
 }
 .tabs{display:flex;flex:1;border:1px solid var(--rule);background:transparent}
 .tabs button{flex:1;border:0;background:transparent;padding:8px 4px;min-height:40px}
@@ -286,9 +285,9 @@ body{display:flex;flex-direction:column}
     <button role="tab" data-tab="today" aria-selected="true" title="Today">Today</button>
     <button role="tab" data-tab="food" aria-selected="false" title="Food">Food</button>
     <button role="tab" data-tab="meds" aria-selected="false" title="Meds">Meds</button>
-    <button role="tab" data-tab="syms" aria-selected="false" title="Symptoms">Symptoms</button>
+    <button role="tab" data-tab="syms" aria-selected="false" title="Symptoms" aria-label="Symptoms">Symp</button>
     <button role="tab" data-tab="mood" aria-selected="false" title="Mood">Mood</button>
-    <button role="tab" data-tab="sum" aria-selected="false" title="Summary">Summary</button>
+    <button role="tab" data-tab="sum" aria-selected="false" title="Summary" aria-label="Summary">Recap</button>
   </div>
 </header>
 <div class="wrap">
