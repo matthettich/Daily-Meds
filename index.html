@@ -68,11 +68,14 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
   /* Phone: page tabs live in a bar along the bottom, within thumb reach */
   header.top{position:fixed;top:auto;bottom:0;left:0;right:0;padding:0 0 env(safe-area-inset-bottom,0px);
     border-top:1px solid var(--rule);box-shadow:0 -7px 0 hsl(var(--h) var(--s) 78%)}
-  body{padding-bottom:60px}
-  .tabs{border:0}
-  .tabs button{min-height:52px}
+  body{padding-bottom:112px}
+  /* Six tabs: two rows of three so each button is wide enough to tap easily */
+  header.top .tabs{border:0;display:grid;grid-template-columns:repeat(3,1fr)}
+  header.top .tabs button{min-height:52px;font-size:16px;padding:8px 4px}
+  header.top .tabs button+button{border-left:1px solid var(--rule)}
+  header.top .tabs button:nth-child(3n+1){border-left:0}
+  header.top .tabs button:nth-child(n+4){border-top:1px solid var(--rule)}
 }
-@media (max-width:440px){.tabs button{font-size:13px;padding:8px 2px}}
 .tabs{display:flex;flex:1;border:1px solid var(--rule);background:transparent}
 .tabs button{flex:1;border:0;background:transparent;padding:8px 4px;min-height:40px}
 .tabs button+button{border-left:1px solid var(--rule)}
@@ -274,9 +277,9 @@ body{display:flex;flex-direction:column}
   <div class="tabs" role="tablist">
     <button role="tab" data-tab="today" aria-selected="true">Today</button>
     <button role="tab" data-tab="food" aria-selected="false">Food</button>
-    <button role="tab" data-tab="mood" aria-selected="false">Mood</button>
     <button role="tab" data-tab="meds" aria-selected="false">Meds</button>
     <button role="tab" data-tab="syms" aria-selected="false">Symptoms</button>
+    <button role="tab" data-tab="mood" aria-selected="false">Mood</button>
     <button role="tab" data-tab="sum" aria-selected="false">Summary</button>
   </div>
 </header>
@@ -317,14 +320,6 @@ body{display:flex;flex-direction:column}
       <div class="box l-notes"><div class="lid"><label for="n-food">Notes</label><span class="saved" data-saved="note-food">Saved</span><span class="st notedate"></span></div><textarea id="n-food" data-note="food" rows="2" placeholder="How did food sit today?"></textarea></div>
     </section>
 
-    <section class="view pg-color pg-mood" data-tab="mood" style="display:none">
-      <div class="box l-list">
-        <div class="lid"><h2>Moods &amp; emotions</h2><button class="act add" id="addMood">Add</button></div>
-        <div id="moodList"></div>
-      </div>
-      <div class="box l-notes"><div class="lid"><label for="n-mood">Notes</label><span class="saved" data-saved="note-mood">Saved</span><span class="st notedate"></span></div><textarea id="n-mood" data-note="mood" rows="2" placeholder="What shaped your mood today?"></textarea></div>
-    </section>
-
     <section class="view pg-white pg-meds" data-tab="meds" style="display:none">
       <div class="box l-list">
         <div class="lid"><h2>Medications</h2><button class="act add" id="addMed">Add</button></div>
@@ -343,6 +338,14 @@ body{display:flex;flex-direction:column}
         <div id="symList"></div>
       </div>
       <div class="box l-notes"><div class="lid"><label for="n-syms">Notes</label><span class="saved" data-saved="note-syms">Saved</span><span class="st notedate"></span></div><textarea id="n-syms" data-note="syms" rows="2" placeholder="Anything about how you felt…"></textarea></div>
+    </section>
+
+    <section class="view pg-color pg-mood" data-tab="mood" style="display:none">
+      <div class="box l-list">
+        <div class="lid"><h2>Moods &amp; emotions</h2><button class="act add" id="addMood">Add</button></div>
+        <div id="moodList"></div>
+      </div>
+      <div class="box l-notes"><div class="lid"><label for="n-mood">Notes</label><span class="saved" data-saved="note-mood">Saved</span><span class="st notedate"></span></div><textarea id="n-mood" data-note="mood" rows="2" placeholder="What shaped your mood today?"></textarea></div>
     </section>
 
     <section class="view pg-white pg-sum" data-tab="sum" style="display:none">
