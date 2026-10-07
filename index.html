@@ -68,14 +68,15 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
   /* Phone: page tabs live in a bar along the bottom, within thumb reach */
   header.top{position:fixed;top:auto;bottom:0;left:0;right:0;padding:0 0 env(safe-area-inset-bottom,0px);
     border-top:1px solid var(--rule);box-shadow:0 -7px 0 hsl(var(--h) var(--s) 78%)}
-  body{padding-bottom:112px}
-  /* Six tabs: two rows of three so each button is wide enough to tap easily */
-  header.top .tabs{border:0;display:grid;grid-template-columns:repeat(3,1fr)}
-  header.top .tabs button{min-height:52px;font-size:16px;padding:8px 4px}
-  header.top .tabs button+button{border-left:1px solid var(--rule)}
-  header.top .tabs button:nth-child(3n+1){border-left:0}
-  header.top .tabs button:nth-child(n+4){border-top:1px solid var(--rule)}
+  body{padding-bottom:70px}
+  /* Six tabs as icons with a tiny label; icon lines are 3px, the same as the box frames */
+  header.top .tabs{border:0}
+  header.top .tabs button{min-height:62px;padding:7px 0 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+  header.top .tabs .ic{display:block;width:26px;height:26px;overflow:visible}
+  header.top .tabs .ic *{vector-effect:non-scaling-stroke}
+  header.top .tabs .tl{font-size:11px;line-height:1;letter-spacing:.02em}
 }
+.tabs .ic{display:none}
 .tabs{display:flex;flex:1;border:1px solid var(--rule);background:transparent}
 .tabs button{flex:1;border:0;background:transparent;padding:8px 4px;min-height:40px}
 .tabs button+button{border-left:1px solid var(--rule)}
@@ -251,6 +252,15 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .cal .blank{aspect-ratio:1}
 .legend{display:flex;align-items:center;gap:6px;padding:0 10px 10px;font-size:12px;color:var(--muted)}
 .legend i{width:14px;height:14px;border:1px solid var(--rule);display:inline-block}
+/* Welcome (first launch only) */
+#welcome .body p{margin:0 0 12px}
+#welcome ul{margin:0 0 14px;padding:0;list-style:none}
+#welcome li{position:relative;padding:0 0 10px 26px}
+#welcome li::before{content:"";position:absolute;left:2px;top:.35em;width:12px;height:12px;border:2px solid var(--ink);background:hsl(var(--c) 70% 84%)}
+#welcome li:nth-child(1){--c:var(--h)} #welcome li:nth-child(2){--c:calc(var(--h) + 22)} #welcome li:nth-child(3){--c:calc(var(--h) + 44)}
+#welcome li:nth-child(4){--c:calc(var(--h) - 55)} #welcome li:nth-child(5){--c:calc(var(--h) - 22)}
+#welcome li:nth-child(2n)::before{border-radius:50%}
+#welcome .fine{font-size:13px;color:var(--muted)}
 /* Weather vs symptoms table */
 .wxt{display:grid;grid-template-columns:1fr auto auto;gap:0 14px;padding:4px 10px 10px;font-variant-numeric:tabular-nums;align-items:baseline}
 .wxt span{padding:7px 0;border-top:1px solid var(--hair);text-align:right;white-space:nowrap}
@@ -275,12 +285,12 @@ body{display:flex;flex-direction:column}
 <header class="top">
   <span class="brand">Daily meds</span>
   <div class="tabs" role="tablist">
-    <button role="tab" data-tab="today" aria-selected="true">Today</button>
-    <button role="tab" data-tab="food" aria-selected="false">Food</button>
-    <button role="tab" data-tab="meds" aria-selected="false">Meds</button>
-    <button role="tab" data-tab="syms" aria-selected="false">Symptoms</button>
-    <button role="tab" data-tab="mood" aria-selected="false">Mood</button>
-    <button role="tab" data-tab="sum" aria-selected="false">Summary</button>
+    <button role="tab" data-tab="today" aria-selected="true" title="Today"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter" aria-hidden="true"><rect x="2" y="3" width="20" height="19"/><path d="M2 9h20"/><rect x="13" y="13" width="5" height="5" fill="currentColor" stroke="none"/></svg><span class="tl">Today</span></button>
+    <button role="tab" data-tab="food" aria-selected="false" title="Food"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4.5"/></svg><span class="tl">Food</span></button>
+    <button role="tab" data-tab="meds" aria-selected="false" title="Meds"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter" aria-hidden="true"><g transform="rotate(-45 12 12)"><path d="M12 7.5H6.5a4.5 4.5 0 0 0 0 9H12z" fill="currentColor"/><rect x="2" y="7.5" width="20" height="9" rx="4.5"/></g></svg><span class="tl">Meds</span></button>
+    <button role="tab" data-tab="syms" aria-selected="false" title="Symptoms"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter" aria-hidden="true"><path d="M1 13h4l3.5-9 7 16L19 11h4"/></svg><span class="tl">Symptoms</span></button>
+    <button role="tab" data-tab="mood" aria-selected="false" title="Mood"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter" aria-hidden="true"><circle cx="12" cy="12" r="10"/><rect x="7.5" y="7.5" width="2.5" height="2.5" fill="currentColor" stroke="none"/><rect x="14" y="7.5" width="2.5" height="2.5" fill="currentColor" stroke="none"/><path d="M7.5 14a4.5 4.5 0 0 0 9 0"/></svg><span class="tl">Mood</span></button>
+    <button role="tab" data-tab="sum" aria-selected="false" title="Summary"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="butt" stroke-linejoin="miter" aria-hidden="true"><path d="M2 22h20M5.5 22v-7M12 22V9.5M18.5 22V3"/></svg><span class="tl">Summary</span></button>
   </div>
 </header>
 <div class="wrap">
@@ -389,6 +399,24 @@ body{display:flex;flex-direction:column}
 <footer class="helpfoot"><a href="help.html">Help</a></footer>
 
 <div id="sweep" aria-hidden="true"></div>
+<dialog id="welcome" aria-labelledby="welcomeTitle">
+  <h3 id="welcomeTitle">Welcome to Daily meds</h3>
+  <div class="body">
+    <p>A daily checklist for your medications, plus a simple log of how you're doing.</p>
+    <ul>
+      <li><b>Check off your meds</b> by time of day. A fresh list appears every morning.</li>
+      <li><b>Log symptoms, meals and mood</b> on the Today page in a few taps.</li>
+      <li><b>Summary</b> shows patterns over the month, like symptoms that follow certain foods or weather, to talk over with your doctor.</li>
+      <li><b>Your data stays on this phone.</b> Nothing is uploaded. If you turn on weather, only your rough location is sent to get the forecast.</li>
+      <li><b>Save a backup</b> now and then (Meds page, Backup), especially before switching phones or clearing browser data.</li>
+    </ul>
+    <p class="fine">Tip: add the app to your home screen from your browser's menu. This app keeps records; it doesn't give medical advice.</p>
+    <div class="actions">
+      <button type="button" class="ghost" id="welcomeLater">Look around</button>
+      <button type="button" class="primary" id="welcomeStart">Add my first medication</button>
+    </div>
+  </div>
+</dialog>
 <dialog id="xdlg">
   <form method="dialog" id="xform">
     <h3 id="xdlgTitle">Dose</h3>
@@ -1398,6 +1426,17 @@ if("serviceWorker" in navigator){
 
 loadLocal();
 render();
+/* Welcome: shown once, only to someone who hasn't used the app yet */
+{
+  const WKEY="daily-meds-welcomed", w=document.getElementById("welcome");
+  let seen=false; try{seen=!!localStorage.getItem(WKEY)}catch(e){}
+  const fresh=!state.meds.length&&!state.symptoms.length&&!state.updated;
+  const done=()=>{try{localStorage.setItem(WKEY,"1")}catch(e){}};
+  if(!seen&&fresh) w.showModal(); else done();
+  w.addEventListener("close",done);
+  document.getElementById("welcomeLater").onclick=()=>w.close();
+  document.getElementById("welcomeStart").onclick=()=>{w.close();openEditor("med",null)};
+}
 wxWhereText();
 fetchWeather(true);
 </script>
