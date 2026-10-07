@@ -48,7 +48,7 @@ body[data-page="food"]{--dh:22} body[data-page="syms"]{--dh:44} body[data-page="
 .pg-color .lid{background:var(--white)}
 /* Box bodies get a little deeper through the day; still pastel at the darkest */
 .l-page{--l:96%} .l-waking{--l:93%} .l-morning{--l:90%} .l-afternoon{--l:87%}
-.l-evening{--l:84%} .l-bedtime{--l:81%} .l-extra{--l:78%} .l-sym{--l:85%} .l-list{--l:90%} .l-notes{--l:88%}
+.l-evening{--l:84%} .l-bedtime{--l:81%} .l-extra{--l:78%} .l-supp{--l:75%} .l-sym{--l:85%} .l-list{--l:90%} .l-notes{--l:88%}
 
 *,*::before,*::after{box-sizing:inherit;border-radius:0}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -307,7 +307,7 @@ body{display:flex;flex-direction:column}
     </section>
 
     <section class="view pg-white pg-today" id="v-today" data-tab="today">
-      <div class="sect first" role="heading" aria-level="2">Medication</div>
+      <div class="sect first" role="heading" aria-level="2">Medications and Supplements</div>
       <div class="progress" id="progress"></div>
       <div id="slots"></div>
     </section>
@@ -334,7 +334,7 @@ body{display:flex;flex-direction:column}
 
     <!-- Settings: one long page, a band per section in that section's color -->
     <section class="view pg-white pg-meds sset" data-tab="set" style="display:none">
-      <div class="sect first" role="heading" aria-level="2">Medication</div>
+      <div class="sect first" role="heading" aria-level="2">Medications and Supplements</div>
       <div class="box l-list">
         <div class="lid"><h2>Medications</h2><button class="act add" id="addMed">Add</button></div>
         <div id="medList"></div>
@@ -342,6 +342,10 @@ body{display:flex;flex-direction:column}
       <div class="box l-list">
         <div class="lid"><h2>Additional medications</h2><button class="act add" id="addExtra">Add</button></div>
         <div id="extraList"></div>
+      </div>
+      <div class="box l-list">
+        <div class="lid"><h2>Supplements</h2><button class="act add" id="addSupp">Add</button></div>
+        <div id="suppList"></div>
       </div>
     </section>
 
@@ -478,9 +482,10 @@ const LS_KEY = "daily-meds-v1";
 const KEEP_MED_DAYS = 400;   // medication check-offs; symptom history is kept for monthly records
 
 /* extras: as-needed medications (Tylenol, aspirin…). xlog: {date:[{id,t}]} — each dose taken, from extras or the regular list */
+/* supps: supplements (vitamin D, magnesium…). suplog: {date:[{id,t}]} — each supplement taken */
 /* moods: mood list. mlog: {date:{morning:[ids],afternoon:[ids],evening:[ids]}}
    weather: {date:{hi,lo,rain,code,hum,press,aqi,pm25,pollen:{tree,grass,weed},final}} (°C, mm, %, hPa). wxloc: {lat,lon,label} */
-let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{},
+let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{},
   moods:defaultMoods(), mlog:{}, weather:{}, wxloc:null, pollenKey:"", updated:0};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
@@ -502,6 +507,7 @@ function normalize(s){
           food:obj(s.food), notes:obj(s.notes), pnotes:obj(s.pnotes),
           foods:Array.isArray(s.foods)?s.foods:[], places:Array.isArray(s.places)?s.places:[], meals:obj(s.meals),
           extras:Array.isArray(s.extras)?s.extras:[], xlog:obj(s.xlog),
+          supps:Array.isArray(s.supps)?s.supps:[], suplog:obj(s.suplog),
           moods:Array.isArray(s.moods)?s.moods:defaultMoods(), mlog:obj(s.mlog),
           weather:obj(s.weather), wxloc:(s.wxloc&&isFinite(s.wxloc.lat)&&isFinite(s.wxloc.lon))?s.wxloc:null,
           pollenKey:typeof s.pollenKey==="string"?s.pollenKey:"",
@@ -566,6 +572,8 @@ function medsFor(slot){return state.meds.filter(m=>m.slots&&m.slots.includes(slo
 /* An additional dose can point at an as-needed med or a regular one */
 function anyMed(id){return state.extras.find(x=>x.id===id)||state.meds.find(x=>x.id===id)}
 function xdoses(date){return (state.xlog[date]||[]).filter(e=>anyMed(e.id))}
+function suppOf(id){return state.supps.find(x=>x.id===id)}
+function sdoses(date){return (state.suplog[date]||[]).filter(e=>suppOf(e.id))}
 function monthCount(symId){
   const prefix=todayKey().slice(0,7); let n=0;
   for(const [k,v] of Object.entries(state.slog)) if(k.startsWith(prefix)&&v[symId]) n++;
@@ -621,6 +629,22 @@ function render(){
           ${state.extras.length?`<optgroup label="Additional">${bySort(state.extras).map(opt).join("")}</optgroup>`:""}
           ${state.meds.length?`<optgroup label="Regular">${bySort(state.meds).map(opt).join("")}</optgroup>`:""}
           <option value="__new">+ New additional medication…</option>
+        </select>
+      </div>
+    </div>`;
+  }
+
+  /* Today: supplements */
+  {
+    const doses=(state.suplog[viewDate]||[]).map((e,i)=>({...e,i})).filter(e=>suppOf(e.id));
+    html+=`<div class="box l-supp">
+      <div class="lid">Supplements<span class="st">${doses.length?doses.length+" taken":"None"}</span></div>
+      <div class="chips">${doses.length?doses.map(e=>{const m=suppOf(e.id);return `<span class="chip">${esc(m.name)}<button class="t" data-edits="${e.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-rms="${e.i}" aria-label="Remove ${esc(m.name)} at ${fmtTime(e.t)}">×</button></span>`}).join(""):`<span class="none">No supplements taken</span>`}</div>
+      <div class="pickers one">
+        <select data-pick="supp" aria-label="Add a supplement">
+          <option value="">Add supplement…</option>
+          ${[...state.supps].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>`<option value="${esc(m.id)}">${esc(m.name)}${m.dose?" · "+esc(m.dose):""}</option>`).join("")}
+          <option value="__new">+ New supplement…</option>
         </select>
       </div>
     </div>`;
@@ -729,6 +753,12 @@ function render(){
         <span><span class="nm">${esc(m.name)}</span>${m.dose?`<span class="ds">${esc(m.dose)}</span>`:""}</span>
         <span class="side">${n} ${n===1?"dose":"doses"} in ${esc(month)}</span></button>`}).join("")
     : `<div class="empty-row">As-needed meds like Tylenol. Tap Add.</div>`;
+  const sMonth=id=>{const prefix=todayKey().slice(0,7);let n=0;for(const [k,v] of Object.entries(state.suplog)) if(k.startsWith(prefix)) for(const e of v) if(e.id===id) n++;return n};
+  document.getElementById("suppList").innerHTML = state.supps.length
+    ? [...state.supps].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>{const n=sMonth(m.id);return `<button class="row" data-edit-supp="${esc(m.id)}">
+        <span><span class="nm">${esc(m.name)}</span>${m.dose?`<span class="ds">${esc(m.dose)}</span>`:""}</span>
+        <span class="side">${n} ${n===1?"time":"times"} in ${esc(month)}</span></button>`}).join("")
+    : `<div class="empty-row">Vitamins, minerals and the like. Tap Add.</div>`;
   const sl=document.getElementById("symList");
   sl.innerHTML = state.symptoms.length
     ? state.symptoms.map(x=>{const n=monthCount(x.id);return `<button class="row" data-edit-sym="${esc(x.id)}">
@@ -774,7 +804,7 @@ function daysBetween(a,b){return Math.round((parseKey(b)-parseKey(a))/86400000)+
 function firstUse(){
   let first=todayKey();
   const scan=o=>{for(const k of Object.keys(o||{})) if(k<first) first=k};
-  scan(state.log);scan(state.slog);scan(state.food);scan(state.notes);scan(state.xlog);scan(state.meals);scan(state.mlog);
+  scan(state.log);scan(state.slog);scan(state.food);scan(state.notes);scan(state.xlog);scan(state.suplog);scan(state.meals);scan(state.mlog);
   for(const v of Object.values(state.pnotes)) scan(v);
   return first;
 }
@@ -894,6 +924,20 @@ function renderSummary(){
           :`<div class="empty-row">None taken this ${unit}.</div>`}</div>`;
     }
   }
+  /* Supplements */
+  {
+    const tally={};
+    for(const [k,v] of Object.entries(state.suplog)){ if(k<from||k>upto) continue;
+      const seen=new Set();
+      for(const e of v){ if(!suppOf(e.id)) continue; const t=tally[e.id]||(tally[e.id]={doses:0,days:0}); t.doses++; if(!seen.has(e.id)){seen.add(e.id);t.days++} } }
+    const rows=Object.entries(tally).map(([id,t])=>({m:suppOf(id),...t})).sort((a,b)=>b.days-a.days||b.doses-a.doses||a.m.name.localeCompare(b.m.name));
+    if(rows.length||state.supps.length){
+      const maxD=Math.max(1,...rows.map(r=>r.days));
+      html+=`<div class="box l-list"><div class="lid">Supplements</div>
+        ${rows.length?rows.map(r=>`<div class="stat"><span class="nm">${esc(r.m.name)}</span><span class="num">${r.days} ${r.days===1?"day":"days"}${r.doses>r.days?" · "+r.doses+" times":""}</span><div class="track"><i style="width:${Math.round(r.days/maxD*100)}%"></i></div></div>`).join("")
+          :`<div class="empty-row">None taken this ${unit}.</div>`}</div>`;
+    }
+  }
 
   /* Mood & emotions */
   {
@@ -915,7 +959,7 @@ function renderSummary(){
   /* Export for AI */
   const yr=P.start.slice(0,4);
   html+=`<div class="box l-list"><div class="lid">Export for AI</div>
-    <p class="hint">A spreadsheet with one row per day: doses taken and missed, additional medication, symptoms, each meal's foods and restaurant, mood, weather, air quality, pollen, and your notes. Upload it to Claude or another AI and ask something like:</p>
+    <p class="hint">A spreadsheet with one row per day: doses taken and missed, additional medication, supplements, symptoms, each meal's foods and restaurant, mood, weather, air quality, pollen, and your notes. Upload it to Claude or another AI and ask something like:</p>
     <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses, moods, pressure changes, air quality or pollen line up with symptoms?"</p>
     <div class="backup-btns"><button class="ghost" data-export="year">Download ${esc(yr)}</button><button class="ghost" data-export="all">Download everything</button></div>
     <p class="hint" id="exportMsg" role="status"></p></div>`;
@@ -1112,6 +1156,9 @@ document.getElementById("slots").addEventListener("click",e=>{
   const editx=e.target.closest("[data-editx]");
   if(editx){ openDoseTime(viewDate,+editx.dataset.editx); return; }
   if(rmx){ const list=state.xlog[viewDate]||[]; list.splice(+rmx.dataset.rmx,1); if(!list.length) delete state.xlog[viewDate]; commit(); return; }
+  const edits=e.target.closest("[data-edits]"), rms=e.target.closest("[data-rms]");
+  if(edits){ openSuppTime(viewDate,+edits.dataset.edits); return; }
+  if(rms){ const list=state.suplog[viewDate]||[]; list.splice(+rms.dataset.rms,1); if(!list.length) delete state.suplog[viewDate]; commit(); return; }
   const rmmood=e.target.closest("[data-rmmood]");
   if(rmmood){ const d=state.mlog[viewDate]||{}, mt=rmmood.dataset.mt; d[mt]=(d[mt]||[]).filter(id=>id!==rmmood.dataset.rmmood); tidyMoods(viewDate); commit(); return; }
   if(rmsym){ const sd=state.slog[viewDate]||{}; delete sd[rmsym.dataset.rmsym]; if(!Object.keys(sd).length) delete state.slog[viewDate]; commit(); return; }
@@ -1143,6 +1190,9 @@ function realTime(t){ return typeof t==="number" && t>1e11; }
 function logExtra(date,id){
   const list=state.xlog[date]||(state.xlog[date]=[]); list.push({id,t:stampFor(date)}); list.sort((a,b)=>a.t-b.t);
 }
+function logSupp(date,id){
+  const list=state.suplog[date]||(state.suplog[date]=[]); list.push({id,t:stampFor(date)}); list.sort((a,b)=>a.t-b.t);
+}
 /* A symptom's value is a timestamp, or ALLDAY when it lasted the whole day */
 const ALLDAY="all";
 function symSortKey(v){ return v===ALLDAY ? -1 : realTime(v) ? v : 0; }
@@ -1166,6 +1216,11 @@ function openDoseTime(date,i){
   xedit={kind:"dose",date,i};
   openTimeDialog(m.name+(m.dose?" · "+m.dose:""),"Time taken","Remove dose",e.t);
 }
+function openSuppTime(date,i){
+  const e=(state.suplog[date]||[])[i], m=e&&suppOf(e.id); if(!m) return;
+  xedit={kind:"supp",date,i};
+  openTimeDialog(m.name+(m.dose?" · "+m.dose:""),"Time taken","Remove",e.t);
+}
 function openSymTime(date,id){
   const t=(state.slog[date]||{})[id], x=state.symptoms.find(s=>s.id===id); if(!x||!t) return;
   xedit={kind:"sym",date,id};
@@ -1183,14 +1238,14 @@ document.getElementById("xform").addEventListener("submit",ev=>{
   else if(/^\d\d:\d\d/.test(v)){
     const d=parseKey(xedit.date); d.setHours(+v.slice(0,2),+v.slice(3,5),0);
     if(xedit.kind==="sym"){ const sd=state.slog[xedit.date]; if(sd&&sd[xedit.id]) sd[xedit.id]=d.getTime(); }
-    else { const list=state.xlog[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=d.getTime(); list.sort((a,b)=>a.t-b.t); } }
+    else { const list=(xedit.kind==="supp"?state.suplog:state.xlog)[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=d.getTime(); list.sort((a,b)=>a.t-b.t); } }
   }
   xdlg.close(); commit();
 });
 document.getElementById("xcancel").onclick=()=>xdlg.close();
 document.getElementById("xremove").onclick=()=>{
   if(xedit.kind==="sym"){ const sd=state.slog[xedit.date]||{}; delete sd[xedit.id]; if(!Object.keys(sd).length) delete state.slog[xedit.date]; }
-  else { const list=state.xlog[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete state.xlog[xedit.date]; }
+  else { const log=xedit.kind==="supp"?state.suplog:state.xlog, list=log[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete log[xedit.date]; }
   xdlg.close(); commit();
 };
 function logMood(date,mt,id){ const d=state.mlog[date]||(state.mlog[date]={}), a=d[mt]||(d[mt]=[]); if(!a.includes(id)) a.push(id); }
@@ -1213,6 +1268,12 @@ document.getElementById("slots").addEventListener("change",e=>{
     const v=sel.value;
     if(v==="__new"){ sel.value=""; openEditor("extra",null,{date:viewDate,xmed:true}); return; }
     if(v){ logExtra(viewDate,v); commit(); }
+    return;
+  }
+  if(sel.dataset.pick==="supp"){
+    const v=sel.value;
+    if(v==="__new"){ sel.value=""; openEditor("supp",null,{date:viewDate,supp:true}); return; }
+    if(v){ logSupp(viewDate,v); commit(); }
     return;
   }
   if(sel.dataset.pick==="mood"){
@@ -1248,6 +1309,8 @@ document.getElementById("symList").addEventListener("click",e=>{const b=e.target
 document.getElementById("addMed").onclick=()=>openEditor("med",null);
 document.getElementById("addExtra").onclick=()=>openEditor("extra",null);
 document.getElementById("extraList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-extra]");if(b)openEditor("extra",b.dataset.editExtra)});
+document.getElementById("addSupp").onclick=()=>openEditor("supp",null);
+document.getElementById("suppList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-supp]");if(b)openEditor("supp",b.dataset.editSupp)});
 document.getElementById("addSym").onclick=()=>openEditor("sym",null);
 document.getElementById("addFood").onclick=()=>openEditor("food",null);
 document.getElementById("addPlace").onclick=()=>openEditor("place",null);
@@ -1282,11 +1345,12 @@ const KINDS={
   food: {list:()=>state.foods,    set:v=>state.foods=v,    word:"food",       ph:"e.g. oatmeal, coffee"},
   place:{list:()=>state.places,   set:v=>state.places=v,   word:"restaurant", ph:"e.g. Chipotle"},
   mood: {list:()=>state.moods,    set:v=>state.moods=v,    word:"mood or emotion", ph:"e.g. calm, anxious"},
-  extra:{list:()=>state.extras,   set:v=>state.extras=v,   word:"additional medication", ph:"e.g. Tylenol, aspirin"}
+  extra:{list:()=>state.extras,   set:v=>state.extras=v,   word:"additional medication", ph:"e.g. Tylenol, aspirin"},
+  supp: {list:()=>state.supps,    set:v=>state.supps=v,    word:"supplement", ph:"e.g. vitamin D, magnesium"}
 };
 function openEditor(kind,id,pending){
   editing={kind,id,pending:pending||null};
-  const K=KINDS[kind], isMed=kind==="med", isExtra=kind==="extra";
+  const K=KINDS[kind], isMed=kind==="med", isExtra=kind==="extra"||kind==="supp";
   const item=id?K.list().find(x=>x.id===id):null;
   form.classList.toggle("is-sym",!isMed&&!isExtra);
   form.classList.toggle("is-extra",isExtra);
@@ -1321,6 +1385,11 @@ form.addEventListener("submit",e=>{
     let item=editing.id ? state.extras.find(x=>x.id===editing.id) : state.extras.find(x=>x.name.toLowerCase()===name.toLowerCase());
     if(item) Object.assign(item,{name,dose}); else state.extras.push(item={id:uid(),name,dose});
     if(editing.pending&&editing.pending.xmed) logExtra(editing.pending.date,item.id);
+  } else if(editing.kind==="supp"){
+    const dose=F("dose").value.trim();
+    let item=editing.id ? state.supps.find(x=>x.id===editing.id) : state.supps.find(x=>x.name.toLowerCase()===name.toLowerCase());
+    if(item) Object.assign(item,{name,dose}); else state.supps.push(item={id:uid(),name,dose});
+    if(editing.pending&&editing.pending.supp) logSupp(editing.pending.date,item.id);
   } else if(editing.id){
     K.list().find(x=>x.id===editing.id).name=name;
   } else {
@@ -1338,7 +1407,7 @@ form.addEventListener("submit",e=>{
 document.getElementById("delItem").onclick=()=>{
   const K=KINDS[editing.kind], item=K.list().find(x=>x.id===editing.id);
   if(!item) return;
-  const note={med:"",extra:" Its logged doses will no longer be shown.",sym:" Its history will no longer be counted.",food:" It will be removed from past meals.",mood:" It will be removed from past days.",place:" It will be removed from past meals."}[editing.kind];
+  const note={med:"",extra:" Its logged doses will no longer be shown.",supp:" Its logged doses will no longer be shown.",sym:" Its history will no longer be counted.",food:" It will be removed from past meals.",mood:" It will be removed from past days.",place:" It will be removed from past meals."}[editing.kind];
   if(!confirm(`Delete ${item.name}?`+note)) return;
   K.set(K.list().filter(x=>x.id!==editing.id));
   dlg.close(); commit();
@@ -1361,7 +1430,7 @@ function buildCSV(start,end){
   const syms=[...state.symptoms].sort((a,b)=>a.name.localeCompare(b.name));
   const places=[...state.places].sort((a,b)=>a.name.localeCompare(b.name));
   const sched=state.meds.flatMap(m=>m.slots.map(sl=>({key:m.id+"|"+sl,label:m.name+" ("+(SLOTS.find(x=>x.id===sl)||{}).label+")"})));
-  const head=["date","weekday","doses_taken","doses_scheduled","missed_doses","additional_meds","additional_med_count","symptoms","symptom_count",
+  const head=["date","weekday","doses_taken","doses_scheduled","missed_doses","additional_meds","additional_med_count","supplements","supplement_count","symptoms","symptom_count",
     ...syms.map(x=>"symptom: "+x.name),
     ...MEALS.flatMap(m=>[m.label.toLowerCase().replace(/ /g,"_")+"_foods",m.label.toLowerCase().replace(/ /g,"_")+"_restaurant"]),
     "restaurants_today",...places.map(x=>"ate at: "+x.name),
@@ -1372,11 +1441,12 @@ function buildCSV(start,end){
   for(let k=start;k<=end;k=shiftKey(k,1)){
     const log=state.log[k]||{}, sl=state.slog[k]||{}, meals=state.meals[k]||{}, typed=state.food[k]||{};
     const taken=sched.filter(x=>log[x.key]), missed=sched.filter(x=>!log[x.key]);
-    const had=syms.filter(x=>sl[x.id]), xd=xdoses(k);
+    const had=syms.filter(x=>sl[x.id]), xd=xdoses(k), sd=sdoses(k);
     const placesToday=[...new Set(MEALS.map(m=>(meals[m.id]||{}).place).filter(Boolean))];
     const row=[k,parseKey(k).toLocaleDateString("en-US",{weekday:"long"}),
       taken.length,sched.length,missed.map(x=>x.label).join("; "),
       xd.map(e=>{const m=anyMed(e.id);return m.name+(m.dose?" ("+m.dose+")":"")+" at "+fmtTime(e.t)}).join("; "),xd.length,
+      sd.map(e=>{const m=suppOf(e.id);return m.name+(m.dose?" ("+m.dose+")":"")+" at "+fmtTime(e.t)}).join("; "),sd.length,
       [...had].sort((a,b)=>symSortKey(sl[a.id])-symSortKey(sl[b.id])).map(x=>x.name+(sl[x.id]===ALLDAY?" (all day)":realTime(sl[x.id])?" at "+fmtTime(sl[x.id]):"")).join("; "),had.length,
       ...syms.map(x=>sl[x.id]?1:0),
       ...MEALS.flatMap(m=>{const e=meals[m.id]||{};return [[...countFoods(e.foods)].map(([id,n])=>{const nm=nameOf(state.foods,id);return nm&&(n>1?nm+" x"+n:nm)}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
