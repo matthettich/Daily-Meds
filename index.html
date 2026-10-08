@@ -227,6 +227,10 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
   background:var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23111' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 8px center/14px;
   padding:8px 28px 8px 10px;font:inherit;font-size:14px;color:var(--ink)}
 .pickers select:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+.lid .mtime{margin-left:8px;font-size:13px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap}
+.lid .mtime + .place{margin-left:auto}
+.chip button.t.inh{opacity:.55;text-decoration:none}
+.chip button.t svg{width:14px;height:14px;display:block}
 .lid .place{margin-left:auto;padding-right:10px;font-size:13px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
 
 /* ---------- Summary ---------- */
@@ -486,6 +490,7 @@ const SLOTS = [
   {id:"evening",label:"Evening"},{id:"bedtime",label:"Bedtime"}
 ];
 const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
 const LS_KEY = "daily-meds-v1";
 const KEEP_MED_DAYS = 400;   // medication check-offs; symptom history is kept for monthly records
 
@@ -690,10 +695,12 @@ function render(){
   const placesSorted=[...state.places].sort((a,b)=>a.name.localeCompare(b.name));
   for(const ml of MEALS){
     const m=mday[ml.id]||{}, counts=countFoods(m.foods), ids=[...counts.keys()].filter(id=>byId(state.foods,id));
-    const place=m.place&&byId(state.places,m.place);
+    const place=m.place&&byId(state.places,m.place), mt=mealTime(m);
     html+=`<div class="box meal ${ml.l}">
-      <div class="lid">${ml.label}${place?`<span class="place">at ${esc(place.name)}</span>`:""}</div>
-      <div class="chips">${ids.length?ids.map(id=>{const nm=byId(state.foods,id).name,n=counts.get(id);return `<span class="chip">${esc(nm)}${n>1?`<span class="qty">×${n}</span>`:""}<button data-rm="${esc(id)}" data-meal="${ml.id}" aria-label="Remove one ${esc(nm)}">×</button></span>`}).join(""):`<span class="none">Nothing added</span>`}</div>
+      <div class="lid">${ml.label}${mt?`<span class="mtime">${fmtTime(mt)}</span>`:""}${place?`<span class="place">at ${esc(place.name)}</span>`:""}</div>
+      <div class="chips">${ids.length?ids.map(id=>{const nm=byId(state.foods,id).name,n=counts.get(id),own=foodTime(m,id),shown=own||mt;
+        const tb=`<button class="t${own?"":" inh"}" data-editf="${esc(id)}" data-meal="${ml.id}" aria-label="${shown?`Change time of ${esc(nm)}, now ${fmtTime(shown)}`:`Add a time for ${esc(nm)}`}">${shown?fmtTime(shown):CLOCK}</button>`;
+        return `<span class="chip">${esc(nm)}${n>1?`<span class="qty">×${n}</span>`:""}${tb}<button data-rm="${esc(id)}" data-meal="${ml.id}" aria-label="Remove one ${esc(nm)}">×</button></span>`}).join(""):`<span class="none">Nothing added</span>`}</div>
       ${legacy[ml.id]?`<p class="legacy">${esc(legacy[ml.id])}</p>`:""}
       <div class="pickers">
         <select data-pick="food" data-meal="${ml.id}" aria-label="Add food to ${ml.label}">
@@ -1160,6 +1167,8 @@ function sweep(){
 document.getElementById("slots").addEventListener("click",e=>{
   const med=e.target.closest(".med"), sym=e.target.closest(".sym"), all=e.target.closest("[data-all]"), add=e.target.closest("[data-add]");
   const rm=e.target.closest("[data-rm]"), rmsym=e.target.closest("[data-rmsym]"), rmx=e.target.closest("[data-rmx]");
+  const editf=e.target.closest("[data-editf]");
+  if(editf){ openFoodTime(viewDate,editf.dataset.meal,editf.dataset.editf); return; }
   const editk=e.target.closest("[data-editk]");
   if(editk){ openMedTime(viewDate,editk.dataset.editk); return; }
   const editsym=e.target.closest("[data-editsym]");
@@ -1219,6 +1228,7 @@ function openTimeDialog(title,label,removeText,t,allDay){
   document.getElementById("xdlgTitle").textContent=title;
   document.getElementById("xlabel").textContent=label;
   document.getElementById("xremove").textContent=removeText;
+  document.getElementById("xremove").style.display="";
   document.getElementById("xtime").value=String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
   xdlg.showModal();
 }
@@ -1231,6 +1241,13 @@ function openSuppTime(date,i){
   const e=(state.suplog[date]||[])[i], m=e&&suppOf(e.id); if(!m) return;
   xedit={kind:"supp",date,i};
   openTimeDialog(m.name+(m.dose?" · "+m.dose:""),"Time taken","Remove",e.t);
+}
+function openFoodTime(date,meal,id){
+  const m=(state.meals[date]||{})[meal], f=state.foods.find(x=>x.id===id), ml=MEALS.find(x=>x.id===meal); if(!m||!f) return;
+  const own=foodTime(m,id);
+  xedit={kind:"food",date,meal,id};
+  openTimeDialog(f.name+(ml?" · "+ml.label:""),"Time eaten","Clear time",own||mealTime(m));
+  document.getElementById("xremove").style.display=own?"":"none";
 }
 function openMedTime(date,k){
   const t=(state.log[date]||{})[k], [id,slot]=k.split("|"), m=anyMed(id); if(!m||!t) return;
@@ -1256,6 +1273,7 @@ document.getElementById("xform").addEventListener("submit",ev=>{
     const d=parseKey(xedit.date); d.setHours(+v.slice(0,2),+v.slice(3,5),0);
     if(xedit.kind==="sym"){ const sd=state.slog[xedit.date]; if(sd&&sd[xedit.id]) sd[xedit.id]=d.getTime(); }
     else if(xedit.kind==="med"){ const day=state.log[xedit.date]; if(day&&day[xedit.k]) day[xedit.k]=d.getTime(); }
+    else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&(m.foods||[]).includes(xedit.id)) (m.ft||(m.ft={}))[xedit.id]=d.getTime(); }
     else { const list=(xedit.kind==="supp"?state.suplog:state.xlog)[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=d.getTime(); list.sort((a,b)=>a.t-b.t); } }
   }
   xdlg.close(); commit();
@@ -1264,6 +1282,7 @@ document.getElementById("xcancel").onclick=()=>xdlg.close();
 document.getElementById("xremove").onclick=()=>{
   if(xedit.kind==="sym"){ const sd=state.slog[xedit.date]||{}; delete sd[xedit.id]; if(!Object.keys(sd).length) delete state.slog[xedit.date]; }
   else if(xedit.kind==="med"){ const day=state.log[xedit.date]||{}; delete day[xedit.k]; if(!Object.keys(day).length) delete state.log[xedit.date]; }
+  else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&m.ft){ delete m.ft[xedit.id]; tidyMeals(xedit.date); } }
   else { const log=xedit.kind==="supp"?state.suplog:state.xlog, list=log[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete log[xedit.date]; }
   xdlg.close(); commit();
 };
@@ -1275,10 +1294,18 @@ function tidyMoods(date){
 }
 /* A meal's foods list can hold the same food more than once; this tallies them in first-added order */
 function countFoods(list){const c=new Map();for(const id of list||[])c.set(id,(c.get(id)||0)+1);return c}
+/* Food times: m.ft maps a food id to when it was eaten (optional).
+   The meal's time is the earliest food time, so if only one food has a time the whole meal gets it;
+   foods without their own time show the meal's time. */
+function foodTime(m,id){const t=m&&m.ft&&m.ft[id];return realTime(t)?t:0}
+function mealTime(m){const ts=Object.entries((m&&m.ft)||{}).filter(([id,t])=>realTime(t)&&(m.foods||[]).includes(id)).map(([,t])=>t);return ts.length?Math.min(...ts):0}
 function mealOf(date,meal){const d=state.meals[date]||(state.meals[date]={});return d[meal]||(d[meal]={foods:[]})}
 function tidyMeals(date){
   const d=state.meals[date]; if(!d) return;
-  for(const [k,m] of Object.entries(d)) if(!(m.foods||[]).length&&!m.place) delete d[k];
+  for(const [k,m] of Object.entries(d)){
+    if(m.ft){ for(const id of Object.keys(m.ft)) if(!(m.foods||[]).includes(id)) delete m.ft[id]; if(!Object.keys(m.ft).length) delete m.ft; }
+    if(!(m.foods||[]).length&&!m.place) delete d[k];
+  }
   if(!Object.keys(d).length) delete state.meals[date];
 }
 document.getElementById("slots").addEventListener("change",e=>{
@@ -1451,7 +1478,7 @@ function buildCSV(start,end){
   const sched=state.meds.flatMap(m=>m.slots.map(sl=>({key:m.id+"|"+sl,label:m.name+" ("+(SLOTS.find(x=>x.id===sl)||{}).label+")"})));
   const head=["date","weekday","doses_taken","doses_scheduled","missed_doses","additional_meds","additional_med_count","supplements","supplement_count","symptoms","symptom_count",
     ...syms.map(x=>"symptom: "+x.name),
-    ...MEALS.flatMap(m=>[m.label.toLowerCase().replace(/ /g,"_")+"_foods",m.label.toLowerCase().replace(/ /g,"_")+"_restaurant"]),
+    ...MEALS.flatMap(m=>{const b=m.label.toLowerCase().replace(/ /g,"_");return [b+"_time",b+"_foods",b+"_restaurant"]}),
     "restaurants_today",...places.map(x=>"ate at: "+x.name),
     ...MOODTIMES.map(m=>"mood_"+m.id),
     "weather","high_"+(US_UNITS?"F":"C"),"low_"+(US_UNITS?"F":"C"),"precip_"+(US_UNITS?"in":"mm"),"humidity_pct","pressure_hpa","pressure_change_hpa","us_aqi","pm2_5","pollen_tree","pollen_grass","pollen_weed",
@@ -1468,7 +1495,7 @@ function buildCSV(start,end){
       [...new Set(sd.map(e=>e.id))].map(id=>{const m=suppOf(id), ts=sd.filter(e=>e.id===id).map(e=>fmtTime(e.t));return m.name+(m.dose?" ("+m.dose+")":"")+(ts.length>1?" x"+ts.length:"")+" at "+ts.join(", ")}).join("; "),sd.length,
       [...had].sort((a,b)=>symSortKey(sl[a.id])-symSortKey(sl[b.id])).map(x=>x.name+(sl[x.id]===ALLDAY?" (all day)":realTime(sl[x.id])?" at "+fmtTime(sl[x.id]):"")).join("; "),had.length,
       ...syms.map(x=>sl[x.id]?1:0),
-      ...MEALS.flatMap(m=>{const e=meals[m.id]||{};return [[...countFoods(e.foods)].map(([id,n])=>{const nm=nameOf(state.foods,id);return nm&&(n>1?nm+" x"+n:nm)}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
+      ...MEALS.flatMap(m=>{const e=meals[m.id]||{}, mt=mealTime(e);return [mt?fmtTime(mt):"",[...countFoods(e.foods)].map(([id,n])=>{const nm=nameOf(state.foods,id), ft=foodTime(e,id);return nm&&(n>1?nm+" x"+n:nm)+(ft&&ft!==mt?" at "+fmtTime(ft):"")}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
       placesToday.map(id=>nameOf(state.places,id)).filter(Boolean).join("; "),
       ...places.map(x=>placesToday.includes(x.id)?1:0),
       ...MOODTIMES.map(m=>((state.mlog[k]||{})[m.id]||[]).map(id=>nameOf(state.moods,id)).filter(Boolean).join("; ")),
