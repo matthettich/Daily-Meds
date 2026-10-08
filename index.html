@@ -497,9 +497,10 @@ const KEEP_MED_DAYS = 400;   // medication check-offs; symptom history is kept f
 /* extras: as-needed medications (Tylenol, aspirin…). xlog: {date:[{id,t}]} — each dose taken, from extras or the regular list */
 /* supps: supplements (vitamin D, magnesium…). suplog: {date:[{id,t}]} — each supplement taken */
 /* moods: mood list. mlog: {date:{morning:[ids],afternoon:[ids],evening:[ids]}}
+   mtlog: {date:{morning:{id:t}}} — optional time each mood was felt
    weather: {date:{hi,lo,rain,code,hum,press,aqi,pm25,pollen:{tree,grass,weed},final}} (°C, mm, %, hPa). wxloc: {lat,lon,label} */
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{},
-  moods:defaultMoods(), mlog:{}, weather:{}, wxloc:null, pollenKey:"", updated:0};
+  moods:defaultMoods(), mlog:{}, mtlog:{}, weather:{}, wxloc:null, pollenKey:"", updated:0};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
 
@@ -521,7 +522,7 @@ function normalize(s){
           foods:Array.isArray(s.foods)?s.foods:[], places:Array.isArray(s.places)?s.places:[], meals:obj(s.meals),
           extras:Array.isArray(s.extras)?s.extras:[], xlog:obj(s.xlog),
           supps:Array.isArray(s.supps)?s.supps:[], suplog:obj(s.suplog),
-          moods:Array.isArray(s.moods)?s.moods:defaultMoods(), mlog:obj(s.mlog),
+          moods:Array.isArray(s.moods)?s.moods:defaultMoods(), mlog:obj(s.mlog), mtlog:obj(s.mtlog),
           weather:obj(s.weather), wxloc:(s.wxloc&&isFinite(s.wxloc.lat)&&isFinite(s.wxloc.lon))?s.wxloc:null,
           pollenKey:typeof s.pollenKey==="string"?s.pollenKey:"",
           updated:Number(s.updated)||0};
@@ -724,10 +725,12 @@ function render(){
   const moday=state.mlog[viewDate]||{};
   const moodsSorted=[...state.moods].sort((a,b)=>a.name.localeCompare(b.name));
   for(const mt of MOODTIMES){
-    const ids=(moday[mt.id]||[]).filter(id=>byId(state.moods,id));
+    const ids=(moday[mt.id]||[]).filter(id=>byId(state.moods,id)), tt=moodTimes(viewDate,mt.id), mtt=groupTime(tt,ids);
     html+=`<div class="box mood ${mt.l}">
-      <div class="lid">${mt.label}<span class="st">${ids.length?"":"None"}</span></div>
-      <div class="chips">${ids.length?ids.map(id=>{const nm=byId(state.moods,id).name;return `<span class="chip">${esc(nm)}<button data-rmmood="${esc(id)}" data-mt="${mt.id}" aria-label="Remove ${esc(nm)} from ${mt.label.toLowerCase()}">×</button></span>`}).join(""):`<span class="none">How did you feel?</span>`}</div>
+      <div class="lid">${mt.label}${mtt?`<span class="mtime">${fmtTime(mtt)}</span>`:""}<span class="st">${ids.length?"":"None"}</span></div>
+      <div class="chips">${ids.length?ids.map(id=>{const nm=byId(state.moods,id).name,own=realTime(tt[id])?tt[id]:0,shown=own||mtt;
+        const tb=`<button class="t${own?"":" inh"}" data-editmood="${esc(id)}" data-mt="${mt.id}" aria-label="${shown?`Change time of ${esc(nm)}, now ${fmtTime(shown)}`:`Add a time for ${esc(nm)}`}">${shown?fmtTime(shown):CLOCK}</button>`;
+        return `<span class="chip">${esc(nm)}${tb}<button data-rmmood="${esc(id)}" data-mt="${mt.id}" aria-label="Remove ${esc(nm)} from ${mt.label.toLowerCase()}">×</button></span>`}).join(""):`<span class="none">How did you feel?</span>`}</div>
       <div class="pickers one">
         <select data-pick="mood" data-mt="${mt.id}" aria-label="Add a mood for ${mt.label.toLowerCase()}">
           <option value="">Add mood or emotion…</option>
@@ -1167,6 +1170,8 @@ function sweep(){
 document.getElementById("slots").addEventListener("click",e=>{
   const med=e.target.closest(".med"), sym=e.target.closest(".sym"), all=e.target.closest("[data-all]"), add=e.target.closest("[data-add]");
   const rm=e.target.closest("[data-rm]"), rmsym=e.target.closest("[data-rmsym]"), rmx=e.target.closest("[data-rmx]");
+  const editmood=e.target.closest("[data-editmood]");
+  if(editmood){ openMoodTime(viewDate,editmood.dataset.mt,editmood.dataset.editmood); return; }
   const editf=e.target.closest("[data-editf]");
   if(editf){ openFoodTime(viewDate,editf.dataset.meal,editf.dataset.editf); return; }
   const editk=e.target.closest("[data-editk]");
@@ -1242,6 +1247,13 @@ function openSuppTime(date,i){
   xedit={kind:"supp",date,i};
   openTimeDialog(m.name+(m.dose?" · "+m.dose:""),"Time taken","Remove",e.t);
 }
+function openMoodTime(date,mt,id){
+  const ids=((state.mlog[date]||{})[mt])||[], x=state.moods.find(q=>q.id===id), lab=MOODTIMES.find(q=>q.id===mt); if(!x||!ids.includes(id)) return;
+  const tt=moodTimes(date,mt), own=realTime(tt[id])?tt[id]:0;
+  xedit={kind:"mood",date,mt,id};
+  openTimeDialog(x.name+(lab?" · "+lab.label:""),"Time felt","Clear time",own||groupTime(tt,ids));
+  document.getElementById("xremove").style.display=own?"":"none";
+}
 function openFoodTime(date,meal,id){
   const m=(state.meals[date]||{})[meal], f=state.foods.find(x=>x.id===id), ml=MEALS.find(x=>x.id===meal); if(!m||!f) return;
   const own=foodTime(m,id);
@@ -1273,6 +1285,7 @@ document.getElementById("xform").addEventListener("submit",ev=>{
     const d=parseKey(xedit.date); d.setHours(+v.slice(0,2),+v.slice(3,5),0);
     if(xedit.kind==="sym"){ const sd=state.slog[xedit.date]; if(sd&&sd[xedit.id]) sd[xedit.id]=d.getTime(); }
     else if(xedit.kind==="med"){ const day=state.log[xedit.date]; if(day&&day[xedit.k]) day[xedit.k]=d.getTime(); }
+    else if(xedit.kind==="mood"){ if((((state.mlog[xedit.date]||{})[xedit.mt])||[]).includes(xedit.id)){ const day=state.mtlog[xedit.date]||(state.mtlog[xedit.date]={}); (day[xedit.mt]||(day[xedit.mt]={}))[xedit.id]=d.getTime(); } }
     else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&(m.foods||[]).includes(xedit.id)) (m.ft||(m.ft={}))[xedit.id]=d.getTime(); }
     else { const list=(xedit.kind==="supp"?state.suplog:state.xlog)[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=d.getTime(); list.sort((a,b)=>a.t-b.t); } }
   }
@@ -1282,12 +1295,21 @@ document.getElementById("xcancel").onclick=()=>xdlg.close();
 document.getElementById("xremove").onclick=()=>{
   if(xedit.kind==="sym"){ const sd=state.slog[xedit.date]||{}; delete sd[xedit.id]; if(!Object.keys(sd).length) delete state.slog[xedit.date]; }
   else if(xedit.kind==="med"){ const day=state.log[xedit.date]||{}; delete day[xedit.k]; if(!Object.keys(day).length) delete state.log[xedit.date]; }
+  else if(xedit.kind==="mood"){ delete moodTimes(xedit.date,xedit.mt)[xedit.id]; tidyMoods(xedit.date); }
   else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&m.ft){ delete m.ft[xedit.id]; tidyMeals(xedit.date); } }
   else { const log=xedit.kind==="supp"?state.suplog:state.xlog, list=log[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete log[xedit.date]; }
   xdlg.close(); commit();
 };
 function logMood(date,mt,id){ const d=state.mlog[date]||(state.mlog[date]={}), a=d[mt]||(d[mt]=[]); if(!a.includes(id)) a.push(id); }
+/* Mood times work like food times: the earliest time in a group is the group's time,
+   so one timed mood sets the time for the rest of that morning/afternoon/evening */
+function moodTimes(date,mt){return ((state.mtlog[date]||{})[mt])||{}}
+function groupTime(times,ids){const ts=ids.map(id=>times[id]).filter(realTime);return ts.length?Math.min(...ts):0}
 function tidyMoods(date){
+  const tl=state.mtlog[date];
+  if(tl){ const cur=state.mlog[date]||{};
+    for(const [mt,o] of Object.entries(tl)){ for(const id of Object.keys(o)) if(!(cur[mt]||[]).includes(id)) delete o[id]; if(!Object.keys(o).length) delete tl[mt]; }
+    if(!Object.keys(tl).length) delete state.mtlog[date]; }
   const d=state.mlog[date]; if(!d) return;
   for(const [k,a] of Object.entries(d)) if(!a.length) delete d[k];
   if(!Object.keys(d).length) delete state.mlog[date];
@@ -1480,7 +1502,7 @@ function buildCSV(start,end){
     ...syms.map(x=>"symptom: "+x.name),
     ...MEALS.flatMap(m=>{const b=m.label.toLowerCase().replace(/ /g,"_");return [b+"_time",b+"_foods",b+"_restaurant"]}),
     "restaurants_today",...places.map(x=>"ate at: "+x.name),
-    ...MOODTIMES.map(m=>"mood_"+m.id),
+    ...MOODTIMES.flatMap(m=>["mood_"+m.id+"_time","mood_"+m.id]),
     "weather","high_"+(US_UNITS?"F":"C"),"low_"+(US_UNITS?"F":"C"),"precip_"+(US_UNITS?"in":"mm"),"humidity_pct","pressure_hpa","pressure_change_hpa","us_aqi","pm2_5","pollen_tree","pollen_grass","pollen_weed",
     "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood"];
   const rows=[head.map(q).join(",")];
@@ -1498,7 +1520,8 @@ function buildCSV(start,end){
       ...MEALS.flatMap(m=>{const e=meals[m.id]||{}, mt=mealTime(e);return [mt?fmtTime(mt):"",[...countFoods(e.foods)].map(([id,n])=>{const nm=nameOf(state.foods,id), ft=foodTime(e,id);return nm&&(n>1?nm+" x"+n:nm)+(ft&&ft!==mt?" at "+fmtTime(ft):"")}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
       placesToday.map(id=>nameOf(state.places,id)).filter(Boolean).join("; "),
       ...places.map(x=>placesToday.includes(x.id)?1:0),
-      ...MOODTIMES.map(m=>((state.mlog[k]||{})[m.id]||[]).map(id=>nameOf(state.moods,id)).filter(Boolean).join("; ")),
+      ...MOODTIMES.flatMap(m=>{const ids=(state.mlog[k]||{})[m.id]||[], tt=moodTimes(k,m.id), gt=groupTime(tt,ids);
+        return [gt?fmtTime(gt):"",ids.map(id=>{const nm=nameOf(state.moods,id);return nm&&nm+(realTime(tt[id])&&tt[id]!==gt?" at "+fmtTime(tt[id]):"")}).filter(Boolean).join("; ")]}),
       ...(()=>{const w=state.weather[k], pw=state.weather[shiftKey(k,-1)];
         if(!w||w.hi==null) return ["","","","","","","","","","","",""];
         const T=c=>c==null?"":Math.round(US_UNITS?c*9/5+32:c), P=w.pollen||{};
