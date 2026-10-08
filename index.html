@@ -211,6 +211,11 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
    deepening through the day */
 .pg-white .box.mood{--H:calc(var(--h) - 55)}
 .l-mmorning{--l:90%} .l-mafternoon{--l:86%} .l-mevening{--l:82%}
+/* Smells on Today: the Food section's colors (colored box, white title bar) */
+.l-smell{--l:88%}
+/* On/off switch rows in Settings (e.g. Track smells) */
+.toggle{display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 10px;font-size:15px;font-weight:500;cursor:pointer}
+.toggle input{width:22px;height:22px;margin:0;accent-color:var(--ink);flex:none}
 .chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 10px 0}
 .chip{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--rule);background:var(--white);padding:0 0 0 10px;font-size:14px;min-height:32px}
 .chip button{border:0;border-left:1px solid var(--rule);background:transparent;width:30px;align-self:stretch;font-size:16px;line-height:1;margin-left:6px}
@@ -389,6 +394,17 @@ body{display:flex;flex-direction:column}
       </div>
     </section>
 
+    <section class="view pg-color pg-food sset band" data-tab="set" style="display:none">
+      <div class="sect" role="heading" aria-level="2">Smells &amp; Other</div>
+      <div class="box l-list">
+        <label class="toggle"><input type="checkbox" id="trackSmells"><span>Track smells</span></label>
+      </div>
+      <div class="box l-list" id="smellBox" hidden>
+        <div class="lid"><h2>Smells</h2><button class="act add" id="addSmell">Add</button></div>
+        <div id="smellList"></div>
+      </div>
+    </section>
+
     <section class="view pg-white sset" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Your data</div>
       <div class="box l-list">
@@ -498,9 +514,10 @@ const KEEP_MED_DAYS = 400;   // medication check-offs; symptom history is kept f
 /* supps: supplements (vitamin D, magnesium…). suplog: {date:[{id,t}]} — each supplement taken */
 /* moods: mood list. mlog: {date:{morning:[ids],afternoon:[ids],evening:[ids]}}
    mtlog: {date:{morning:{id:t}}} — optional time each mood was felt
+   smells: smell list. smlog: {date:[{id,t}]} — each smell noticed. trackSmells: show the Smells box on Today
    weather: {date:{hi,lo,rain,code,hum,press,aqi,pm25,pollen:{tree,grass,weed},final}} (°C, mm, %, hPa). wxloc: {lat,lon,label} */
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{},
-  moods:defaultMoods(), mlog:{}, mtlog:{}, weather:{}, wxloc:null, pollenKey:"", updated:0};
+  moods:defaultMoods(), mlog:{}, mtlog:{}, smells:[], smlog:{}, trackSmells:false, weather:{}, wxloc:null, pollenKey:"", updated:0};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
 
@@ -523,6 +540,7 @@ function normalize(s){
           extras:Array.isArray(s.extras)?s.extras:[], xlog:obj(s.xlog),
           supps:Array.isArray(s.supps)?s.supps:[], suplog:obj(s.suplog),
           moods:Array.isArray(s.moods)?s.moods:defaultMoods(), mlog:obj(s.mlog), mtlog:obj(s.mtlog),
+          smells:Array.isArray(s.smells)?s.smells:[], smlog:obj(s.smlog), trackSmells:s.trackSmells===true,
           weather:obj(s.weather), wxloc:(s.wxloc&&isFinite(s.wxloc.lat)&&isFinite(s.wxloc.lon))?s.wxloc:null,
           pollenKey:typeof s.pollenKey==="string"?s.pollenKey:"",
           updated:Number(s.updated)||0};
@@ -588,6 +606,8 @@ function anyMed(id){return state.extras.find(x=>x.id===id)||state.meds.find(x=>x
 function xdoses(date){return (state.xlog[date]||[]).filter(e=>anyMed(e.id))}
 function suppOf(id){return state.supps.find(x=>x.id===id)}
 function sdoses(date){return (state.suplog[date]||[]).filter(e=>suppOf(e.id))}
+function smellOf(id){return state.smells.find(x=>x.id===id)}
+function smdoses(date){return (state.smlog[date]||[]).filter(e=>smellOf(e.id))}
 function monthCount(symId){
   const prefix=todayKey().slice(0,7); let n=0;
   for(const [k,v] of Object.entries(state.slog)) if(k.startsWith(prefix)&&v[symId]) n++;
@@ -743,6 +763,25 @@ function render(){
 
   html+=noteBox("mood","mood","Mood notes","What shaped your mood today?");
 
+  /* Today: smells & other (only when Track smells is on in Settings) */
+  if(state.trackSmells){
+    html+=`<div class="sect" role="heading" aria-level="2">Smells &amp; Other</div>`;
+    const hits=(state.smlog[viewDate]||[]).map((e,i)=>({...e,i})).filter(e=>smellOf(e.id));
+    /* One chip per smell: ×N when noticed more than once; time and × act on the latest */
+    const groups=new Map(); for(const e of hits){ const g=groups.get(e.id); if(g){g.n++;g.last=e} else groups.set(e.id,{n:1,last:e}) }
+    html+=`<div class="box meal l-smell">
+      <div class="lid">Smells<span class="st">${hits.length?hits.length+" noticed":"None"}</span></div>
+      <div class="chips">${groups.size?[...groups].map(([id,g])=>{const m=smellOf(id),e=g.last;return `<span class="chip">${esc(m.name)}${g.n>1?`<span class="qty">×${g.n}</span>`:""}<button class="t" data-editsm="${e.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-rmsm="${e.i}" aria-label="Remove one ${esc(m.name)}">×</button></span>`}).join(""):`<span class="none">No smells noticed</span>`}</div>
+      <div class="pickers one">
+        <select data-pick="smell" aria-label="Add a smell">
+          <option value="">Add smell…</option>
+          ${[...state.smells].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>`<option value="${esc(m.id)}">${esc(m.name)}</option>`).join("")}
+          <option value="__new">+ New smell…</option>
+        </select>
+      </div>
+    </div>`;
+  }
+
   const slotsEl=document.getElementById("slots");
   const prog=document.getElementById("progress");
   if(!state.meds.length&&!state.symptoms.length){
@@ -778,6 +817,14 @@ function render(){
         <span><span class="nm">${esc(m.name)}</span>${m.dose?`<span class="ds">${esc(m.dose)}</span>`:""}</span>
         <span class="side">${n} ${n===1?"time":"times"} in ${esc(month)}</span></button>`}).join("")
     : `<div class="empty-row">Vitamins, minerals and the like. Tap Add.</div>`;
+  document.getElementById("trackSmells").checked=state.trackSmells;
+  document.getElementById("smellBox").hidden=!state.trackSmells;
+  const smMonth=id=>{const prefix=todayKey().slice(0,7);let n=0;for(const [k,v] of Object.entries(state.smlog)) if(k.startsWith(prefix)) for(const e of v) if(e.id===id) n++;return n};
+  document.getElementById("smellList").innerHTML = state.smells.length
+    ? [...state.smells].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>{const n=smMonth(m.id);return `<button class="row" data-edit-smell="${esc(m.id)}">
+        <span class="nm">${esc(m.name)}</span>
+        <span class="side">${n} ${n===1?"time":"times"} in ${esc(month)}</span></button>`}).join("")
+    : `<div class="empty-row">Perfume, smoke, cleaning products… Tap Add.</div>`;
   const sl=document.getElementById("symList");
   sl.innerHTML = state.symptoms.length
     ? state.symptoms.map(x=>{const n=monthCount(x.id);return `<button class="row" data-edit-sym="${esc(x.id)}">
@@ -823,7 +870,7 @@ function daysBetween(a,b){return Math.round((parseKey(b)-parseKey(a))/86400000)+
 function firstUse(){
   let first=todayKey();
   const scan=o=>{for(const k of Object.keys(o||{})) if(k<first) first=k};
-  scan(state.log);scan(state.slog);scan(state.food);scan(state.notes);scan(state.xlog);scan(state.suplog);scan(state.meals);scan(state.mlog);
+  scan(state.log);scan(state.slog);scan(state.food);scan(state.notes);scan(state.xlog);scan(state.suplog);scan(state.smlog);scan(state.meals);scan(state.mlog);
   for(const v of Object.values(state.pnotes)) scan(v);
   return first;
 }
@@ -970,6 +1017,21 @@ function renderSummary(){
     html+=`<div class="box l-list"><div class="lid">Mood &amp; emotions</div>
       ${rows.length?rows.map(r=>`<div class="stat"><span class="nm">${esc(r.x.name)}</span><span class="num">${r.days} ${r.days===1?"day":"days"}${r.times>r.days?" · "+r.times+" times":""}</span><div class="track"><i style="width:${Math.round(r.days/maxD*100)}%"></i></div></div>`).join("")
         :`<div class="empty-row">No moods logged this ${unit}.</div>`}</div>`;
+  }
+
+  /* Smells */
+  {
+    const tally={};
+    for(const [k,v] of Object.entries(state.smlog)){ if(k<from||k>upto) continue;
+      const seen=new Set();
+      for(const e of v){ if(!smellOf(e.id)) continue; const t=tally[e.id]||(tally[e.id]={times:0,days:0}); t.times++; if(!seen.has(e.id)){seen.add(e.id);t.days++} } }
+    const rows=Object.entries(tally).map(([id,t])=>({m:smellOf(id),...t})).sort((a,b)=>b.days-a.days||b.times-a.times||a.m.name.localeCompare(b.m.name));
+    if(rows.length||state.trackSmells){
+      const maxD=Math.max(1,...rows.map(r=>r.days));
+      html+=`<div class="box l-list"><div class="lid">Smells</div>
+        ${rows.length?rows.map(r=>`<div class="stat"><span class="nm">${esc(r.m.name)}</span><span class="num">${r.days} ${r.days===1?"day":"days"}${r.times>r.days?" · "+r.times+" times":""}</span><div class="track"><i style="width:${Math.round(r.days/maxD*100)}%"></i></div></div>`).join("")
+          :`<div class="empty-row">No smells logged this ${unit}.</div>`}</div>`;
+    }
   }
 
   /* Weather vs symptoms */
@@ -1184,6 +1246,9 @@ document.getElementById("slots").addEventListener("click",e=>{
   const edits=e.target.closest("[data-edits]"), rms=e.target.closest("[data-rms]");
   if(edits){ openSuppTime(viewDate,+edits.dataset.edits); return; }
   if(rms){ const list=state.suplog[viewDate]||[]; list.splice(+rms.dataset.rms,1); if(!list.length) delete state.suplog[viewDate]; commit(); return; }
+  const editsm=e.target.closest("[data-editsm]"), rmsm=e.target.closest("[data-rmsm]");
+  if(editsm){ openSmellTime(viewDate,+editsm.dataset.editsm); return; }
+  if(rmsm){ const list=state.smlog[viewDate]||[]; list.splice(+rmsm.dataset.rmsm,1); if(!list.length) delete state.smlog[viewDate]; commit(); return; }
   const rmmood=e.target.closest("[data-rmmood]");
   if(rmmood){ const d=state.mlog[viewDate]||{}, mt=rmmood.dataset.mt; d[mt]=(d[mt]||[]).filter(id=>id!==rmmood.dataset.rmmood); tidyMoods(viewDate); commit(); return; }
   if(rmsym){ const sd=state.slog[viewDate]||{}; delete sd[rmsym.dataset.rmsym]; if(!Object.keys(sd).length) delete state.slog[viewDate]; commit(); return; }
@@ -1218,6 +1283,9 @@ function logExtra(date,id){
 function logSupp(date,id){
   const list=state.suplog[date]||(state.suplog[date]=[]); list.push({id,t:stampFor(date)}); list.sort((a,b)=>a.t-b.t);
 }
+function logSmell(date,id){
+  const list=state.smlog[date]||(state.smlog[date]=[]); list.push({id,t:stampFor(date)}); list.sort((a,b)=>a.t-b.t);
+}
 /* A symptom's value is a timestamp, or ALLDAY when it lasted the whole day */
 const ALLDAY="all";
 function symSortKey(v){ return v===ALLDAY ? -1 : realTime(v) ? v : 0; }
@@ -1246,6 +1314,11 @@ function openSuppTime(date,i){
   const e=(state.suplog[date]||[])[i], m=e&&suppOf(e.id); if(!m) return;
   xedit={kind:"supp",date,i};
   openTimeDialog(m.name+(m.dose?" · "+m.dose:""),"Time taken","Remove",e.t);
+}
+function openSmellTime(date,i){
+  const e=(state.smlog[date]||[])[i], m=e&&smellOf(e.id); if(!m) return;
+  xedit={kind:"smell",date,i};
+  openTimeDialog(m.name,"Time noticed","Remove",e.t);
 }
 function openMoodTime(date,mt,id){
   const ids=((state.mlog[date]||{})[mt])||[], x=state.moods.find(q=>q.id===id), lab=MOODTIMES.find(q=>q.id===mt); if(!x||!ids.includes(id)) return;
@@ -1287,7 +1360,7 @@ document.getElementById("xform").addEventListener("submit",ev=>{
     else if(xedit.kind==="med"){ const day=state.log[xedit.date]; if(day&&day[xedit.k]) day[xedit.k]=d.getTime(); }
     else if(xedit.kind==="mood"){ if((((state.mlog[xedit.date]||{})[xedit.mt])||[]).includes(xedit.id)){ const day=state.mtlog[xedit.date]||(state.mtlog[xedit.date]={}); (day[xedit.mt]||(day[xedit.mt]={}))[xedit.id]=d.getTime(); } }
     else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&(m.foods||[]).includes(xedit.id)) (m.ft||(m.ft={}))[xedit.id]=d.getTime(); }
-    else { const list=(xedit.kind==="supp"?state.suplog:state.xlog)[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=d.getTime(); list.sort((a,b)=>a.t-b.t); } }
+    else { const list=(xedit.kind==="supp"?state.suplog:xedit.kind==="smell"?state.smlog:state.xlog)[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=d.getTime(); list.sort((a,b)=>a.t-b.t); } }
   }
   xdlg.close(); commit();
 });
@@ -1297,7 +1370,7 @@ document.getElementById("xremove").onclick=()=>{
   else if(xedit.kind==="med"){ const day=state.log[xedit.date]||{}; delete day[xedit.k]; if(!Object.keys(day).length) delete state.log[xedit.date]; }
   else if(xedit.kind==="mood"){ delete moodTimes(xedit.date,xedit.mt)[xedit.id]; tidyMoods(xedit.date); }
   else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&m.ft){ delete m.ft[xedit.id]; tidyMeals(xedit.date); } }
-  else { const log=xedit.kind==="supp"?state.suplog:state.xlog, list=log[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete log[xedit.date]; }
+  else { const log=xedit.kind==="supp"?state.suplog:xedit.kind==="smell"?state.smlog:state.xlog, list=log[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete log[xedit.date]; }
   xdlg.close(); commit();
 };
 function logMood(date,mt,id){ const d=state.mlog[date]||(state.mlog[date]={}), a=d[mt]||(d[mt]=[]); if(!a.includes(id)) a.push(id); }
@@ -1344,6 +1417,12 @@ document.getElementById("slots").addEventListener("change",e=>{
     if(v){ logSupp(viewDate,v); commit(); }
     return;
   }
+  if(sel.dataset.pick==="smell"){
+    const v=sel.value;
+    if(v==="__new"){ sel.value=""; openEditor("smell",null,{date:viewDate,smell:true}); return; }
+    if(v){ logSmell(viewDate,v); commit(); }
+    return;
+  }
   if(sel.dataset.pick==="mood"){
     const v=sel.value, mt=sel.dataset.mt;
     if(v==="__new"){ sel.value=""; openEditor("mood",null,{date:viewDate,mt,mood:true}); return; }
@@ -1383,6 +1462,9 @@ document.getElementById("addSym").onclick=()=>openEditor("sym",null);
 document.getElementById("addFood").onclick=()=>openEditor("food",null);
 document.getElementById("addPlace").onclick=()=>openEditor("place",null);
 document.getElementById("addMood").onclick=()=>openEditor("mood",null);
+document.getElementById("addSmell").onclick=()=>openEditor("smell",null);
+document.getElementById("smellList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-smell]");if(b)openEditor("smell",b.dataset.editSmell)});
+document.getElementById("trackSmells").addEventListener("change",e=>{state.trackSmells=e.target.checked;commit()});
 document.getElementById("moodList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-mood]");if(b)openEditor("mood",b.dataset.editMood)});
 document.getElementById("foodList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-food]");if(b)openEditor("food",b.dataset.editFood)});
 document.getElementById("placeList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-place]");if(b)openEditor("place",b.dataset.editPlace)});
@@ -1414,7 +1496,8 @@ const KINDS={
   place:{list:()=>state.places,   set:v=>state.places=v,   word:"restaurant", ph:"e.g. Chipotle"},
   mood: {list:()=>state.moods,    set:v=>state.moods=v,    word:"mood or emotion", ph:"e.g. calm, anxious"},
   extra:{list:()=>state.extras,   set:v=>state.extras=v,   word:"additional medication", ph:"e.g. Tylenol, aspirin"},
-  supp: {list:()=>state.supps,    set:v=>state.supps=v,    word:"supplement", ph:"e.g. vitamin D, magnesium"}
+  supp: {list:()=>state.supps,    set:v=>state.supps=v,    word:"supplement", ph:"e.g. vitamin D, magnesium"},
+  smell:{list:()=>state.smells,   set:v=>state.smells=v,   word:"smell",      ph:"e.g. perfume, smoke, bleach"}
 };
 function openEditor(kind,id,pending){
   editing={kind,id,pending:pending||null};
@@ -1467,6 +1550,7 @@ form.addEventListener("submit",e=>{
     const p=editing.pending;
     if(p&&p.sym){ logSym(p.date,item.id); }
     else if(p&&p.mood){ logMood(p.date,p.mt,item.id); }
+    else if(p&&p.smell){ logSmell(p.date,item.id); }
     else if(p){ const m=mealOf(p.date,p.meal);
       if(editing.kind==="food"){ m.foods.push(item.id) } else m.place=item.id; }
   }
@@ -1475,7 +1559,7 @@ form.addEventListener("submit",e=>{
 document.getElementById("delItem").onclick=()=>{
   const K=KINDS[editing.kind], item=K.list().find(x=>x.id===editing.id);
   if(!item) return;
-  const note={med:"",extra:" Its logged doses will no longer be shown.",supp:" Its logged doses will no longer be shown.",sym:" Its history will no longer be counted.",food:" It will be removed from past meals.",mood:" It will be removed from past days.",place:" It will be removed from past meals."}[editing.kind];
+  const note={med:"",extra:" Its logged doses will no longer be shown.",supp:" Its logged doses will no longer be shown.",sym:" Its history will no longer be counted.",food:" It will be removed from past meals.",mood:" It will be removed from past days.",smell:" Its logged times will no longer be shown.",place:" It will be removed from past meals."}[editing.kind];
   if(!confirm(`Delete ${item.name}?`+note)) return;
   K.set(K.list().filter(x=>x.id!==editing.id));
   dlg.close(); commit();
@@ -1503,6 +1587,7 @@ function buildCSV(start,end){
     ...MEALS.flatMap(m=>{const b=m.label.toLowerCase().replace(/ /g,"_");return [b+"_time",b+"_foods",b+"_restaurant"]}),
     "restaurants_today",...places.map(x=>"ate at: "+x.name),
     ...MOODTIMES.flatMap(m=>["mood_"+m.id+"_time","mood_"+m.id]),
+    "smells","smell_count",
     "weather","high_"+(US_UNITS?"F":"C"),"low_"+(US_UNITS?"F":"C"),"precip_"+(US_UNITS?"in":"mm"),"humidity_pct","pressure_hpa","pressure_change_hpa","us_aqi","pm2_5","pollen_tree","pollen_grass","pollen_weed",
     "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood"];
   const rows=[head.map(q).join(",")];
@@ -1522,6 +1607,7 @@ function buildCSV(start,end){
       ...places.map(x=>placesToday.includes(x.id)?1:0),
       ...MOODTIMES.flatMap(m=>{const ids=(state.mlog[k]||{})[m.id]||[], tt=moodTimes(k,m.id), gt=groupTime(tt,ids);
         return [gt?fmtTime(gt):"",ids.map(id=>{const nm=nameOf(state.moods,id);return nm&&nm+(realTime(tt[id])&&tt[id]!==gt?" at "+fmtTime(tt[id]):"")}).filter(Boolean).join("; ")]}),
+      ...(()=>{const sm=smdoses(k);return [[...new Set(sm.map(e=>e.id))].map(id=>{const m=smellOf(id), ts=sm.filter(e=>e.id===id).map(e=>fmtTime(e.t));return m.name+(ts.length>1?" x"+ts.length:"")+" at "+ts.join(", ")}).join("; "),sm.length]})(),
       ...(()=>{const w=state.weather[k], pw=state.weather[shiftKey(k,-1)];
         if(!w||w.hi==null) return ["","","","","","","","","","","",""];
         const T=c=>c==null?"":Math.round(US_UNITS?c*9/5+32:c), P=w.pollen||{};
