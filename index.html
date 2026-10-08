@@ -139,7 +139,12 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
 .lid .st + .act{margin-left:0}
 
 .row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;min-height:52px;border-top:1px solid var(--hair)}
-.lid + .row{border-top:0}
+.lid + .row,.lid + .medrow .row{border-top:0}
+/* Checked med: the time on the right is its own button, tap it to change the time */
+.medrow{position:relative}
+.medrow.has-t .row{padding-right:84px}
+.medrow button.when{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;padding:10px 6px;min-height:40px;
+  font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;text-decoration:underline dotted;text-underline-offset:3px}
 .pill{flex:none;width:22px;height:22px;border:1px solid var(--rule);display:grid;place-items:center;background:var(--white)}
 .pill svg{width:14px;height:14px;opacity:0;color:var(--white)}
 .row[aria-checked="true"] .pill{background:var(--ink)}
@@ -610,11 +615,10 @@ function render(){
       ${list.map(m=>{
         const k=m.id+"|"+s.id, ts=day[k];
         const sub=[m.dose,m.notes].filter(Boolean).join(" · ");
-        return `<button class="row med" role="checkbox" aria-checked="${ts?"true":"false"}" data-k="${esc(k)}">
+        return `<div class="medrow${ts?" has-t":""}"><button class="row med" role="checkbox" aria-checked="${ts?"true":"false"}" data-k="${esc(k)}">
           <span class="pill">${CHECK}</span>
           <span><span class="nm">${esc(m.name)}</span>${sub?`<span class="ds">${esc(sub)}</span>`:""}</span>
-          ${ts?`<span class="when">${fmtTime(ts)}</span>`:""}
-        </button>`}).join("")}
+        </button>${ts?`<button class="when t" data-editk="${esc(k)}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(ts)}">${fmtTime(ts)}</button>`:""}</div>`}).join("")}
     </div>`;
   }
 
@@ -1156,6 +1160,8 @@ function sweep(){
 document.getElementById("slots").addEventListener("click",e=>{
   const med=e.target.closest(".med"), sym=e.target.closest(".sym"), all=e.target.closest("[data-all]"), add=e.target.closest("[data-add]");
   const rm=e.target.closest("[data-rm]"), rmsym=e.target.closest("[data-rmsym]"), rmx=e.target.closest("[data-rmx]");
+  const editk=e.target.closest("[data-editk]");
+  if(editk){ openMedTime(viewDate,editk.dataset.editk); return; }
   const editsym=e.target.closest("[data-editsym]");
   if(editsym){ openSymTime(viewDate,editsym.dataset.editsym); return; }
   const editx=e.target.closest("[data-editx]");
@@ -1180,9 +1186,9 @@ document.getElementById("slots").addEventListener("click",e=>{
   const day=state.log[viewDate]||(state.log[viewDate]={});
   if(med){
     const k=med.dataset.k;
-    if(day[k]) delete day[k]; else {day[k]=Date.now(); sweep();}
+    if(day[k]) delete day[k]; else {day[k]=stampFor(viewDate); sweep();}
   } else {
-    const now=Date.now();
+    const now=stampFor(viewDate);
     for(const m of medsFor(all.dataset.all)){const k=m.id+"|"+all.dataset.all;if(!day[k])day[k]=now}
     sweep();
   }
@@ -1226,6 +1232,12 @@ function openSuppTime(date,i){
   xedit={kind:"supp",date,i};
   openTimeDialog(m.name+(m.dose?" · "+m.dose:""),"Time taken","Remove",e.t);
 }
+function openMedTime(date,k){
+  const t=(state.log[date]||{})[k], [id,slot]=k.split("|"), m=anyMed(id); if(!m||!t) return;
+  const s=SLOTS.find(x=>x.id===slot);
+  xedit={kind:"med",date,k};
+  openTimeDialog(m.name+(m.dose?" · "+m.dose:"")+(s?" · "+s.label:""),"Time taken","Uncheck",t);
+}
 function openSymTime(date,id){
   const t=(state.slog[date]||{})[id], x=state.symptoms.find(s=>s.id===id); if(!x||!t) return;
   xedit={kind:"sym",date,id};
@@ -1243,6 +1255,7 @@ document.getElementById("xform").addEventListener("submit",ev=>{
   else if(/^\d\d:\d\d/.test(v)){
     const d=parseKey(xedit.date); d.setHours(+v.slice(0,2),+v.slice(3,5),0);
     if(xedit.kind==="sym"){ const sd=state.slog[xedit.date]; if(sd&&sd[xedit.id]) sd[xedit.id]=d.getTime(); }
+    else if(xedit.kind==="med"){ const day=state.log[xedit.date]; if(day&&day[xedit.k]) day[xedit.k]=d.getTime(); }
     else { const list=(xedit.kind==="supp"?state.suplog:state.xlog)[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=d.getTime(); list.sort((a,b)=>a.t-b.t); } }
   }
   xdlg.close(); commit();
@@ -1250,6 +1263,7 @@ document.getElementById("xform").addEventListener("submit",ev=>{
 document.getElementById("xcancel").onclick=()=>xdlg.close();
 document.getElementById("xremove").onclick=()=>{
   if(xedit.kind==="sym"){ const sd=state.slog[xedit.date]||{}; delete sd[xedit.id]; if(!Object.keys(sd).length) delete state.slog[xedit.date]; }
+  else if(xedit.kind==="med"){ const day=state.log[xedit.date]||{}; delete day[xedit.k]; if(!Object.keys(day).length) delete state.log[xedit.date]; }
   else { const log=xedit.kind==="supp"?state.suplog:state.xlog, list=log[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete log[xedit.date]; }
   xdlg.close(); commit();
 };
