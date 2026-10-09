@@ -781,6 +781,7 @@ function render(){
         </select>
       </div>
     </div>`;
+    html+=noteBox("smell","meal","Smell notes","Where were you, how strong was it…");
   }
 
   const slotsEl=document.getElementById("slots");
@@ -1590,7 +1591,7 @@ function buildCSV(start,end){
     ...MOODTIMES.flatMap(m=>["mood_"+m.id+"_time","mood_"+m.id]),
     "smells","smell_count",
     "weather","high_"+(US_UNITS?"F":"C"),"low_"+(US_UNITS?"F":"C"),"precip_"+(US_UNITS?"in":"mm"),"humidity_pct","pressure_hpa","pressure_change_hpa","us_aqi","pm2_5","pollen_tree","pollen_grass","pollen_weed",
-    "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood"];
+    "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells"];
   const rows=[head.map(q).join(",")];
   for(let k=start;k<=end;k=shiftKey(k,1)){
     const log=state.log[k]||{}, sl=state.slog[k]||{}, meals=state.meals[k]||{}, typed=state.food[k]||{};
@@ -1615,7 +1616,7 @@ function buildCSV(start,end){
         return [WMO[w.code]||"",T(w.hi),T(w.lo),w.rain==null?"":US_UNITS?(w.rain/25.4).toFixed(2):w.rain,w.hum??"",w.press??"",
           pw&&pw.press!=null&&w.press!=null?(w.press-pw.press).toFixed(1):"",w.aqi??"",w.pm25??"",P.tree??"",P.grass??"",P.weed??""]})(),
       MEALS.filter(m=>typed[m.id]).map(m=>m.label+": "+typed[m.id]).join(" | "),
-      state.notes[k]||"",...["food","meds","syms","mood"].map(n=>(state.pnotes[n]||{})[k]||"")];
+      state.notes[k]||"",...["food","meds","syms","mood","smell"].map(n=>(state.pnotes[n]||{})[k]||"")];
     rows.push(row.map(q).join(","));
   }
   return "\ufeff"+rows.join("\r\n");
