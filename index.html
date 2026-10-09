@@ -1255,7 +1255,7 @@ document.getElementById("slots").addEventListener("click",e=>{
   if(rmmood){ const d=state.mlog[viewDate]||{}, mt=rmmood.dataset.mt; d[mt]=(d[mt]||[]).filter(id=>id!==rmmood.dataset.rmmood); tidyMoods(viewDate); commit(); return; }
   if(rmsym){ const sd=state.slog[viewDate]||{}; delete sd[rmsym.dataset.rmsym]; if(!Object.keys(sd).length) delete state.slog[viewDate]; commit(); return; }
   if(add){openEditor(add.dataset.add,null);return}
-  if(rm){ const m=mealOf(viewDate,rm.dataset.meal), i=m.foods.lastIndexOf(rm.dataset.rm); if(i>=0) m.foods.splice(i,1); tidyMeals(viewDate); commit(); return; }
+  if(rm){ const m=mealOf(viewDate,rm.dataset.meal), i=m.foods.lastIndexOf(rm.dataset.rm); if(i>=0){ m.foods.splice(i,1); const x=m.fx&&m.fx[rm.dataset.rm]; if(x) x.pop(); } tidyMeals(viewDate); commit(); return; }
   if(sym){
     const sd=state.slog[viewDate]||(state.slog[viewDate]={});
     const id=sym.dataset.sym;
@@ -1378,7 +1378,9 @@ document.getElementById("xremove").onclick=()=>{
 /* Moods and foods get the current time when added, like doses; tap the time to change it */
 function logMood(date,mt,id){ const d=state.mlog[date]||(state.mlog[date]={}), a=d[mt]||(d[mt]=[]); if(a.includes(id)) return; a.push(id);
   const day=state.mtlog[date]||(state.mtlog[date]={}), o=day[mt]||(day[mt]={}); if(!realTime(o[id])) o[id]=stampFor(date); }
-function logFood(date,meal,id){ const m=mealOf(date,meal); m.foods.push(id); const ft=m.ft||(m.ft={}); if(!realTime(ft[id])) ft[id]=stampFor(date); }
+/* m.fx holds the times of the 2nd, 3rd… time a food was added to a meal (the app still shows "x2") */
+function logFood(date,meal,id){ const m=mealOf(date,meal), had=m.foods.includes(id); m.foods.push(id); const ft=m.ft||(m.ft={}), t=stampFor(date);
+  if(!had||!realTime(ft[id])) ft[id]=t; else { const fx=m.fx||(m.fx={}); (fx[id]||(fx[id]=[])).push(t); } }
 /* Mood times work like food times: the earliest time in a group is the group's time,
    so one timed mood sets the time for the rest of that morning/afternoon/evening */
 function moodTimes(date,mt){return ((state.mtlog[date]||{})[mt])||{}}
@@ -1404,6 +1406,7 @@ function tidyMeals(date){
   const d=state.meals[date]; if(!d) return;
   for(const [k,m] of Object.entries(d)){
     if(m.ft){ for(const id of Object.keys(m.ft)) if(!(m.foods||[]).includes(id)) delete m.ft[id]; if(!Object.keys(m.ft).length) delete m.ft; }
+    if(m.fx){ const c=countFoods(m.foods); for(const id of Object.keys(m.fx)){ const a=m.fx[id].filter(realTime).slice(0,Math.max(0,(c.get(id)||0)-1)); if(a.length) m.fx[id]=a; else delete m.fx[id]; } if(!Object.keys(m.fx).length) delete m.fx; }
     if(!(m.foods||[]).length&&!m.place) delete d[k];
   }
   if(!Object.keys(d).length) delete state.meals[date];
@@ -1616,7 +1619,8 @@ function buildCSV(start,end){
       [...new Set(sd.map(e=>e.id))].map(id=>{const m=suppOf(id), ts=sd.filter(e=>e.id===id).map(e=>fmtTime(e.t));return m.name+(m.dose?" ("+m.dose+")":"")+(ts.length>1?" x"+ts.length:"")+" at "+ts.join(", ")}).join("; "),sd.length,
       [...had].sort((a,b)=>symSortKey(sl[a.id])-symSortKey(sl[b.id])).map(x=>x.name+(sl[x.id]===ALLDAY?" (all day)":realTime(sl[x.id])?" at "+fmtTime(sl[x.id]):"")).join("; "),had.length,
       ...syms.map(x=>sl[x.id]?1:0),
-      ...MEALS.flatMap(m=>{const e=meals[m.id]||{}, mt=mealTime(e);return [mt?fmtTime(mt):"",[...countFoods(e.foods)].map(([id,n])=>{const nm=nameOf(state.foods,id), ft=foodTime(e,id);return nm&&(n>1?nm+" x"+n:nm)+(ft&&ft!==mt?" at "+fmtTime(ft):"")}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
+      ...MEALS.flatMap(m=>{const e=meals[m.id]||{}, mt=mealTime(e);return [mt?fmtTime(mt):"",[...countFoods(e.foods)].map(([id,n])=>{const nm=nameOf(state.foods,id), ft=foodTime(e,id);const ts=[ft||mt,...((e.fx||{})[id]||[]).filter(realTime)].filter(Boolean).sort((a,b)=>a-b);
+        return nm&&(n>1?nm+" x"+n:nm)+(ts.length>1?" at "+ts.map(fmtTime).join(", "):ft&&ft!==mt?" at "+fmtTime(ft):"")}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
       placesToday.map(id=>nameOf(state.places,id)).filter(Boolean).join("; "),
       ...places.map(x=>placesToday.includes(x.id)?1:0),
       ...MOODTIMES.flatMap(m=>{const ids=(state.mlog[k]||{})[m.id]||[], tt=moodTimes(k,m.id), gt=groupTime(tt,ids);
