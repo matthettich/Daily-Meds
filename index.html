@@ -1042,7 +1042,7 @@ function renderSummary(){
   /* Export for AI */
   const yr=P.start.slice(0,4);
   html+=`<div class="box l-list"><div class="lid">Export for AI</div>
-    <p class="hint">A spreadsheet with one row per day: doses taken and missed, additional medication, supplements, symptoms, each meal's foods and restaurant, mood, weather, air quality, pollen, and your notes. Upload it to AI or another AI and ask something like:</p>
+    <p class="hint">A spreadsheet with one row per day: each dose taken (with its time), doses missed, additional medication, supplements, symptoms, each meal's foods and restaurant, mood, weather, air quality, pollen, and your notes. Upload it to AI or another AI and ask something like:</p>
     <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses, moods, pressure changes, air quality or pollen line up with symptoms?"</p>
     <div class="backup-btns"><button class="ghost" data-export="year">Download ${esc(yr)}</button><button class="ghost" data-export="all">Download everything</button></div>
     <p class="hint" id="exportMsg" role="status"></p></div>`;
@@ -1584,7 +1584,9 @@ function buildCSV(start,end){
   const syms=[...state.symptoms].sort((a,b)=>a.name.localeCompare(b.name));
   const places=[...state.places].sort((a,b)=>a.name.localeCompare(b.name));
   const sched=state.meds.flatMap(m=>m.slots.map(sl=>({key:m.id+"|"+sl,label:m.name+" ("+(SLOTS.find(x=>x.id===sl)||{}).label+")"})));
-  const head=["date","weekday","doses_taken","doses_scheduled","missed_doses","additional_meds","additional_med_count","supplements","supplement_count","symptoms","symptom_count",
+  const slotLabel=sl=>(SLOTS.find(x=>x.id===sl)||{}).label||sl;
+  const tk=todayKey();
+  const head=["date","weekday","doses_taken","doses_scheduled","doses_taken_list","missed_doses","doses_not_yet_taken","additional_meds","additional_med_count","supplements","supplement_count","symptoms","symptom_count",
     ...syms.map(x=>"symptom: "+x.name),
     ...MEALS.flatMap(m=>{const b=m.label.toLowerCase().replace(/ /g,"_");return [b+"_time",b+"_foods",b+"_restaurant"]}),
     "restaurants_today",...places.map(x=>"ate at: "+x.name),
@@ -1595,11 +1597,18 @@ function buildCSV(start,end){
   const rows=[head.map(q).join(",")];
   for(let k=start;k<=end;k=shiftKey(k,1)){
     const log=state.log[k]||{}, sl=state.slog[k]||{}, meals=state.meals[k]||{}, typed=state.food[k]||{};
-    const taken=sched.filter(x=>log[x.key]), missed=sched.filter(x=>!log[x.key]);
+    const taken=sched.filter(x=>log[x.key]), notTaken=sched.filter(x=>!log[x.key]);
+    /* Today isn't over, so untaken doses are "not yet taken" rather than missed */
+    const missed=k===tk?[]:notTaken, pending=k===tk?notTaken:[];
+    /* Every dose logged that day, by name and time — read from the log itself so doses of
+       meds since removed from the list still show up */
+    const takenList=Object.entries(log).filter(([,t])=>t).map(([key,t])=>{const [id,sl]=key.split("|"), m=anyMed(id)||{};
+        return {t:realTime(t)?t:0, s:(m.name||"Removed medication")+(m.dose?" "+m.dose:"")+" ("+slotLabel(sl)+")"+(realTime(t)?" at "+fmtTime(t):"")}})
+      .sort((a,b)=>a.t-b.t).map(x=>x.s).join("; ");
     const had=syms.filter(x=>sl[x.id]), xd=xdoses(k), sd=sdoses(k);
     const placesToday=[...new Set(MEALS.map(m=>(meals[m.id]||{}).place).filter(Boolean))];
     const row=[k,parseKey(k).toLocaleDateString("en-US",{weekday:"long"}),
-      taken.length,sched.length,missed.map(x=>x.label).join("; "),
+      taken.length,sched.length,takenList,missed.map(x=>x.label).join("; "),pending.map(x=>x.label).join("; "),
       xd.map(e=>{const m=anyMed(e.id);return m.name+(m.dose?" ("+m.dose+")":"")+" at "+fmtTime(e.t)}).join("; "),xd.length,
       [...new Set(sd.map(e=>e.id))].map(id=>{const m=suppOf(id), ts=sd.filter(e=>e.id===id).map(e=>fmtTime(e.t));return m.name+(m.dose?" ("+m.dose+")":"")+(ts.length>1?" x"+ts.length:"")+" at "+ts.join(", ")}).join("; "),sd.length,
       [...had].sort((a,b)=>symSortKey(sl[a.id])-symSortKey(sl[b.id])).map(x=>x.name+(sl[x.id]===ALLDAY?" (all day)":realTime(sl[x.id])?" at "+fmtTime(sl[x.id]):"")).join("; "),had.length,
