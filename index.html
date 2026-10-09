@@ -1375,7 +1375,10 @@ document.getElementById("xremove").onclick=()=>{
   else { const log=xedit.kind==="supp"?state.suplog:xedit.kind==="smell"?state.smlog:state.xlog, list=log[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete log[xedit.date]; }
   xdlg.close(); commit();
 };
-function logMood(date,mt,id){ const d=state.mlog[date]||(state.mlog[date]={}), a=d[mt]||(d[mt]=[]); if(!a.includes(id)) a.push(id); }
+/* Moods and foods get the current time when added, like doses; tap the time to change it */
+function logMood(date,mt,id){ const d=state.mlog[date]||(state.mlog[date]={}), a=d[mt]||(d[mt]=[]); if(a.includes(id)) return; a.push(id);
+  const day=state.mtlog[date]||(state.mtlog[date]={}), o=day[mt]||(day[mt]={}); if(!realTime(o[id])) o[id]=stampFor(date); }
+function logFood(date,meal,id){ const m=mealOf(date,meal); m.foods.push(id); const ft=m.ft||(m.ft={}); if(!realTime(ft[id])) ft[id]=stampFor(date); }
 /* Mood times work like food times: the earliest time in a group is the group's time,
    so one timed mood sets the time for the rest of that morning/afternoon/evening */
 function moodTimes(date,mt){return ((state.mtlog[date]||{})[mt])||{}}
@@ -1440,7 +1443,7 @@ document.getElementById("slots").addEventListener("change",e=>{
   const meal=sel.dataset.meal, v=sel.value, kind=sel.dataset.pick;
   if(v==="__new"){ sel.value=kind==="food"?"":(mealOf(viewDate,meal).place||""); openEditor(kind==="food"?"food":"place",null,{date:viewDate,meal}); return; }
   const m=mealOf(viewDate,meal);
-  if(kind==="food"){ if(v) m.foods.push(v); }
+  if(kind==="food"){ if(v) logFood(viewDate,meal,v); }
   else { if(v) m.place=v; else delete m.place; }
   tidyMeals(viewDate); commit();
 });
@@ -1554,7 +1557,7 @@ form.addEventListener("submit",e=>{
     else if(p&&p.mood){ logMood(p.date,p.mt,item.id); }
     else if(p&&p.smell){ logSmell(p.date,item.id); }
     else if(p){ const m=mealOf(p.date,p.meal);
-      if(editing.kind==="food"){ m.foods.push(item.id) } else m.place=item.id; }
+      if(editing.kind==="food"){ logFood(p.date,p.meal,item.id) } else m.place=item.id; }
   }
   dlg.close(); commit();
 });
