@@ -291,6 +291,7 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .wxpick{display:flex;align-items:center;gap:8px;padding:10px 10px 0;font-size:13px;color:var(--muted)}
 .wxpick select{flex:1;min-height:36px;border:1px solid var(--rule);background:var(--white);font:inherit;font-size:14px;color:var(--ink);padding:4px 8px}
 .wxnow{padding:10px 10px 0;font-size:14px}
+#sumTitle .who{display:block;font-size:13px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--muted);margin-top:2px}
 .wxset{display:flex;gap:8px;margin:0 10px 10px}
 .wxset input{flex:1;min-width:0;min-height:40px;padding:8px 10px;border:1px solid var(--rule);background:var(--white);font:inherit;color:var(--ink)}
 /* Help: a small box at the very bottom center of every page */
@@ -432,6 +433,16 @@ body{display:flex;flex-direction:column}
         <p class="hint" id="wxMsg" role="status"></p>
       </div>
     </section>
+
+    <section class="view pg-white sset" data-tab="set" style="display:none">
+      <div class="sect" role="heading" aria-level="2">Personalize</div>
+      <div class="box l-list">
+        <div class="lid"><h2>Name</h2></div>
+        <p class="hint">Who this tracking is for. It's shown on the Recap page and added to spreadsheets and backups, which helps when you track for more than one person.</p>
+        <form class="wxset" id="nameForm"><input id="nameIn" placeholder="Name" autocomplete="off" maxlength="60" aria-label="Name"><button class="ghost" type="submit">Save</button></form>
+        <p class="hint" id="nameMsg" role="status"></p>
+      </div>
+    </section>
    </div>
   </div>
 </div>
@@ -516,9 +527,10 @@ const KEEP_MED_DAYS = 400;   // medication check-offs; symptom history is kept f
 /* moods: mood list. mlog: {date:{morning:[ids],afternoon:[ids],evening:[ids]}}
    mtlog: {date:{morning:{id:t}}} — optional time each mood was felt
    smells: smell list. smlog: {date:[{id,t}]} — each smell noticed. trackSmells: show the Smells box on Today
-   weather: {date:{hi,lo,rain,code,hum,press,aqi,pm25,pollen:{tree,grass,weed},final}} (°C, mm, %, hPa). wxloc: {lat,lon,label} */
+   weather: {date:{hi,lo,rain,code,hum,press,aqi,pm25,pollen:{tree,grass,weed},final}} (°C, mm, %, hPa). wxloc: {lat,lon,label}
+   name: who this tracking is for — shown on Recap and in exported files */
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{},
-  moods:defaultMoods(), mlog:{}, mtlog:{}, smells:[], smlog:{}, trackSmells:false, weather:{}, wxloc:null, pollenKey:"", updated:0};
+  moods:defaultMoods(), mlog:{}, mtlog:{}, smells:[], smlog:{}, trackSmells:false, weather:{}, wxloc:null, pollenKey:"", name:"", updated:0};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
 
@@ -544,6 +556,7 @@ function normalize(s){
           smells:Array.isArray(s.smells)?s.smells:[], smlog:obj(s.smlog), trackSmells:s.trackSmells===true,
           weather:obj(s.weather), wxloc:(s.wxloc&&isFinite(s.wxloc.lat)&&isFinite(s.wxloc.lon))?s.wxloc:null,
           pollenKey:typeof s.pollenKey==="string"?s.pollenKey:"",
+          name:typeof s.name==="string"?s.name.trim().slice(0,60):"",
           updated:Number(s.updated)||0};
 }
 function loadLocal(){
@@ -619,7 +632,7 @@ function render(){
   if(viewDate>tk) viewDate=tk;
   const d=parseKey(viewDate);
   document.body.dataset.day=d.getDay();
-  updateChrome();
+  updateChrome(); showName();
   const rel = viewDate===tk ? "Today" : viewDate===shiftKey(tk,-1) ? "Yesterday" : d.toLocaleDateString([], {year:"numeric"});
   const away = viewDate!==tk, dayBtn=document.getElementById("dayTitle");
   dayBtn.innerHTML =
@@ -901,6 +914,7 @@ function renderSummary(){
     sec.style.removeProperty("--H"); sec.style.removeProperty("--s");
     document.getElementById("sumTitle").textContent=P.label;
   }
+  if(state.name) document.getElementById("sumTitle").insertAdjacentHTML("beforeend",`<small class="who">for ${esc(state.name)}</small>`);
   document.getElementById("sumMonth").setAttribute("aria-pressed",sumMode==="month");
   document.getElementById("sumYear").setAttribute("aria-pressed",sumMode==="year");
   document.getElementById("sumNext").disabled = P.end>=tk;
@@ -1579,6 +1593,21 @@ document.getElementById("delItem").onclick=()=>{
   dlg.close(); commit();
 };
 
+/* ---------- name (Settings → Personalize) ---------- */
+/* "Sam Lee" → "sam-lee-" for file names; empty when no name is set */
+function fileWho(){const n=(state.name||"").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");return n?n+"-":""}
+function showName(){
+  const i=document.getElementById("nameIn"); if(i&&document.activeElement!==i) i.value=state.name||"";
+  document.title = state.name ? "Daily meds · "+state.name : "Daily meds";
+}
+document.getElementById("nameForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const v=document.getElementById("nameIn").value.trim().slice(0,60);
+  state.name=v; document.getElementById("nameIn").blur();
+  commit(); showName();
+  document.getElementById("nameMsg").textContent = v ? "Name saved." : "Name removed.";
+});
+
 /* ---------- file saving (swapped for the downloads capability when published) ---------- */
 async function saveFile(name,text,mime){
   const blob=new Blob([text],{type:mime});
@@ -1606,6 +1635,7 @@ function buildCSV(start,end){
     "smells","smell_count",
     "weather","high_"+(US_UNITS?"F":"C"),"low_"+(US_UNITS?"F":"C"),"precip_"+(US_UNITS?"in":"mm"),"humidity_pct","pressure_hpa","pressure_change_hpa","us_aqi","pm2_5","pollen_tree","pollen_grass","pollen_weed",
     "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells"];
+  if(state.name) head.unshift("name");
   const rows=[head.map(q).join(",")];
   for(let k=start;k<=end;k=shiftKey(k,1)){
     const log=state.log[k]||{}, sl=state.slog[k]||{}, meals=state.meals[k]||{}, typed=state.food[k]||{};
@@ -1639,6 +1669,7 @@ function buildCSV(start,end){
           pw&&pw.press!=null&&w.press!=null?(w.press-pw.press).toFixed(1):"",w.aqi??"",w.pm25??"",P.tree??"",P.grass??"",P.weed??""]})(),
       MEALS.filter(m=>typed[m.id]).map(m=>m.label+": "+typed[m.id]).join(" | "),
       state.notes[k]||"",...["food","meds","syms","mood","smell"].map(n=>(state.pnotes[n]||{})[k]||"")];
+    if(state.name) row.unshift(state.name);
     rows.push(row.map(q).join(","));
   }
   return "\ufeff"+rows.join("\r\n");
@@ -1646,12 +1677,12 @@ function buildCSV(start,end){
 document.getElementById("sumBody").addEventListener("click",async e=>{
   const b=e.target.closest("[data-export]"); if(!b) return;
   flushText();
-  const tk=todayKey(), fu=firstUse(), msg=document.getElementById("exportMsg");
+  const tk=todayKey(), fu=firstUse(), msg=document.getElementById("exportMsg"), who=fileWho();
   let start,end,name;
   if(b.dataset.export==="year"){
     const y=periodOf("year",sumAnchor);
-    start=y.start<fu?fu:y.start; end=y.end<tk?y.end:tk; name="daily-meds-"+y.start.slice(0,4)+".csv";
-  } else { start=fu; end=tk; name="daily-meds-all-"+tk+".csv"; }
+    start=y.start<fu?fu:y.start; end=y.end<tk?y.end:tk; name="daily-meds-"+who+y.start.slice(0,4)+".csv";
+  } else { start=fu; end=tk; name="daily-meds-"+who+"all-"+tk+".csv"; }
   if(start>end){msg.textContent="Nothing recorded in that period yet.";return}
   try{ const ok=await saveFile(name,buildCSV(start,end),"text/csv"); msg.textContent= ok===false ? "" : `Saved ${daysBetween(start,end)} days to ${name}.`; }
   catch(err){ msg.textContent="Couldn't save the file."; }
@@ -1661,7 +1692,7 @@ document.getElementById("sumBody").addEventListener("click",async e=>{
 const backupMsg=document.getElementById("backupMsg");
 document.getElementById("exportBtn").onclick=async()=>{
   flushText();
-  try{ const ok=await saveFile("daily-meds-backup-"+todayKey()+".json",JSON.stringify(state,null,2),"application/json");
+  try{ const ok=await saveFile("daily-meds-"+fileWho()+"backup-"+todayKey()+".json",JSON.stringify(state,null,2),"application/json");
        backupMsg.textContent= ok===false ? "" : "Backup saved to your downloads."; }
   catch(e){ backupMsg.textContent="Couldn't save the backup."; }
 };
