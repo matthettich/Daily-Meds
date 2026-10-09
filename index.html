@@ -1168,7 +1168,13 @@ document.getElementById("wxKeyForm").addEventListener("submit",e=>{
   if(v) fetchWeather(true);
 });
 document.getElementById("wxKey").addEventListener("focus",e=>{if(e.target.value.startsWith("••"))e.target.value=""});
-document.getElementById("wxKey").addEventListener("blur",()=>wxWhereText());
+// Only put the masked key back if the box was left empty and focus isn't moving to Save —
+// otherwise tapping Save would wipe what was just pasted before the form submits.
+document.getElementById("wxKey").addEventListener("blur",e=>{
+  if(e.target.value.trim()) return;
+  if(e.relatedTarget && e.target.form && e.target.form.contains(e.relatedTarget)) return;
+  wxWhereText();
+});
 
 /* Compare weather on days with symptoms against days without, for the Summary page */
 let wxSym="any";
