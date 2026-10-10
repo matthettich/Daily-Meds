@@ -235,6 +235,27 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .lid .mtime{margin-left:8px;font-size:13px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap}
 .lid .mtime + .place{margin-left:auto}
 .chip button.t.inh{opacity:.55;text-decoration:none}
+/* A food's name is a button: tap it to see or change that entry's ingredients */
+.chip button.nm{border:0;width:auto;margin:0 0 0 -10px;padding:0 0 0 10px;font-size:14px;text-align:left;display:inline-flex;align-items:center;gap:5px}
+.chip button.nm .ver{font-size:13px;color:var(--muted)}
+.chip button.nm .dot{width:6px;height:6px;border:1px solid var(--ink);border-radius:50%;flex:none}
+/* Ingredients pop-up */
+.ilabel{font-size:13px;color:var(--muted);margin:0 0 6px}
+.vers,.ings{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.vers .chip button.vp{border:0;width:auto;margin:0 0 0 -10px;padding:0 10px;font-size:14px}
+.vers .chip.on{background:var(--ink);color:var(--white);border-color:var(--ink)}
+.vers .chip.on button{color:var(--white);border-color:rgba(255,255,255,.4)}
+.ings .none{font-size:13px;color:var(--muted);padding:6px 0}
+.iadd{display:flex;gap:8px;margin:0 0 14px}
+.iadd input{flex:1;min-width:0;padding:10px;border:1px solid var(--rule);background:var(--white);font-size:15px;color:var(--ink)}
+.imode{display:flex;border:1px solid var(--rule);margin:0 0 12px}
+.imode label{position:relative;flex:1}
+.imode label+label{border-left:1px solid var(--rule)}
+.imode input{position:absolute;opacity:0;inset:0;margin:0}
+.imode span{display:flex;align-items:center;justify-content:center;text-align:center;padding:8px 10px;min-height:40px;font-size:14px}
+.imode input:checked+span{background:var(--ink);color:var(--white)}
+.imode input:focus-visible+span{outline:2px solid var(--ink);outline-offset:-4px}
+#fverRow.off{display:none}
 .chip button.t svg{width:14px;height:14px;display:block}
 .lid .place{margin-left:auto;padding-right:10px;font-size:13px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
 
@@ -476,6 +497,33 @@ body{display:flex;flex-direction:column}
       <div class="actions">
         <button type="button" class="danger" id="xremove">Remove dose</button>
         <button type="button" class="ghost" id="xcancel">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+<dialog id="fdlg">
+  <form method="dialog" id="fform" novalidate>
+    <h3 id="fdlgTitle">Ingredients</h3>
+    <div class="body">
+      <div id="fversWrap">
+        <p class="ilabel">Versions</p>
+        <div class="vers" id="fvers"></div>
+      </div>
+      <p class="ilabel">Ingredients</p>
+      <div class="ings" id="fings"></div>
+      <div class="iadd">
+        <input id="fingIn" placeholder="e.g. banana, honey" autocomplete="off" aria-label="Add ingredient" enterkeyhint="done">
+        <button type="button" class="ghost" id="fingAdd">Add</button>
+      </div>
+      <div class="imode" role="radiogroup" aria-label="How to save">
+        <label><input type="radio" name="fmode" value="once" checked><span>Log once</span></label>
+        <label><input type="radio" name="fmode" value="ver"><span>Save as version</span></label>
+      </div>
+      <label class="f" id="fverRow">Version name<input id="fverName" placeholder="e.g. with banana" autocomplete="off"></label>
+      <p class="err" id="fErr" role="alert"></p>
+      <div class="actions">
+        <button type="button" class="ghost" id="fcancel">Cancel</button>
         <button type="submit" class="primary">Save</button>
       </div>
     </div>
@@ -735,12 +783,14 @@ function render(){
       <div class="lid">${ml.label}${mt?`<span class="mtime">${fmtTime(mt)}</span>`:""}${place?`<span class="place">at ${esc(place.name)}</span>`:""}</div>
       <div class="chips">${ids.length?ids.map(id=>{const nm=byId(state.foods,id).name,n=counts.get(id),own=foodTime(m,id),shown=own||mt;
         const tb=`<button class="t${own?"":" inh"}" data-editf="${esc(id)}" data-meal="${ml.id}" aria-label="${shown?`Change time of ${esc(nm)}, now ${fmtTime(shown)}`:`Add a time for ${esc(nm)}`}">${shown?fmtTime(shown):CLOCK}</button>`;
-        return `<span class="chip">${esc(nm)}${n>1?`<span class="qty">×${n}</span>`:""}${tb}<button data-rm="${esc(id)}" data-meal="${ml.id}" aria-label="Remove one ${esc(nm)}">×</button></span>`}).join(""):`<span class="none">Nothing added</span>`}</div>
+        const fe=(m.fi||{})[id], vn=fe&&fe.v&&verOf(byId(state.foods,id),fe.v), hasI=fe&&(fe.ings||[]).length;
+        const nb=`<button class="nm" data-ings="${esc(id)}" data-meal="${ml.id}" aria-label="Ingredients of ${esc(nm)}">${esc(nm)}${vn?`<span class="ver">· ${esc(vn.name)}</span>`:hasI?`<span class="dot" aria-hidden="true"></span>`:""}</button>`;
+        return `<span class="chip">${nb}${n>1?`<span class="qty">×${n}</span>`:""}${tb}<button data-rm="${esc(id)}" data-meal="${ml.id}" aria-label="Remove one ${esc(nm)}">×</button></span>`}).join(""):`<span class="none">Nothing added</span>`}</div>
       ${legacy[ml.id]?`<p class="legacy">${esc(legacy[ml.id])}</p>`:""}
       <div class="pickers">
         <select data-pick="food" data-meal="${ml.id}" aria-label="Add food to ${ml.label}">
           <option value="">Add food…</option>
-          ${foodsSorted.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}
+          ${foodsSorted.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`+(f.versions||[]).map(v=>`<option value="${esc(f.id)}|${esc(v.id)}">${esc(f.name)} · ${esc(v.name)}</option>`).join("")).join("")}
           <option value="__new">+ New food…</option>
         </select>
         <select data-pick="place" data-meal="${ml.id}" aria-label="Restaurant for ${ml.label}">
@@ -1256,6 +1306,8 @@ document.getElementById("slots").addEventListener("click",e=>{
   const rm=e.target.closest("[data-rm]"), rmsym=e.target.closest("[data-rmsym]"), rmx=e.target.closest("[data-rmx]");
   const editmood=e.target.closest("[data-editmood]");
   if(editmood){ openMoodTime(viewDate,editmood.dataset.mt,editmood.dataset.editmood); return; }
+  const ingb=e.target.closest("[data-ings]");
+  if(ingb){ openIngredients(viewDate,ingb.dataset.meal,ingb.dataset.ings); return; }
   const editf=e.target.closest("[data-editf]");
   if(editf){ openFoodTime(viewDate,editf.dataset.meal,editf.dataset.editf); return; }
   const editk=e.target.closest("[data-editk]");
@@ -1427,10 +1479,84 @@ function tidyMeals(date){
   for(const [k,m] of Object.entries(d)){
     if(m.ft){ for(const id of Object.keys(m.ft)) if(!(m.foods||[]).includes(id)) delete m.ft[id]; if(!Object.keys(m.ft).length) delete m.ft; }
     if(m.fx){ const c=countFoods(m.foods); for(const id of Object.keys(m.fx)){ const a=m.fx[id].filter(realTime).slice(0,Math.max(0,(c.get(id)||0)-1)); if(a.length) m.fx[id]=a; else delete m.fx[id]; } if(!Object.keys(m.fx).length) delete m.fx; }
+    if(m.fi){ for(const id of Object.keys(m.fi)) if(!(m.foods||[]).includes(id)||!state.foods.some(f=>f.id===id)) delete m.fi[id]; if(!Object.keys(m.fi).length) delete m.fi; }
     if(!(m.foods||[]).length&&!m.place) delete d[k];
   }
   if(!Object.keys(d).length) delete state.meals[date];
 }
+/* ---------- ingredients ----------
+   m.fi[foodId] = {ings:[...], v:versionId?} — this meal's ingredients for that food. They're copied in,
+   so changing a version later doesn't rewrite past days. A food can keep versions:
+   food.versions = [{id, name, ings:[...]}], which show up in the Add food list. */
+function verOf(f,vid){return f&&(f.versions||[]).find(v=>v.id===vid)}
+const fdlg=document.getElementById("fdlg"); let fedit=null;
+function splitIngs(s){return s.split(/[,\n]/).map(x=>x.trim()).filter(Boolean)}
+function sameIngs(a,b){return a.length===b.length&&a.every((x,i)=>x.toLowerCase()===(b[i]||"").toLowerCase())}
+function openIngredients(date,meal,id){
+  const m=(state.meals[date]||{})[meal], f=state.foods.find(x=>x.id===id), ml=MEALS.find(x=>x.id===meal); if(!m||!f||!(m.foods||[]).includes(id)) return;
+  const fe=(m.fi||{})[id]||{};
+  fedit={date,meal,id,ings:[...(fe.ings||[])],v:verOf(f,fe.v)?fe.v:null};
+  document.getElementById("fdlgTitle").textContent=f.name+(ml?" · "+ml.label:"");
+  document.getElementById("fingIn").value="";
+  document.getElementById("fErr").textContent="";
+  const cur=verOf(f,fedit.v);
+  fdlg.querySelector('[name="fmode"][value="once"]').checked=true;
+  document.getElementById("fverName").value=cur?cur.name:"";
+  renderIngs(); fdlg.showModal();
+}
+function renderIngs(){
+  const f=state.foods.find(x=>x.id===fedit.id), vers=(f&&f.versions)||[];
+  document.getElementById("fversWrap").style.display=vers.length?"":"none";
+  document.getElementById("fvers").innerHTML=[{id:"",name:"Plain"},...vers].map(v=>{const on=v.id?fedit.v===v.id:!fedit.v;
+    return `<span class="chip${on?" on":""}"><button type="button" class="vp" data-ver="${esc(v.id)}" aria-pressed="${on}">${esc(v.name)}</button>${v.id?`<button type="button" data-delver="${esc(v.id)}" aria-label="Delete version ${esc(v.name)}">×</button>`:""}</span>`}).join("");
+  document.getElementById("fings").innerHTML=fedit.ings.length
+    ? fedit.ings.map((x,i)=>`<span class="chip">${esc(x)}<button type="button" data-rming="${i}" aria-label="Remove ${esc(x)}">×</button></span>`).join("")
+    : `<span class="none">No ingredients yet</span>`;
+  document.getElementById("fverRow").classList.toggle("off",fdlg.querySelector('[name="fmode"]:checked').value!=="ver");
+}
+function addTypedIngs(){
+  const i=document.getElementById("fingIn"), add=splitIngs(i.value); i.value="";
+  for(const x of add) if(!fedit.ings.some(y=>y.toLowerCase()===x.toLowerCase())) fedit.ings.push(x);
+  if(add.length) renderIngs();
+}
+document.getElementById("fingAdd").onclick=()=>{addTypedIngs();document.getElementById("fingIn").focus()};
+document.getElementById("fingIn").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addTypedIngs()}});
+fdlg.addEventListener("change",e=>{if(e.target.name==="fmode"){renderIngs();if(e.target.value==="ver")document.getElementById("fverName").focus()}});
+fdlg.addEventListener("click",e=>{
+  const f=state.foods.find(x=>x.id===fedit.id);
+  const rmi=e.target.closest("[data-rming]");
+  if(rmi){ fedit.ings.splice(+rmi.dataset.rming,1); renderIngs(); return; }
+  const dv=e.target.closest("[data-delver]");
+  if(dv){ const v=verOf(f,dv.dataset.delver); if(!v||!confirm(`Delete the version "${v.name}"? Meals already logged keep their ingredients.`)) return;
+    f.versions=f.versions.filter(x=>x.id!==v.id); if(!f.versions.length) delete f.versions;
+    if(fedit.v===v.id) fedit.v=null; persist(); renderIngs(); return; }
+  const vp=e.target.closest("[data-ver]");
+  if(vp){ const v=verOf(f,vp.dataset.ver); fedit.v=v?v.id:null; fedit.ings=v?[...v.ings]:[];
+    document.getElementById("fverName").value=v?v.name:""; renderIngs(); }
+});
+document.getElementById("fcancel").onclick=()=>fdlg.close();
+fdlg.addEventListener("close",()=>{fedit=null;render()});
+document.getElementById("fform").addEventListener("submit",ev=>{
+  ev.preventDefault(); addTypedIngs();
+  const m=(state.meals[fedit.date]||{})[fedit.meal], f=state.foods.find(x=>x.id===fedit.id); if(!m||!f){fdlg.close();return}
+  const mode=fdlg.querySelector('[name="fmode"]:checked').value;
+  let vid=fedit.v;
+  if(mode==="ver"){
+    const name=document.getElementById("fverName").value.trim(), err=document.getElementById("fErr");
+    if(!name){err.textContent="Name this version.";document.getElementById("fverName").focus();return}
+    if(!fedit.ings.length){err.textContent="Add at least one ingredient.";return}
+    const vers=f.versions||(f.versions=[]);
+    let v=vers.find(x=>x.name.toLowerCase()===name.toLowerCase());
+    if(v){ v.name=name; v.ings=[...fedit.ings]; } else vers.push(v={id:uid(),name,ings:[...fedit.ings]});
+    vid=v.id;
+  } else {
+    /* Logged once: still counts as the chosen version if its ingredients weren't changed */
+    const v=verOf(f,vid); if(!v||!sameIngs(v.ings,fedit.ings)) vid=null;
+  }
+  const fi=m.fi||(m.fi={});
+  if(fedit.ings.length||vid) fi[fedit.id]=vid?{v:vid,ings:[...fedit.ings]}:{ings:[...fedit.ings]}; else delete fi[fedit.id];
+  tidyMeals(fedit.date); fdlg.close(); commit();
+});
 document.getElementById("slots").addEventListener("change",e=>{
   const sel=e.target.closest("select[data-pick]"); if(!sel) return;
   if(sel.dataset.pick==="xmed"){
@@ -1466,7 +1592,8 @@ document.getElementById("slots").addEventListener("change",e=>{
   const meal=sel.dataset.meal, v=sel.value, kind=sel.dataset.pick;
   if(v==="__new"){ sel.value=kind==="food"?"":(mealOf(viewDate,meal).place||""); openEditor(kind==="food"?"food":"place",null,{date:viewDate,meal}); return; }
   const m=mealOf(viewDate,meal);
-  if(kind==="food"){ if(v) logFood(viewDate,meal,v); }
+  if(kind==="food"){ if(v){ const [fid,vid]=v.split("|"); logFood(viewDate,meal,fid);
+      const ver=vid&&verOf(state.foods.find(x=>x.id===fid),vid); if(ver) (m.fi||(m.fi={}))[fid]={v:ver.id,ings:[...ver.ings]}; } }
   else { if(v) m.place=v; else delete m.place; }
   tidyMeals(viewDate); commit();
 });
@@ -1656,7 +1783,8 @@ function buildCSV(start,end){
       [...had].sort((a,b)=>symSortKey(sl[a.id])-symSortKey(sl[b.id])).map(x=>x.name+(sl[x.id]===ALLDAY?" (all day)":realTime(sl[x.id])?" at "+fmtTime(sl[x.id]):"")).join("; "),had.length,
       ...syms.map(x=>sl[x.id]?1:0),
       ...MEALS.flatMap(m=>{const e=meals[m.id]||{}, mt=mealTime(e);return [mt?fmtTime(mt):"",[...countFoods(e.foods)].map(([id,n])=>{const nm=nameOf(state.foods,id), ft=foodTime(e,id);const ts=[ft||mt,...((e.fx||{})[id]||[]).filter(realTime)].filter(Boolean).sort((a,b)=>a-b);
-        return nm&&(n>1?nm+" x"+n:nm)+(ts.length>1?" at "+ts.map(fmtTime).join(", "):ft&&ft!==mt?" at "+fmtTime(ft):"")}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
+        const fe=(e.fi||{})[id], fv=fe&&fe.v&&verOf(state.foods.find(x=>x.id===id),fe.v), ing=fe&&(fe.ings||[]).length?" ("+fe.ings.join(", ")+")":"";
+        return nm&&(n>1?nm+(fv?" · "+fv.name:"")+ing+" x"+n:nm+(fv?" · "+fv.name:"")+ing)+(ts.length>1?" at "+ts.map(fmtTime).join(", "):ft&&ft!==mt?" at "+fmtTime(ft):"")}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
       placesToday.map(id=>nameOf(state.places,id)).filter(Boolean).join("; "),
       ...places.map(x=>placesToday.includes(x.id)?1:0),
       ...MOODTIMES.flatMap(m=>{const ids=(state.mlog[k]||{})[m.id]||[], tt=moodTimes(k,m.id), gt=groupTime(tt,ids);
