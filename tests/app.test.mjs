@@ -353,6 +353,36 @@ await test("older saved data gets the new layout; hidden appointments stay hidde
   eq(await page.locator('[data-sec="appts"]').count(), 0, "not on Today");
 }, { ...base, trackAppts: false });
 
+/* ---------- Food servings each get their own time ---------- */
+await test("Coffee ×2: tap the time to give each serving its own time", async page => {
+  const sel = 'select[data-pick="food"][data-meal="breakfast"]';
+  await page.selectOption(sel, "f2"); await page.selectOption(sel, "f2");
+  eq(await page.textContent('.box.meal.l-waking .qty'), "×2", "shows ×2");
+  await page.click('.box.meal.l-waking [data-editf="f2"]');
+  await page.waitForSelector("#pdlg[open]");
+  eq(await page.locator("#pdlg [data-ptime]").count(), 2, "one row per serving");
+  await page.fill('#pdlg [data-ptime="0"]', "07:15");
+  await page.fill('#pdlg [data-ptime="1"]', "10:40");
+  await page.click('#pform button[type="submit"]');
+  let m = (await page.state()).meals[today].breakfast;
+  eq(m.foods, ["f2", "f2"], "still two servings");
+  eq([m.ft.f2, ...m.fx.f2].map(t => new Date(t).getHours() + ":" + new Date(t).getMinutes()), ["7:15", "10:40"], "each time saved");
+  eq(await page.textContent('.box.meal.l-waking .qty'), "×2", "still displays ×2");
+  const csv = await page.evaluate(k => buildCSV(k, k), today);
+  assert(csv.includes("Coffee x2 at 7:15 AM, 10:40 AM"), "both times in spreadsheet");
+  await page.click('.box.meal.l-waking [data-editf="f2"]');
+  await page.click("#pAgain"); await page.fill('#pdlg [data-ptime="2"]', "13:05");
+  await page.click('#pform button[type="submit"]');
+  m = (await page.state()).meals[today].breakfast;
+  eq(m.foods.length, 3, "another serving added"); eq(await page.textContent('.box.meal.l-waking .qty'), "×3", "×3");
+  await page.click('.box.meal.l-waking [data-editf="f2"]');
+  await page.click('#pdlg [data-prm="0"]'); await page.click('#pform button[type="submit"]');
+  m = (await page.state()).meals[today].breakfast;
+  eq(m.foods.length, 2, "serving removed"); eq(new Date(m.ft.f2).getHours(), 10, "the 7:15 one was removed");
+  await page.click('.box.meal.l-waking [data-editf="f2"]'); await page.fill('#pdlg [data-ptime="0"]', "09:00"); await page.click("#pcancel");
+  eq(new Date((await page.state()).meals[today].breakfast.ft.f2).getHours(), 10, "cancel changes nothing");
+}, { ...base, foods: [{ id: "f1", name: "Oatmeal" }, { id: "f2", name: "Coffee" }] });
+
 /* ---------- Existing features still work ---------- */
 await test("checking off a med and adding a food still work", async page => {
   await page.click('.row.med[data-k="m1|morning"]');

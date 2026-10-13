@@ -612,6 +612,21 @@ body{display:flex;flex-direction:column}
     </div>
   </form>
 </dialog>
+<!-- Servings: a food eaten more than once in a meal (Coffee ×2), each serving with its own time -->
+<dialog id="pdlg">
+  <form method="dialog" id="pform">
+    <h3 id="pdlgTitle">Servings</h3>
+    <div class="body">
+      <p class="hint" style="margin:0 0 12px">Give each serving the time you had it. A serving left blank uses the meal's time.</p>
+      <div id="pRows"></div>
+      <div class="actions sagain"><button type="button" class="ghost" id="pAgain">+ Another serving now</button></div>
+      <div class="actions">
+        <button type="button" class="ghost" id="pcancel">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </div>
+  </form>
+</dialog>
 <dialog id="fdlg">
   <form method="dialog" id="fform" novalidate>
     <h3 id="fdlgTitle">Ingredients</h3>
@@ -998,7 +1013,9 @@ function render(){
     html+=`<div class="box meal ${ml.l}">
       <div class="lid">${ml.label}${mt?`<span class="mtime">${fmtTime(mt)}</span>`:""}${place?`<span class="place">at ${esc(place.name)}</span>`:""}</div>
       <div class="chips">${ids.length?ids.map(id=>{const nm=byId(state.foods,id).name,n=counts.get(id),own=foodTime(m,id),shown=own||mt;
-        const tb=`<button class="t${own?"":" inh"}" data-editf="${esc(id)}" data-meal="${ml.id}" aria-label="${shown?`Change time of ${esc(nm)}, now ${fmtTime(shown)}`:`Add a time for ${esc(nm)}`}">${shown?fmtTime(shown):CLOCK}</button>`;
+        const tb = n>1
+          ? `<button class="t${own?"":" inh"}" data-editf="${esc(id)}" data-meal="${ml.id}" aria-label="Times of each ${esc(nm)} serving">${shown?fmtTime(shown):CLOCK}</button>`
+          : `<button class="t${own?"":" inh"}" data-editf="${esc(id)}" data-meal="${ml.id}" aria-label="${shown?`Change time of ${esc(nm)}, now ${fmtTime(shown)}`:`Add a time for ${esc(nm)}`}">${shown?fmtTime(shown):CLOCK}</button>`;
         const fe=(m.fi||{})[id], vn=fe&&fe.v&&verOf(byId(state.foods,id),fe.v), hasI=fe&&(fe.ings||[]).length;
         const nb=`<button class="nm" data-ings="${esc(id)}" data-meal="${ml.id}" aria-label="Ingredients of ${esc(nm)}">${esc(nm)}${vn?`<span class="ver">· ${esc(vn.name)}</span>`:hasI?`<span class="dot" aria-hidden="true"></span>`:""}</button>`;
         return `<span class="chip">${nb}${n>1?`<span class="qty">×${n}</span>`:""}${tb}<button data-rm="${esc(id)}" data-meal="${ml.id}" aria-label="Remove one ${esc(nm)}">×</button></span>`}).join(""):`<span class="none">Nothing added</span>`}</div>
@@ -1628,7 +1645,10 @@ todayCol.addEventListener("click",e=>{
   const ingb=e.target.closest("[data-ings]");
   if(ingb){ openIngredients(viewDate,ingb.dataset.meal,ingb.dataset.ings); return; }
   const editf=e.target.closest("[data-editf]");
-  if(editf){ openFoodTime(viewDate,editf.dataset.meal,editf.dataset.editf); return; }
+  if(editf){ const m=(state.meals[viewDate]||{})[editf.dataset.meal];
+    if(countFoods(m&&m.foods).get(editf.dataset.editf)>1) openServings(viewDate,editf.dataset.meal,editf.dataset.editf);
+    else openFoodTime(viewDate,editf.dataset.meal,editf.dataset.editf);
+    return; }
   const editk=e.target.closest("[data-editk]");
   if(editk){ openMedTime(viewDate,editk.dataset.editk); return; }
   const editsym=e.target.closest("[data-editsym]");
@@ -1722,6 +1742,53 @@ function openFoodTime(date,meal,id){
   openTimeDialog(f.name+(ml?" · "+ml.label:""),"Time eaten","Clear time",own||mealTime(m));
   document.getElementById("xremove").style.display=own?"":"none";
 }
+/* Servings pop-up: each serving of a food in this meal gets its own time (stored as m.ft[id] for the earliest,
+   m.fx[id] for the rest). Edited on a copy; Save writes it back, Cancel leaves it alone. */
+const pdlg=document.getElementById("pdlg"); let pedit=null;
+function openServings(date,meal,id){
+  const m=(state.meals[date]||{})[meal], f=state.foods.find(x=>x.id===id), ml=MEALS.find(x=>x.id===meal); if(!m||!f) return;
+  const n=countFoods(m.foods).get(id)||0;
+  const times=[foodTime(m,id),...((m.fx||{})[id]||[]).filter(realTime)].filter(Boolean).sort((a,b)=>a-b);
+  while(times.length<n) times.push(0);
+  pedit={date,meal,id,times:times.slice(0,n)};
+  document.getElementById("pdlgTitle").textContent=f.name+(ml?" · "+ml.label:"");
+  renderServings(); pdlg.showModal(); pdlg.querySelector('[type="submit"]').focus();
+}
+function renderServings(){
+  const L=pedit.times;
+  document.getElementById("pRows").innerHTML=L.map((t,i)=>`<div class="occhead">
+      <span class="occn">${i+1}</span>
+      <input type="time" data-ptime="${i}" value="${t?hhmm(t):""}" aria-label="Time of serving ${i+1}">
+      <button type="button" class="occx" data-prm="${i}" aria-label="Remove serving ${i+1}" ${L.length<2?"disabled":""}>×</button></div>`).join("");
+}
+function readServings(){
+  for(const inp of pdlg.querySelectorAll("[data-ptime]")){
+    const i=+inp.dataset.ptime;
+    if(/^\d\d:\d\d/.test(inp.value)){ const d=parseKey(pedit.date); d.setHours(+inp.value.slice(0,2),+inp.value.slice(3,5),0); pedit.times[i]=d.getTime(); }
+    else pedit.times[i]=0;
+  }
+}
+pdlg.addEventListener("click",e=>{
+  const rm=e.target.closest("[data-prm]"); if(!rm||!pedit||pedit.times.length<2) return;
+  readServings(); pedit.times.splice(+rm.dataset.prm,1); renderServings();
+});
+document.getElementById("pAgain").onclick=()=>{ readServings(); pedit.times.push(stampFor(pedit.date)); renderServings(); };
+document.getElementById("pcancel").onclick=()=>pdlg.close();
+pdlg.addEventListener("close",()=>{pedit=null});
+document.getElementById("pform").addEventListener("submit",ev=>{
+  ev.preventDefault(); if(!pedit) return;
+  readServings();
+  const m=mealOf(pedit.date,pedit.meal), id=pedit.id, want=pedit.times.length;
+  /* Match the number of servings in the meal's list: add or remove copies of this food */
+  let have=m.foods.filter(x=>x===id).length;
+  while(have<want){ m.foods.push(id); have++; }
+  while(have>want){ m.foods.splice(m.foods.lastIndexOf(id),1); have--; }
+  const real=pedit.times.filter(realTime).sort((a,b)=>a-b);
+  const ft=m.ft||(m.ft={}), fx=m.fx||(m.fx={});
+  if(real.length) ft[id]=real[0]; else delete ft[id];
+  if(real.length>1) fx[id]=real.slice(1); else delete fx[id];
+  tidyMeals(pedit.date); pdlg.close(); commit();
+});
 function openMedTime(date,k){
   const t=(state.log[date]||{})[k], [id,slot]=k.split("|"), m=anyMed(id); if(!m||!t) return;
   const s=SLOTS.find(x=>x.id===slot);
