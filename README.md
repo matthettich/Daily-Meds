@@ -24,3 +24,19 @@ or clearing browser data, then **Restore from backup** on the new device.
 
 After you change `index.html`, open `sw.js` and bump `CACHE` (for example `daily-meds-v2`)
 so installed copies pick up the new version.
+
+## Tests
+
+Browser tests open the app at phone width with fake weather and pollen servers (nothing real is fetched):
+
+```
+npm i -D playwright && npx playwright install chromium   # once
+node tests/app.test.mjs
+```
+
+## App stores (later)
+
+The app is a standard installable web app (manifest, icons including a maskable one, offline worker),
+so it can be wrapped without rewriting: for Google Play, a Trusted Web Activity built with
+[Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap) or [PWABuilder](https://www.pwabuilder.com);
+for the App Store, a native shell such as Capacitor. Both need the app served from a stable address.

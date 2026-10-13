@@ -1,13 +1,19 @@
 {
+  "id": "./",
   "name": "Daily meds",
-  "short_name": "Meds",
-  "description": "Daily medications, symptoms, food and notes.",
+  "short_name": "Daily meds",
+  "description": "Daily medications, symptoms, food, mood and appointments.",
+  "lang": "en",
+  "dir": "ltr",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone"],
   "orientation": "any",
   "background_color": "#FFFFFF",
-  "theme_color": "#EFEFEF",
+  "theme_color": "#FFFFFF",
+  "categories": ["health", "medical", "lifestyle"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "icon-192.png",
@@ -27,6 +33,5 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ],
-  "id": "./"
+  ]
 }

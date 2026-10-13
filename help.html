@@ -57,7 +57,7 @@ b{font-weight:500}
 
   <nav class="toc" aria-label="Sections">
     <a href="#today">Today</a><a href="#meals">Meals</a><a href="#meds">Meds</a><a href="#symptoms">Symptoms</a>
-    <a href="#food">Food</a><a href="#mood">Mood</a><a href="#smells">Smells</a><a href="#weather">Weather</a><a href="#summary">Recap</a><a href="#data">Your data</a><a href="#install">Install &amp; updates</a>
+    <a href="#food">Food</a><a href="#mood">Mood</a><a href="#smells">Smells &amp; Other</a><a href="#appts">Appointments</a><a href="#weather">Weather</a><a href="#summary">Recap</a><a href="#data">Your data</a><a href="#install">Install &amp; updates</a>
   </nav>
 
   <section class="box" id="today">
@@ -69,7 +69,7 @@ b{font-weight:500}
         <li>Checked it off late? <b>Tap the time</b> on the right to change it to when you actually took it.</li>
         <li><b>Take all</b> checks off everything in that time of day at once.</li>
         <li>The bar at the top shows how many of today's doses are checked off.</li>
-        <li>Use the <b>‹ ›</b> arrows to look at or fill in past days. Tap the date, or <b>Back to today</b>, to return.</li>
+        <li>Use the <b>‹ ›</b> arrows, or <b>swipe</b> across the page, to look at or fill in past days: swipe right to go back a day, left to go forward. Tap the date, or <b>Back to today</b>, to return.</li>
         <li><b>Notes</b> at the bottom is for anything about the day. It saves as you type.</li>
       </ul>
       <p>On a wide screen, like the Fold opened up, all the pages show side by side instead of as tabs.</p>
@@ -122,8 +122,11 @@ b{font-weight:500}
     <div class="lid"><h2>Symptoms</h2></div>
     <div class="body">
       <ul>
-        <li>On Today, use <b>Add symptom…</b> to log a symptom for that day, or <b>+ New symptom…</b> to create one. Tap <b>×</b> to remove it.</li>
-        <li>Each symptom shows the time you logged it. <b>Tap the time</b> to change it to when it actually started, or check <b>All day</b> if it lasted the whole day.</li>
+        <li>On Today, use <b>Add symptom…</b> to log a symptom for that day, or <b>+ New symptom…</b> to create one.</li>
+        <li>Had it again later? Pick it from <b>Add symptom…</b> again. Each time is saved with its own time, and it shows once as <span class="chip">Headache ×2</span>. Tap <b>×</b> to remove the latest one.</li>
+        <li><b>Tap a symptom's name</b> to see every time you logged it that day. Set each one's <b>intensity</b> from 1 (mild) to 10 (severe), change its time, mark it <b>All day</b>, or remove it. The strongest one shows as a small number on the chip.</li>
+        <li><b>Tap the time</b> on the chip to change the latest one to when it actually started.</li>
+        <li>Recap shows how many times and the average intensity, and the export has a count and the strongest intensity for each symptom.</li>
         <li>The Symptoms section of <b>Settings</b> lists every symptom you track and how many days you've had it this month. Tap one to rename or delete it.</li>
       </ul>
     </div>
@@ -145,7 +148,7 @@ b{font-weight:500}
     <div class="lid"><h2>Mood &amp; emotions</h2></div>
     <div class="body">
       <ul>
-        <li>On Today, below the meals, there are <b>Morning</b>, <b>Afternoon</b> and <b>Evening</b> boxes. Use <b>Add mood or emotion…</b> to log how you felt, as many as fit. Tap <b>×</b> to remove one.</li>
+        <li>On Today, below the meals, there are <b>Morning</b>, <b>Afternoon</b> and <b>Evening</b> boxes. Use <b>Add mood or emotion…</b> to log how you felt, as many as fit. Felt the same thing again? Pick it again: each time gets its own time and it shows as <span class="chip">Anxious ×2</span>. Tap <b>×</b> to remove the latest one.</li>
         <li>The Mood section of <b>Settings</b> holds your list. It starts with a few common ones; tap one to rename or delete it, or <b>Add</b> your own.</li>
         <li><b>Tap the clock</b> on a mood to add when you felt it. If only one mood in the morning, afternoon or evening has a time, the rest of that group gets it too. Tap a time and choose <b>Clear time</b> to remove it.</li>
         <li>Recap shows which moods came up most, and the export has a column for each time of day.</li>
@@ -157,10 +160,23 @@ b{font-weight:500}
     <div class="lid"><h2>Smells &amp; Other</h2></div>
     <div class="body">
       <ul>
-        <li>Off by default. Turn on <b>Track smells</b> in the Smells &amp; Other section of <b>Settings</b>.</li>
-        <li>Once it's on, a <b>Smells</b> box appears on Today below Mood. Pick one from <b>Add smell…</b> to log it with the current time; tap the time to change it, or <b>×</b> to remove one.</li>
-        <li>Your list of smells lives in Settings under the switch. Recap and the export include smells too. Turning the switch off hides the box but keeps what you've logged.</li>
-        <li>A <b>Smell notes</b> box sits below Smells for anything else worth writing down.</li>
+        <li><b>Smells</b> are off by default. Turn on <b>Track smells</b> in the Smells &amp; Other section of <b>Settings</b>.</li>
+        <li><b>Other</b> is for anything else worth tracking that might matter, like air travel, a hot tub or a late night. It's on by default; turn off <b>Track other things</b> to hide it.</li>
+        <li>On Today they sit below Mood. Pick one from <b>Add smell…</b> or <b>Log something…</b> to log it with the current time; tap the time to change it, or <b>×</b> to remove one. Pick the same one again and it shows ×2.</li>
+        <li>Each list lives in Settings under its switch. Recap and the export include both. Turning a switch off hides the box but keeps what you've logged.</li>
+        <li>A <b>Smells &amp; other notes</b> box sits below them for anything else worth writing down.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="box" id="appts">
+    <div class="lid"><h2>Appointments</h2></div>
+    <div class="body">
+      <ul>
+        <li>The <b>Appointments</b> box is at the very bottom of Today, below Notes. Pick one from <b>Add appointment…</b> to log it with the current time, or <b>+ New appointment…</b> to add one, with who or where it's with.</li>
+        <li>Tap the time to change it, or <b>×</b> to remove one. <b>Appointment notes</b> below it is for what the doctor said.</li>
+        <li>The list lives in <b>Settings</b> under Appointments. To hide the box, turn off <b>Show appointments on Today</b>; what you've logged is kept.</li>
+        <li>Recap and the export include appointments, so you can see whether symptoms change after a visit or a new treatment.</li>
       </ul>
     </div>
   </section>
@@ -171,7 +187,8 @@ b{font-weight:500}
       <p>Set a location in the <b>Weather</b> box in <b>Settings</b>, in the Recap section at the bottom. From then on the app saves each day's temperature, rain, humidity, air pressure and air quality, and fills in the past three months.</p>
       <ul>
         <li>Recap's <b>Weather &amp; symptoms</b> box compares days you had symptoms with days you didn't. Pick one symptom to narrow it down.</li>
-        <li><b>Pollen</b> in the US needs a free Google Pollen API key. Pollen only comes as a forecast, so it's saved for each day you open the app and can't be filled in for past days.</li>
+        <li>Under the location, a line shows how many of the last 30 days have weather saved, and lists any missing days. Missing days fill in by themselves the next time the app is open and online, up to three months back.</li>
+        <li><b>Pollen</b> in the US needs a free Google Pollen API key. When you save the key, the app checks it right away and tells you in a pop-up whether it worked, with today's pollen. The line under the key keeps showing whether pollen is on. Pollen only comes as a forecast, so it's saved for each day you open the app and can't be filled in for past days.</li>
         <li>Weather comes from Open-Meteo. Only your location is sent, rounded to about a kilometer.</li>
       </ul>
     </div>
@@ -184,10 +201,11 @@ b{font-weight:500}
       <ul>
         <li><b>Top symptoms</b> ranks symptoms by how many days you had them. Arrows compare with the same days of the previous month or year: ▲ more, ▼ fewer.</li>
         <li>The <b>Calendar</b> shades each day by how many symptoms you logged. Tap a day to open it.</li>
+        <li>The <b>Year calendar</b> below it shows the whole year at a glance, each month in its own color, shaded the same way. Turn it off in Settings, under Recap.</li>
         <li><b>Medication</b> shows the share of doses you checked off, counted from when you started using the app.</li>
       </ul>
       <h3>Export for AI</h3>
-      <p>Downloads a spreadsheet (CSV) with one row per day: each dose taken (with its time), doses missed, symptoms, each meal's foods and restaurant, mood, weather, air quality, pollen, and your notes. Share it with your doctor, or upload it to AI and ask whether symptoms tend to follow certain foods, restaurants or missed doses.</p>
+      <p>Downloads a spreadsheet (CSV) with one row per day: each dose taken (with its time), doses missed, symptoms (how many times and how strong), each meal's foods and restaurant, mood, smells and other things, appointments, weather, air quality, pollen, and your notes. Share it with your doctor, or upload it to AI and ask whether symptoms tend to follow certain foods, restaurants or missed doses.</p>
     </div>
   </section>
 
@@ -208,7 +226,8 @@ b{font-weight:500}
     <div class="lid"><h2>Install &amp; updates</h2></div>
     <div class="body">
       <h3>Android (Samsung, Pixel and others)</h3>
-      <p>Open the app in Chrome or Samsung Internet, open the browser menu, and tap <b>Install app</b> or <b>Add to Home screen</b>. It opens full-screen like a normal app.</p>
+      <p>Open the app in Chrome, then tap <b>Install app</b> in Settings, under Personalize (or choose <b>Install app</b> from Chrome's ⋮ menu). It opens full-screen like a normal app, named Daily meds, with its own icon.</p>
+      <p>If your home-screen icon has a small Chrome badge, or the app opens as "Meds", it was added as a shortcut rather than installed. Remove that icon, open the website in Chrome, and use <b>Install app</b> instead. Your records stay; they belong to the website, not the icon.</p>
       <h3>iPhone</h3>
       <ul>
         <li>Open the app in <b>Safari</b>.</li>

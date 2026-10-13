@@ -35,7 +35,7 @@ body[data-day="5"]{--h:152;--s:50%;--tx:#7A1E5E}
 body[data-day="6"]{--h:208;--s:75%;--tx:#8A3412}
 /* Phone (folded): pages alternate white and colored — Today white, Food colored, Meds white, Symptoms colored */
 /* Each page is its own version of the day's color (a small hue shift) */
-.pg-today{--dh:0} .pg-food{--dh:22} .pg-meds{--dh:-22} .pg-syms{--dh:44} .pg-sum{--dh:-44} .pg-mood{--dh:-55}
+.pg-today{--dh:0} .pg-food{--dh:22} .pg-meds{--dh:-22} .pg-syms{--dh:44} .pg-sum{--dh:-44} .pg-mood{--dh:-55} .pg-appt{--dh:110}
 .view{--H:calc(var(--h) + var(--dh,0))}
 body[data-page="food"]{--dh:22} body[data-page="syms"]{--dh:44} body[data-page="mood"]{--dh:-55}
 @media (max-width:719px){
@@ -187,6 +187,7 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .slotpick input:checked+span{background:var(--ink);color:var(--white)}
 .slotpick input:focus-visible+span{outline:2px solid var(--ink);outline-offset:-4px}
 @media (max-width:420px){.slotpick label{flex:1 1 33%}.slotpick label+label{border-left:0}}
+.askmsg{margin:0 0 16px;white-space:pre-line}
 .err{color:var(--danger);font-size:13px;min-height:1.2em;margin:0 0 8px}
 .actions{display:flex;gap:8px;align-items:center;justify-content:flex-end}
 .actions .danger{margin-right:auto}
@@ -211,8 +212,11 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
    deepening through the day */
 .pg-white .box.mood{--H:calc(var(--h) - 55)}
 .l-mmorning{--l:90%} .l-mafternoon{--l:86%} .l-mevening{--l:82%}
-/* Smells on Today: the Food section's colors (colored box, white title bar) */
-.l-smell{--l:88%}
+/* Smells and Other on Today: the Food section's colors (colored box, white title bar) */
+.l-smell{--l:88%} .l-other{--l:84%}
+/* Appointments on Today: like the supplements box (white body, colored title bar), in their own color */
+.pg-white .box.appt{--H:calc(var(--h) + 110)}
+.l-appt{--l:84%}
 /* On/off switch rows in Settings (e.g. Track smells) */
 .toggle{display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 10px;font-size:15px;font-weight:500;cursor:pointer}
 .toggle input{width:22px;height:22px;margin:0;accent-color:var(--ink);flex:none}
@@ -257,6 +261,22 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .imode input:focus-visible+span{outline:2px solid var(--ink);outline-offset:-4px}
 #fverRow.off{display:none}
 .chip button.t svg{width:14px;height:14px;display:block}
+/* Symptom intensity, 1–10: the deeper the shade, the stronger (symptom color) */
+.lvl,.scale button{background:hsl(calc(var(--h) + 44) var(--s) calc(95% - var(--i,0) * 3.7%))}
+.lvl{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 3px;border:1px solid var(--rule);font-size:12px;font-variant-numeric:tabular-nums}
+.occ{border:1px solid var(--rule);padding:10px;margin:0 0 10px}
+.occhead{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+.occhead input[type=time]{min-height:40px;padding:6px 8px;border:1px solid var(--rule);background:var(--white);font:inherit;color:var(--ink)}
+.occhead input[type=time]:disabled{opacity:.4}
+.occhead .allday{margin:0;min-height:40px}
+.occn{display:inline-grid;place-items:center;width:24px;height:24px;border:1px solid var(--rule);font-size:13px}
+.occx{margin-left:auto;width:40px;height:40px;border:1px solid var(--rule);background:var(--white);font-size:18px;line-height:1}
+.scale{display:grid;grid-template-columns:repeat(10,1fr);border:1px solid var(--rule)}
+.scale button{border:0;min-height:40px;padding:0;font-size:14px;font-variant-numeric:tabular-nums}
+.scale button+button{border-left:1px solid var(--rule)}
+.scale button[aria-pressed="true"]{background:var(--ink);color:var(--white)}
+.scalelab{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:4px}
+.sagain{justify-content:flex-start;margin:0 0 14px}
 .lid .place{margin-left:auto;padding-right:10px;font-size:13px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
 
 /* ---------- Summary ---------- */
@@ -286,6 +306,16 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .cal .blank{aspect-ratio:1}
 .legend{display:flex;align-items:center;gap:6px;padding:0 10px 10px;font-size:12px;color:var(--muted)}
 .legend i{width:14px;height:14px;border:1px solid var(--rule);display:inline-block}
+/* Year calendar */
+.ygrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 10px;padding:10px}
+@media (min-width:520px){.ygrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.ymt{font-size:13px;font-weight:500;margin:0 0 4px;display:inline-block;padding:0 .1em;
+  background:linear-gradient(hsl(var(--mh) var(--ms) 78%),hsl(var(--mh) var(--ms) 78%)) no-repeat 0 88%/100% .4em}
+.ycal{display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
+.ycal .dow{font-size:9px;line-height:1.4;color:var(--muted);text-align:center}
+.ycal button,.ycal span{aspect-ratio:1;min-width:0}
+.ycal button{border:0;padding:0;outline:1px solid hsl(var(--mh) var(--ms) 80%);outline-offset:-1px}
+.ycal button.today{outline:2px solid var(--ink);outline-offset:0}
 /* Welcome (first launch only) */
 #welcome .body p{margin:0 0 12px}
 #welcome ul{margin:0 0 14px;padding:0;list-style:none}
@@ -313,6 +343,9 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .wxpick select{flex:1;min-height:36px;border:1px solid var(--rule);background:var(--white);font:inherit;font-size:14px;color:var(--ink);padding:4px 8px}
 .wxnow{padding:10px 10px 0;font-size:14px}
 #sumTitle .who{display:block;font-size:13px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--muted);margin-top:2px}
+.wxcover:empty,.pstat:empty{display:none}
+.pstat{border:1px solid var(--rule);background:var(--white);color:var(--ink);padding:8px 10px}
+.pstat b{font-weight:500}
 .wxset{display:flex;gap:8px;margin:0 10px 10px}
 .wxset input{flex:1;min-width:0;min-height:40px;padding:8px 10px;border:1px solid var(--rule);background:var(--white);font:inherit;color:var(--ink)}
 /* Help: a small box at the very bottom center of every page */
@@ -355,6 +388,9 @@ body{display:flex;flex-direction:column}
       <div class="sect" role="heading" aria-level="2">Notes</div>
       <div class="box l-notes"><div class="lid"><label for="dayNotes">Notes</label><span class="saved" data-saved="note-today">Saved</span></div><textarea id="dayNotes" data-note="today" rows="3" placeholder="How was today?"></textarea></div>
     </section>
+
+    <!-- Appointments sit at the very bottom of Today (hide them in Settings) -->
+    <section class="view pg-white pg-today" data-tab="today" id="apptSlot"></section>
    </div>
 
    <div class="col colR">
@@ -426,6 +462,24 @@ body{display:flex;flex-direction:column}
         <div class="lid"><h2>Smells</h2><button class="act add" id="addSmell">Add</button></div>
         <div id="smellList"></div>
       </div>
+      <div class="box l-list">
+        <label class="toggle"><input type="checkbox" id="trackOther"><span>Track other things</span></label>
+      </div>
+      <div class="box l-list" id="otherBox" hidden>
+        <div class="lid"><h2>Other</h2><button class="act add" id="addOther">Add</button></div>
+        <div id="otherList"></div>
+      </div>
+    </section>
+
+    <section class="view pg-color pg-appt sset band" data-tab="set" style="display:none">
+      <div class="sect" role="heading" aria-level="2">Appointments</div>
+      <div class="box l-list">
+        <label class="toggle"><input type="checkbox" id="trackAppts"><span>Show appointments on Today</span></label>
+      </div>
+      <div class="box l-list" id="apptBox" hidden>
+        <div class="lid"><h2>Appointments</h2><button class="act add" id="addAppt">Add</button></div>
+        <div id="apptList"></div>
+      </div>
     </section>
 
     <section class="view pg-white sset" data-tab="set" style="display:none">
@@ -445,12 +499,17 @@ body{display:flex;flex-direction:column}
     <section class="view pg-white sset" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Recap</div>
       <div class="box l-list">
+        <label class="toggle"><input type="checkbox" id="showYearCal"><span>Show year calendar on Recap</span></label>
+      </div>
+      <div class="box l-list">
         <div class="lid"><h2>Weather</h2></div>
         <p class="hint" id="wxWhere">Weather and air quality are saved with each day so you can compare them with symptoms on the Recap page.</p>
         <div class="backup-btns"><button class="ghost" id="wxGeo">Use my location</button></div>
         <form class="wxset" id="wxCityForm"><input id="wxCity" placeholder="or type a city" autocomplete="off" aria-label="City"><button class="ghost" type="submit">Set</button></form>
+        <p class="hint wxcover" id="wxCover" role="status"></p>
         <p class="hint">Pollen in the US needs a free Google Pollen API key. Paste it here and today's tree, grass and weed pollen is saved each day you open the app.</p>
         <form class="wxset" id="wxKeyForm"><input id="wxKey" placeholder="Google Pollen API key" autocomplete="off" aria-label="Google Pollen API key"><button class="ghost" type="submit">Save</button></form>
+        <p class="hint pstat" id="pollenStatus" role="status"></p>
         <p class="hint" id="wxMsg" role="status"></p>
       </div>
     </section>
@@ -463,6 +522,11 @@ body{display:flex;flex-direction:column}
         <form class="wxset" id="nameForm"><input id="nameIn" placeholder="Name" autocomplete="off" maxlength="60" aria-label="Name"><button class="ghost" type="submit">Save</button></form>
         <p class="hint" id="nameMsg" role="status"></p>
       </div>
+      <div class="box l-list">
+        <div class="lid"><h2>Home screen app</h2></div>
+        <p class="hint" id="installHint">Install Daily meds so it opens as its own app, with its own icon and name.</p>
+        <div class="backup-btns" id="installBtns" hidden><button class="ghost" id="installBtn">Install app</button></div>
+      </div>
     </section>
    </div>
   </div>
@@ -470,6 +534,18 @@ body{display:flex;flex-direction:column}
 <footer class="helpfoot"><a href="help.html">Help</a></footer>
 
 <div id="sweep" aria-hidden="true"></div>
+<!-- The app's own pop-up. The browser's built-in confirm() boxes are titled with the website address
+     (matthettich.github.io), so every question and message goes through this instead. -->
+<dialog id="askDlg" aria-labelledby="askTitle" aria-describedby="askMsg">
+  <h3 id="askTitle">Daily meds</h3>
+  <div class="body">
+    <p id="askMsg" class="askmsg"></p>
+    <div class="actions">
+      <button type="button" class="ghost" id="askNo">Cancel</button>
+      <button type="button" class="primary" id="askYes">OK</button>
+    </div>
+  </div>
+</dialog>
 <dialog id="welcome" aria-labelledby="welcomeTitle">
   <h3 id="welcomeTitle">Welcome to Daily meds</h3>
   <div class="body">
@@ -481,7 +557,7 @@ body{display:flex;flex-direction:column}
       <li><b>Your data stays on this phone.</b> Nothing is uploaded. If you turn on weather, only your rough location is sent to get the forecast.</li>
       <li><b>Save a backup</b> now and then (Settings, Your data), especially before switching phones or clearing browser data.</li>
     </ul>
-    <p class="fine">Tip: add the app to your home screen from your browser's menu. This app keeps records; it doesn't give medical advice.</p>
+    <p class="fine">Tip: install it as an app from Settings, under Personalize. This app keeps records; it doesn't give medical advice.</p>
     <div class="actions">
       <button type="button" class="ghost" id="welcomeLater">Look around</button>
       <button type="button" class="primary" id="welcomeStart">Add my first medication</button>
@@ -497,6 +573,20 @@ body{display:flex;flex-direction:column}
       <div class="actions">
         <button type="button" class="danger" id="xremove">Remove dose</button>
         <button type="button" class="ghost" id="xcancel">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+<!-- Symptom details: every time it was logged today, each with its own time and 1–10 intensity -->
+<dialog id="sdlg">
+  <form method="dialog" id="sform">
+    <h3 id="sdlgTitle">Symptom</h3>
+    <div class="body">
+      <div id="sOcc"></div>
+      <div class="actions sagain"><button type="button" class="ghost" id="sAgain">+ Log again now</button></div>
+      <div class="actions">
+        <button type="button" class="ghost" id="scancel">Cancel</button>
         <button type="submit" class="primary">Save</button>
       </div>
     </div>
@@ -534,7 +624,7 @@ body{display:flex;flex-direction:column}
     <h3 id="dlgTitle">Add medication</h3>
     <div class="body">
       <label class="f">Name<input name="name" autocomplete="off" required></label>
-      <label class="f med-only">Dose<input name="dose" placeholder="e.g. 50 mg, 2 tablets" autocomplete="off"></label>
+      <label class="f med-only"><span id="doseLabel">Dose</span><input name="dose" placeholder="e.g. 50 mg, 2 tablets" autocomplete="off"></label>
       <fieldset class="med-only timed-only">
         <legend>Times</legend>
         <div class="slotpick" id="slotPick"></div>
@@ -573,12 +663,18 @@ const KEEP_MED_DAYS = 400;   // medication check-offs; symptom history is kept f
 /* extras: as-needed medications (Tylenol, aspirin…). xlog: {date:[{id,t}]} — each dose taken, from extras or the regular list */
 /* supps: supplements (vitamin D, magnesium…). suplog: {date:[{id,t}]} — each supplement taken */
 /* moods: mood list. mlog: {date:{morning:[ids],afternoon:[ids],evening:[ids]}}
-   mtlog: {date:{morning:{id:t}}} — optional time each mood was felt
+   mtlog: {date:{morning:{id:t}}} — optional time each mood was felt (the first time, when a mood was felt more than once)
+   mxlog: {date:{morning:{id:[t,…]}}} — times of the 2nd, 3rd… time a mood was felt in that part of the day
+   slog: {date:{symId:[{t,i},…]}} — each time a symptom was noticed: t is a timestamp or "all" (all day), i is intensity 1–10 (optional)
+   others: "Other" list (air travel, hot tub…). olog: {date:[{id,t}]}. trackOther: show the Other box on Today
+   appts: appointment list ({id,name,dose} — dose holds who/where). alog: {date:[{id,t}]}. trackAppts: show Appointments on Today
+   showYearCal: show the year calendar on Recap
    smells: smell list. smlog: {date:[{id,t}]} — each smell noticed. trackSmells: show the Smells box on Today
    weather: {date:{hi,lo,rain,code,hum,press,aqi,pm25,pollen:{tree,grass,weed},final}} (°C, mm, %, hPa). wxloc: {lat,lon,label}
    name: who this tracking is for — shown on Recap and in exported files */
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{},
-  moods:defaultMoods(), mlog:{}, mtlog:{}, smells:[], smlog:{}, trackSmells:false, weather:{}, wxloc:null, pollenKey:"", name:"", updated:0};
+  moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:[], olog:{}, trackOther:true,
+  appts:[], alog:{}, trackAppts:true, showYearCal:true, weather:{}, wxloc:null, pollenKey:"", name:"", updated:0};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
 
@@ -591,21 +687,62 @@ function fmtTime(ts){return new Date(ts).toLocaleTimeString([], {hour:"numeric",
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function uid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4)}
 
+/* ---------- pop-ups ----------
+   ask("Delete X?",{ok:"Delete"}) resolves true/false; tell("Saved.") just shows a message with an OK button.
+   Titled with the app name, unlike the browser's confirm(), which shows the website address. */
+let askDone=null;
+function ask(msg,{ok="OK",cancel="Cancel",title="Daily meds"}={}){
+  const d=document.getElementById("askDlg");
+  if(askDone) askDone(false);
+  document.getElementById("askTitle").textContent=title;
+  document.getElementById("askMsg").textContent=msg;
+  document.getElementById("askYes").textContent=ok;
+  const no=document.getElementById("askNo"); no.textContent=cancel||""; no.hidden=!cancel;
+  return new Promise(res=>{
+    askDone=v=>{askDone=null;res(v);if(d.open)d.close()};
+    if(!d.open) d.showModal();
+    document.getElementById("askYes").focus();
+  });
+}
+function tell(msg,title){return ask(msg,{cancel:null,title:title||"Daily meds"})}
+document.getElementById("askYes").onclick=()=>askDone&&askDone(true);
+document.getElementById("askNo").onclick=()=>askDone&&askDone(false);
+document.getElementById("askDlg").addEventListener("close",()=>askDone&&askDone(false));
+
 /* ---------- storage ---------- */
 function normalize(s){
   const obj=v=>(v&&typeof v==="object"&&!Array.isArray(v))?v:{};
   return {meds:Array.isArray(s.meds)?s.meds:[], log:obj(s.log),
-          symptoms:Array.isArray(s.symptoms)?s.symptoms:[], slog:obj(s.slog),
+          symptoms:Array.isArray(s.symptoms)?s.symptoms:[], slog:normSlog(obj(s.slog)),
           food:obj(s.food), notes:obj(s.notes), pnotes:obj(s.pnotes),
           foods:Array.isArray(s.foods)?s.foods:[], places:Array.isArray(s.places)?s.places:[], meals:obj(s.meals),
           extras:Array.isArray(s.extras)?s.extras:[], xlog:obj(s.xlog),
           supps:Array.isArray(s.supps)?s.supps:[], suplog:obj(s.suplog),
-          moods:Array.isArray(s.moods)?s.moods:defaultMoods(), mlog:obj(s.mlog), mtlog:obj(s.mtlog),
+          moods:Array.isArray(s.moods)?s.moods:defaultMoods(), mlog:obj(s.mlog), mtlog:obj(s.mtlog), mxlog:obj(s.mxlog),
           smells:Array.isArray(s.smells)?s.smells:[], smlog:obj(s.smlog), trackSmells:s.trackSmells===true,
+          others:Array.isArray(s.others)?s.others:[], olog:obj(s.olog), trackOther:s.trackOther!==false,
+          appts:Array.isArray(s.appts)?s.appts:[], alog:obj(s.alog), trackAppts:s.trackAppts!==false,
+          showYearCal:s.showYearCal!==false,
           weather:obj(s.weather), wxloc:(s.wxloc&&isFinite(s.wxloc.lat)&&isFinite(s.wxloc.lon))?s.wxloc:null,
           pollenKey:typeof s.pollenKey==="string"?s.pollenKey:"",
           name:typeof s.name==="string"?s.name.trim().slice(0,60):"",
           updated:Number(s.updated)||0};
+}
+/* Symptoms used to hold one value per day (a timestamp or "all"); now each is a list of times, so the same
+   symptom can be logged more than once a day. Older data and backups are converted here. */
+function normSlog(slog){
+  const out={};
+  for(const [k,day] of Object.entries(slog)){
+    if(!day||typeof day!=="object") continue;
+    const d={};
+    for(const [id,v] of Object.entries(day)){
+      const list=(Array.isArray(v)?v:[{t:v}]).filter(e=>e&&typeof e==="object"&&e.t!=null&&e.t!==false)
+        .map(e=>{const o={t:e.t===ALLDAY?ALLDAY:realTime(e.t)?e.t:true}; const i=Math.round(+e.i); if(i>=1&&i<=10) o.i=i; return o});
+      if(list.length) d[id]=sortSym(list);
+    }
+    if(Object.keys(d).length) out[k]=d;
+  }
+  return out;
 }
 function loadLocal(){
   try{const raw=localStorage.getItem(LS_KEY);if(raw){const s=JSON.parse(raw);if(s&&Array.isArray(s.meds))state=normalize(s)}}catch(e){}
@@ -670,6 +807,35 @@ function suppOf(id){return state.supps.find(x=>x.id===id)}
 function sdoses(date){return (state.suplog[date]||[]).filter(e=>suppOf(e.id))}
 function smellOf(id){return state.smells.find(x=>x.id===id)}
 function smdoses(date){return (state.smlog[date]||[]).filter(e=>smellOf(e.id))}
+/* ---------- logs of things that happen at a time: supplements, smells, other, appointments ----------
+   Each has a list (state[items]) and a log {date:[{id,t}]} (state[log]). On Today each gets one box:
+   one chip per item, ×N when logged more than once; the time and × act on the latest one. */
+const EVLOGS={
+  supp: {items:"supps", log:"suplog",title:"Supplements", cls:"l-supp",     count:n=>n+" taken",   none:"No supplements taken",   add:"Add supplement…",  add2:"+ New supplement…",  time:"Time taken",   word:"supplement"},
+  smell:{items:"smells",log:"smlog", title:"Smells",      cls:"meal l-smell",count:n=>n+" noticed", none:"No smells noticed",      add:"Add smell…",       add2:"+ New smell…",       time:"Time noticed", word:"smell"},
+  other:{items:"others",log:"olog",  title:"Other",       cls:"meal l-other",count:n=>n+" logged",  none:"Nothing else logged",    add:"Log something…",   add2:"+ New…",             time:"Time",         word:"thing"},
+  appt: {items:"appts", log:"alog",  title:"Appointments",cls:"appt l-appt", count:n=>n===1?"1 visit":n+" visits", none:"No appointments today", add:"Add appointment…", add2:"+ New appointment…", time:"Time", word:"appointment"}
+};
+function evOf(kind,id){return state[EVLOGS[kind].items].find(x=>x.id===id)}
+function evHits(kind,date){return (state[EVLOGS[kind].log][date]||[]).map((e,i)=>({...e,i})).filter(e=>evOf(kind,e.id))}
+function logEv(kind,date,id){const L=state[EVLOGS[kind].log], list=L[date]||(L[date]=[]); list.push({id,t:stampFor(date)}); list.sort((a,b)=>a.t-b.t)}
+function evBox(kind){
+  const E=EVLOGS[kind], hits=evHits(kind,viewDate);
+  const groups=new Map(); for(const e of hits){ const g=groups.get(e.id); if(g){g.n++;g.last=e} else groups.set(e.id,{n:1,last:e}) }
+  const items=[...state[E.items]].sort((a,b)=>a.name.localeCompare(b.name));
+  return `<div class="box ${E.cls}" data-evbox="${kind}">
+      <div class="lid">${E.title}<span class="st">${hits.length?E.count(hits.length):"None"}</span></div>
+      <div class="chips">${groups.size?[...groups].map(([id,g])=>{const m=evOf(kind,id),e=g.last;return `<span class="chip">${esc(m.name)}${m.dose&&kind==="appt"?`<span class="qty">${esc(m.dose)}</span>`:""}${g.n>1?`<span class="qty">×${g.n}</span>`:""}<button class="t" data-evt="${kind}" data-i="${e.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-evrm="${kind}" data-i="${e.i}" aria-label="Remove ${g.n>1?"one ":""}${esc(m.name)}">×</button></span>`}).join(""):`<span class="none">${E.none}</span>`}</div>
+      <div class="pickers one">
+        <select data-pick="ev" data-ev="${kind}" aria-label="${E.add.replace("…","")}">
+          <option value="">${E.add}</option>
+          ${items.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}${m.dose?" · "+esc(m.dose):""}</option>`).join("")}
+          <option value="__new">${E.add2}</option>
+        </select>
+      </div>
+    </div>`;
+}
+function evMonth(kind,id){const prefix=todayKey().slice(0,7);let n=0;for(const [k,v] of Object.entries(state[EVLOGS[kind].log])) if(k.startsWith(prefix)) for(const e of v) if(e.id===id) n++;return n}
 function monthCount(symId){
   const prefix=todayKey().slice(0,7); let n=0;
   for(const [k,v] of Object.entries(state.slog)) if(k.startsWith(prefix)&&v[symId]) n++;
@@ -730,22 +896,7 @@ function render(){
   }
 
   /* Today: supplements */
-  {
-    const doses=(state.suplog[viewDate]||[]).map((e,i)=>({...e,i})).filter(e=>suppOf(e.id));
-    /* One chip per supplement: ×N when taken more than once; time and × act on the latest dose */
-    const groups=new Map(); for(const e of doses){ const g=groups.get(e.id); if(g){g.n++;g.last=e} else groups.set(e.id,{n:1,last:e}) }
-    html+=`<div class="box l-supp">
-      <div class="lid">Supplements<span class="st">${doses.length?doses.length+" taken":"None"}</span></div>
-      <div class="chips">${groups.size?[...groups].map(([id,g])=>{const m=suppOf(id),e=g.last;return `<span class="chip">${esc(m.name)}${g.n>1?`<span class="qty">×${g.n}</span>`:""}<button class="t" data-edits="${e.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-rms="${e.i}" aria-label="Remove one ${esc(m.name)}">×</button></span>`}).join(""):`<span class="none">No supplements taken</span>`}</div>
-      <div class="pickers one">
-        <select data-pick="supp" aria-label="Add a supplement">
-          <option value="">Add supplement…</option>
-          ${[...state.supps].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>`<option value="${esc(m.id)}">${esc(m.name)}${m.dose?" · "+esc(m.dose):""}</option>`).join("")}
-          <option value="__new">+ New supplement…</option>
-        </select>
-      </div>
-    </div>`;
-  }
+  html+=evBox("supp");
 
   html+=noteBox("meds","","Medication notes","Side effects, doctor changes…");
 
@@ -754,14 +905,19 @@ function render(){
   const sday=state.slog[viewDate]||{};
   {
     const symsSorted=[...state.symptoms].sort((a,b)=>a.name.localeCompare(b.name));
-    const had=symsSorted.filter(x=>sday[x.id]);
+    const had=symsSorted.filter(x=>(sday[x.id]||[]).length);
+    /* One chip per symptom: ×N when logged more than once; tap the name for every time and its intensity;
+       the time and × act on the latest one */
     html+=`<div class="box l-sym">
       <div class="lid">Symptoms<span class="st">${had.length?had.length+" today":"None"}</span></div>
-      <div class="chips">${had.length?[...had].sort((a,b)=>symSortKey(sday[a.id])-symSortKey(sday[b.id])).map(x=>{const lb=symLabel(sday[x.id]);return `<span class="chip">${esc(x.name)}${lb?`<button class="t" data-editsym="${esc(x.id)}" aria-label="Change time of ${esc(x.name)}, now ${lb}">${lb}</button>`:""}<button data-rmsym="${esc(x.id)}" aria-label="Remove ${esc(x.name)}">×</button></span>`}).join(""):`<span class="none">No symptoms today</span>`}</div>
+      <div class="chips">${had.length?[...had].sort((a,b)=>symSortKey(sday[a.id][0].t)-symSortKey(sday[b.id][0].t)).map(x=>{
+        const L=sday[x.id], last=L.length-1, lb=symLabel(L[last].t), mx=symMax(L);
+        const nb=`<button class="nm" data-symd="${esc(x.id)}" aria-label="${esc(x.name)}${mx?", intensity "+mx+" of 10":""}. Tap to set intensity and times">${esc(x.name)}${mx?`<span class="lvl" style="--i:${mx}">${mx}</span>`:""}</button>`;
+        return `<span class="chip">${nb}${L.length>1?`<span class="qty">×${L.length}</span>`:""}${lb?`<button class="t" data-editsym="${esc(x.id)}" data-si="${last}" aria-label="Change time of ${esc(x.name)}, now ${lb}">${lb}</button>`:""}<button data-rmsym="${esc(x.id)}" data-si="${last}" aria-label="Remove ${L.length>1?"one ":""}${esc(x.name)}">×</button></span>`}).join(""):`<span class="none">No symptoms today</span>`}</div>
       <div class="pickers one">
         <select data-pick="sym" aria-label="Add a symptom">
           <option value="">Add symptom…</option>
-          ${symsSorted.filter(x=>!sday[x.id]).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join("")}
+          ${symsSorted.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}${(sday[x.id]||[]).length?" (again)":""}</option>`).join("")}
           <option value="__new">+ New symptom…</option>
         </select>
       </div>
@@ -809,16 +965,18 @@ function render(){
   const moday=state.mlog[viewDate]||{};
   const moodsSorted=[...state.moods].sort((a,b)=>a.name.localeCompare(b.name));
   for(const mt of MOODTIMES){
-    const ids=(moday[mt.id]||[]).filter(id=>byId(state.moods,id)), tt=moodTimes(viewDate,mt.id), mtt=groupTime(tt,ids);
+    /* A mood felt more than once in the same part of the day shows once, with ×N */
+    const all=(moday[mt.id]||[]).filter(id=>byId(state.moods,id)), counts=countFoods(all), ids=[...counts.keys()], tt=moodTimes(viewDate,mt.id), mtt=groupTime(tt,ids);
     html+=`<div class="box mood ${mt.l}">
       <div class="lid">${mt.label}${mtt?`<span class="mtime">${fmtTime(mtt)}</span>`:""}<span class="st">${ids.length?"":"None"}</span></div>
       <div class="chips">${ids.length?ids.map(id=>{const nm=byId(state.moods,id).name,own=realTime(tt[id])?tt[id]:0,shown=own||mtt;
         const tb=`<button class="t${own?"":" inh"}" data-editmood="${esc(id)}" data-mt="${mt.id}" aria-label="${shown?`Change time of ${esc(nm)}, now ${fmtTime(shown)}`:`Add a time for ${esc(nm)}`}">${shown?fmtTime(shown):CLOCK}</button>`;
-        return `<span class="chip">${esc(nm)}${tb}<button data-rmmood="${esc(id)}" data-mt="${mt.id}" aria-label="Remove ${esc(nm)} from ${mt.label.toLowerCase()}">×</button></span>`}).join(""):`<span class="none">How did you feel?</span>`}</div>
+        const n=counts.get(id);
+        return `<span class="chip">${esc(nm)}${n>1?`<span class="qty">×${n}</span>`:""}${tb}<button data-rmmood="${esc(id)}" data-mt="${mt.id}" aria-label="Remove ${n>1?"one ":""}${esc(nm)} from ${mt.label.toLowerCase()}">×</button></span>`}).join(""):`<span class="none">How did you feel?</span>`}</div>
       <div class="pickers one">
         <select data-pick="mood" data-mt="${mt.id}" aria-label="Add a mood for ${mt.label.toLowerCase()}">
           <option value="">Add mood or emotion…</option>
-          ${moodsSorted.filter(x=>!ids.includes(x.id)).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join("")}
+          ${moodsSorted.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}${ids.includes(x.id)?" (again)":""}</option>`).join("")}
           <option value="__new">+ New mood…</option>
         </select>
       </div>
@@ -827,25 +985,19 @@ function render(){
 
   html+=noteBox("mood","mood","Mood notes","What shaped your mood today?");
 
-  /* Today: smells & other (only when Track smells is on in Settings) */
-  if(state.trackSmells){
+  /* Today: smells & other (each only when switched on in Settings) */
+  if(state.trackSmells||state.trackOther){
     html+=`<div class="sect" role="heading" aria-level="2">Smells &amp; Other</div>`;
-    const hits=(state.smlog[viewDate]||[]).map((e,i)=>({...e,i})).filter(e=>smellOf(e.id));
-    /* One chip per smell: ×N when noticed more than once; time and × act on the latest */
-    const groups=new Map(); for(const e of hits){ const g=groups.get(e.id); if(g){g.n++;g.last=e} else groups.set(e.id,{n:1,last:e}) }
-    html+=`<div class="box meal l-smell">
-      <div class="lid">Smells<span class="st">${hits.length?hits.length+" noticed":"None"}</span></div>
-      <div class="chips">${groups.size?[...groups].map(([id,g])=>{const m=smellOf(id),e=g.last;return `<span class="chip">${esc(m.name)}${g.n>1?`<span class="qty">×${g.n}</span>`:""}<button class="t" data-editsm="${e.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-rmsm="${e.i}" aria-label="Remove one ${esc(m.name)}">×</button></span>`}).join(""):`<span class="none">No smells noticed</span>`}</div>
-      <div class="pickers one">
-        <select data-pick="smell" aria-label="Add a smell">
-          <option value="">Add smell…</option>
-          ${[...state.smells].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>`<option value="${esc(m.id)}">${esc(m.name)}</option>`).join("")}
-          <option value="__new">+ New smell…</option>
-        </select>
-      </div>
-    </div>`;
-    html+=noteBox("smell","meal","Smell notes","Where were you, how strong was it…");
+    if(state.trackSmells) html+=evBox("smell");
+    if(state.trackOther) html+=evBox("other");
+    html+=noteBox("smell","meal","Smells &amp; other notes","Where were you, how strong was it…");
   }
+
+  /* Today: appointments, at the very bottom, below Notes (hide them in Settings) */
+  document.getElementById("apptSlot").innerHTML = state.trackAppts
+    ? `<div class="sect" role="heading" aria-level="2">Appointments</div>`+evBox("appt")
+      +noteBox("appt","appt","Appointment notes","What the doctor said, changes, next visit…")
+    : "";
 
   const slotsEl=document.getElementById("slots");
   const prog=document.getElementById("progress");
@@ -890,6 +1042,21 @@ function render(){
         <span class="nm">${esc(m.name)}</span>
         <span class="side">${n} ${n===1?"time":"times"} in ${esc(month)}</span></button>`}).join("")
     : `<div class="empty-row">Perfume, smoke, cleaning products… Tap Add.</div>`;
+  document.getElementById("showYearCal").checked=state.showYearCal;
+  document.getElementById("trackOther").checked=state.trackOther;
+  document.getElementById("otherBox").hidden=!state.trackOther;
+  document.getElementById("otherList").innerHTML = state.others.length
+    ? [...state.others].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>{const n=evMonth("other",m.id);return `<button class="row" data-edit-other="${esc(m.id)}">
+        <span class="nm">${esc(m.name)}</span>
+        <span class="side">${n} ${n===1?"time":"times"} in ${esc(month)}</span></button>`}).join("")
+    : `<div class="empty-row">Anything else worth tracking: air travel, a hot tub, a late night… Tap Add.</div>`;
+  document.getElementById("trackAppts").checked=state.trackAppts;
+  document.getElementById("apptBox").hidden=!state.trackAppts;
+  document.getElementById("apptList").innerHTML = state.appts.length
+    ? [...state.appts].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>{const n=evMonth("appt",m.id);return `<button class="row" data-edit-appt="${esc(m.id)}">
+        <span><span class="nm">${esc(m.name)}</span>${m.dose?`<span class="ds">${esc(m.dose)}</span>`:""}</span>
+        <span class="side">${n} ${n===1?"visit":"visits"} in ${esc(month)}</span></button>`}).join("")
+    : `<div class="empty-row">Doctor visits, therapy, lab work… Tap Add.</div>`;
   const sl=document.getElementById("symList");
   sl.innerHTML = state.symptoms.length
     ? state.symptoms.map(x=>{const n=monthCount(x.id);return `<button class="row" data-edit-sym="${esc(x.id)}">
@@ -935,19 +1102,22 @@ function daysBetween(a,b){return Math.round((parseKey(b)-parseKey(a))/86400000)+
 function firstUse(){
   let first=todayKey();
   const scan=o=>{for(const k of Object.keys(o||{})) if(k<first) first=k};
-  scan(state.log);scan(state.slog);scan(state.food);scan(state.notes);scan(state.xlog);scan(state.suplog);scan(state.smlog);scan(state.meals);scan(state.mlog);
+  scan(state.log);scan(state.slog);scan(state.food);scan(state.notes);scan(state.xlog);scan(state.suplog);scan(state.smlog);scan(state.olog);scan(state.alog);scan(state.meals);scan(state.mlog);
   for(const v of Object.values(state.pnotes)) scan(v);
   return first;
 }
+/* c: days each symptom showed up; times: how many times it was logged; lv: [sum, count] of intensities */
 function symCounts(start,end){
-  const c={}; let anyDays=0;
+  const c={}, times={}, lv={}; let anyDays=0;
   for(const [k,v] of Object.entries(state.slog)){
     if(k<start||k>end) continue;
     let any=false;
-    for(const x of state.symptoms) if(v[x.id]){c[x.id]=(c[x.id]||0)+1;any=true}
+    for(const x of state.symptoms){ const L=v[x.id]; if(!L||!L.length) continue;
+      c[x.id]=(c[x.id]||0)+1; times[x.id]=(times[x.id]||0)+L.length; any=true;
+      for(const e of L) if(e.i){ const a=lv[x.id]||(lv[x.id]=[0,0]); a[0]+=e.i; a[1]++; } }
     if(any) anyDays++;
   }
-  return {c,anyDays};
+  return {c,times,lv,anyDays};
 }
 /* Each month has its own pastel color on the Summary page: [hue, saturation] */
 const MONTH_COLORS=[[208,70],[338,70],[140,45],[275,55],[95,50],[22,80],[180,55],[0,70],[42,75],[255,60],[60,55],[160,45]];
@@ -992,7 +1162,9 @@ function renderSummary(){
       ${ranked.filter(r=>r.n>0).map(r=>{
         const pct=elapsed?Math.round(r.n/elapsed*100):0, d=r.n-r.p;
         const chg = d>0?`<span class="up">▲${d}</span>`: d<0?`<span class="down">▼${-d}</span>`:"";
-        return `<div class="stat"><span class="nm">${esc(r.x.name)}</span><span class="num">${r.n} ${r.n===1?"day":"days"} · ${pct}% ${chg}</span><div class="track"><i style="width:${pct}%"></i></div></div>`;
+        const tm=now.times[r.x.id]||0, lv=now.lv[r.x.id];
+        const extra=(tm>r.n?` · ${tm} times`:"")+(lv?` · avg ${Math.round(lv[0]/lv[1]*10)/10}/10`:"");
+        return `<div class="stat"><span class="nm">${esc(r.x.name)}</span><span class="num">${r.n} ${r.n===1?"day":"days"}${extra} · ${pct}% ${chg}</span><div class="track"><i style="width:${pct}%"></i></div></div>`;
       }).join("")}
       <p class="hint">Arrows compare with the same days last ${unit}.</p></div>`;
   }
@@ -1011,8 +1183,10 @@ function renderSummary(){
     }
     html+=`<div class="box l-list"><div class="lid">Calendar</div><div class="cal">${cells}</div>
       <div class="legend">Fewer <i style="background:var(--white)"></i><i style="background:${shade(Math.ceil(maxS/3))}"></i><i style="background:${shade(Math.ceil(maxS*2/3))}"></i><i style="background:${shade(maxS)}"></i> More symptoms · tap a day to open it</div></div>`;
+    if(state.showYearCal) html+=yearCal(first.getFullYear());
   } else {
     const y=+P.start.slice(0,4);
+    if(state.showYearCal) html+=yearCal(y);
     let rows="";
     for(let m=0;m<12;m++){
       const a=keyOf(new Date(y,m,1)), b=keyOf(new Date(y,m+1,0));
@@ -1085,19 +1259,18 @@ function renderSummary(){
         :`<div class="empty-row">No moods logged this ${unit}.</div>`}</div>`;
   }
 
-  /* Smells */
-  {
-    const tally={};
-    for(const [k,v] of Object.entries(state.smlog)){ if(k<from||k>upto) continue;
+  /* Smells, other and appointments: days and times in this period */
+  for(const [kind,on,title,empty] of [["smell",state.trackSmells,"Smells","No smells logged"],["other",state.trackOther,"Other","Nothing else logged"],["appt",state.trackAppts,"Appointments","No appointments logged"]]){
+    const E=EVLOGS[kind], tally={};
+    for(const [k,v] of Object.entries(state[E.log])){ if(k<from||k>upto) continue;
       const seen=new Set();
-      for(const e of v){ if(!smellOf(e.id)) continue; const t=tally[e.id]||(tally[e.id]={times:0,days:0}); t.times++; if(!seen.has(e.id)){seen.add(e.id);t.days++} } }
-    const rows=Object.entries(tally).map(([id,t])=>({m:smellOf(id),...t})).sort((a,b)=>b.days-a.days||b.times-a.times||a.m.name.localeCompare(b.m.name));
-    if(rows.length||state.trackSmells){
-      const maxD=Math.max(1,...rows.map(r=>r.days));
-      html+=`<div class="box l-list"><div class="lid">Smells</div>
-        ${rows.length?rows.map(r=>`<div class="stat"><span class="nm">${esc(r.m.name)}</span><span class="num">${r.days} ${r.days===1?"day":"days"}${r.times>r.days?" · "+r.times+" times":""}</span><div class="track"><i style="width:${Math.round(r.days/maxD*100)}%"></i></div></div>`).join("")
-          :`<div class="empty-row">No smells logged this ${unit}.</div>`}</div>`;
-    }
+      for(const e of v){ if(!evOf(kind,e.id)) continue; const t=tally[e.id]||(tally[e.id]={times:0,days:0}); t.times++; if(!seen.has(e.id)){seen.add(e.id);t.days++} } }
+    const rows=Object.entries(tally).map(([id,t])=>({m:evOf(kind,id),...t})).sort((a,b)=>b.days-a.days||b.times-a.times||a.m.name.localeCompare(b.m.name));
+    if(!rows.length&&!on) continue;
+    const maxD=Math.max(1,...rows.map(r=>r.days));
+    html+=`<div class="box l-list"><div class="lid">${title}</div>
+      ${rows.length?rows.map(r=>`<div class="stat"><span class="nm">${esc(r.m.name)}</span><span class="num">${r.days} ${r.days===1?"day":"days"}${r.times>r.days?" · "+r.times+" times":""}</span><div class="track"><i style="width:${Math.round(r.days/maxD*100)}%"></i></div></div>`).join("")
+        :`<div class="empty-row">${empty} this ${unit}.</div>`}</div>`;
   }
 
   /* Weather vs symptoms */
@@ -1106,11 +1279,32 @@ function renderSummary(){
   /* Export for AI */
   const yr=P.start.slice(0,4);
   html+=`<div class="box l-list"><div class="lid">Export for AI</div>
-    <p class="hint">A spreadsheet with one row per day: each dose taken (with its time), doses missed, additional medication, supplements, symptoms, each meal's foods and restaurant, mood, weather, air quality, pollen, and your notes. Upload it to AI or another AI and ask something like:</p>
+    <p class="hint">A spreadsheet with one row per day: each dose taken (with its time), doses missed, additional medication, supplements, symptoms (how many times and how strong), each meal's foods and restaurant, mood, smells and other things, appointments, weather, air quality, pollen, and your notes. Upload it to AI or another AI and ask something like:</p>
     <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses, moods, pressure changes, air quality or pollen line up with symptoms?"</p>
     <div class="backup-btns"><button class="ghost" data-export="year">Download ${esc(yr)}</button><button class="ghost" data-export="all">Download everything</button></div>
     <p class="hint" id="exportMsg" role="status"></p></div>`;
   body.innerHTML=html;
+}
+
+/* Year calendar on Recap: twelve small months, each in its own color; a day is shaded deeper the more
+   symptoms it had, the same way as the month calendar. Tap a day to open it. */
+function yearCal(y){
+  const tk=todayKey(), maxS=Math.max(1,state.symptoms.length);
+  const dows=[...Array(7)].map((_,i)=>new Date(2024,0,7+i).toLocaleDateString([], {weekday:"narrow"}));
+  let months="";
+  for(let m=0;m<12;m++){
+    const first=new Date(y,m,1), days=new Date(y,m+1,0).getDate(), [h,sat]=MONTH_COLORS[m];
+    let cells=dows.map(x=>`<span class="dow">${x}</span>`).join("")+`<span></span>`.repeat(first.getDay());
+    for(let i=1;i<=days;i++){
+      const k=keyOf(new Date(y,m,i));
+      if(k>tk){ cells+=`<span class="fut"></span>`; continue; }
+      const n=state.symptoms.filter(x=>((state.slog[k]||{})[x.id]||[]).length).length;
+      cells+=`<button data-goto="${k}" class="${k===tk?"today":""}" style="background:${n?`hsl(${h} ${sat}% ${88-Math.round(n/maxS*30)}%)`:`hsl(${h} ${sat}% 97%)`}" aria-label="${k}, ${n} ${n===1?"symptom":"symptoms"}"></button>`;
+    }
+    months+=`<div class="ym" style="--mh:${h};--ms:${sat}%"><div class="ymt">${esc(first.toLocaleDateString([], {month:"short"}))}</div><div class="ycal">${cells}</div></div>`;
+  }
+  return `<div class="box l-list"><div class="lid">Year calendar<span class="st">${y}</span></div><div class="ygrid">${months}</div>
+    <div class="legend">Each month has its own color · deeper means more symptoms · tap a day to open it</div></div>`;
 }
 
 /* Status bar color follows the page background */
@@ -1144,8 +1338,13 @@ function wxWhereText(){
   el.textContent = state.wxloc ? `Saving weather for ${state.wxloc.label}. Change it below if you move.`
     : "Weather and air quality are saved with each day so you can compare them with symptoms on the Recap page. Pick a location to turn it on.";
   document.getElementById("wxKey").value = state.pollenKey ? "••••••••"+state.pollenKey.slice(-4) : "";
+  wxCoverText(); pollenText();
 }
-async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}
+async function getJSON(u){
+  const r=await fetch(u);
+  if(!r.ok){ let m="HTTP "+r.status; try{const j=await r.json(); if(j&&j.error&&j.error.message) m=j.error.message; else if(j&&j.reason) m=j.reason;}catch(e){} throw new Error(m); }
+  return r.json();
+}
 function byDay(h,field){const o={};const t=(h&&h.time)||[],v=(h&&h[field])||[];t.forEach((x,i)=>{if(v[i]==null)return;const k=x.slice(0,10);(o[k]||(o[k]=[])).push(v[i])});return o}
 const mean=a=>a&&a.length?a.reduce((s,v)=>s+v,0)/a.length:null;
 const maxOf=a=>a&&a.length?Math.max(...a):null;
@@ -1177,23 +1376,60 @@ async function fetchWeather(force){
         if(old.final) return;
         state.weather[k]={...old, hi:r1(D.temperature_2m_max[i]), lo:r1(D.temperature_2m_min[i]), rain:r1(D.precipitation_sum[i]),
           code:D.weather_code[i], hum:r1(mean(hum[k])), press:r1(mean(pr[k])),
-          aqi:a?maxOf(aqi[k]):old.aqi??null, pm25:a?r1(mean(pm[k])):old.pm25??null, final:k<tk&&(!pr[k]||pr[k].length>=24)};
+          aqi:a?maxOf(aqi[k]):old.aqi??null, pm25:a?r1(mean(pm[k])):old.pm25??null,
+          /* A past day is final (never fetched again) only once it has a temperature and a full day of hourly readings;
+             a day that came back with gaps is retried next time */
+          final:k<tk&&D.temperature_2m_max[i]!=null&&!!pr[k]&&pr[k].length>=24};
         changed=true;
       });
     }
   }catch(e){ err="Couldn't get the weather right now. It will try again later."; }
   if(state.pollenKey && !(state.weather[tk]||{}).pollen){
     try{
-      const j=await getJSON(`https://pollen.googleapis.com/v1/forecast:lookup?key=${encodeURIComponent(state.pollenKey)}&location.latitude=${L.lat}&location.longitude=${L.lon}&days=1&plantsDescription=false`);
-      const info=(j.dailyInfo||[])[0], p={};
-      for(const t of (info&&info.pollenTypeInfo)||[]) p[String(t.code).toLowerCase()] = t.indexInfo&&isFinite(t.indexInfo.value) ? t.indexInfo.value : 0;
-      if(info){ (state.weather[tk]||(state.weather[tk]={})).pollen={tree:p.tree??null,grass:p.grass??null,weed:p.weed??null}; changed=true; }
-    }catch(e){ err=(err?err+" ":"")+"Couldn't get pollen — check the API key."; }
+      const p=await fetchPollen(L,state.pollenKey);
+      if(p){ (state.weather[tk]||(state.weather[tk]={})).pollen=p; changed=true; }
+      pollenErr="";
+    }catch(e){ pollenErr=e.message||"unknown error"; err=(err?err+" ":"")+"Couldn't get pollen — check the API key."; }
   }
   wxBusy=false;
   if(changed) persist();
   wxStatus(err);
+  wxCoverText(); pollenText();
   renderSummary();
+}
+/* Today's pollen from Google: {tree,grass,weed} on its 0–5 index. Throws with Google's own message if the key is refused. */
+let pollenErr="";
+async function fetchPollen(L,key){
+  const j=await getJSON(`https://pollen.googleapis.com/v1/forecast:lookup?key=${encodeURIComponent(key)}&location.latitude=${L.lat}&location.longitude=${L.lon}&days=1&plantsDescription=false`);
+  const info=(j.dailyInfo||[])[0], p={};
+  if(!info) return null;
+  for(const t of info.pollenTypeInfo||[]) p[String(t.code).toLowerCase()] = t.indexInfo&&isFinite(t.indexInfo.value) ? t.indexInfo.value : 0;
+  return {tree:p.tree??null,grass:p.grass??null,weed:p.weed??null};
+}
+function pollenWords(p){
+  const w=v=>v==null?"no reading":`${POLLEN_WORDS[Math.max(0,Math.min(5,Math.round(v)))]} (${v})`;
+  return `tree ${w(p.tree)}, grass ${w(p.grass)}, weed ${w(p.weed)}`;
+}
+/* The pollen line under the key box: is it on, working, and what did it get today */
+function pollenText(){
+  const el=document.getElementById("pollenStatus"); if(!el) return;
+  const p=(state.weather[todayKey()]||{}).pollen;
+  el.innerHTML = !state.pollenKey ? ""
+    : !state.wxloc ? "<b>Pollen key saved.</b> Set a location above so pollen can be checked."
+    : p ? `<b>Pollen is on.</b> Today: ${esc(pollenWords(p))}.`
+    : pollenErr ? `<b>Pollen isn't working.</b> Google said: ${esc(pollenErr)}`
+    : "<b>Pollen key saved.</b> Waiting for today's reading.";
+}
+/* How many recent days have weather saved, so you can see it's being kept every day */
+function wxCoverText(){
+  const el=document.getElementById("wxCover"); if(!el) return;
+  if(!state.wxloc){ el.textContent=""; return; }
+  const tk=todayKey(), fu=firstUse(), back=shiftKey(tk,-29), from=fu>back?fu:back;
+  const missing=[]; let have=0;
+  for(let k=from;k<=tk;k=shiftKey(k,1)){ const w=state.weather[k]; if(w&&w.hi!=null) have++; else missing.push(k); }
+  const total=have+missing.length, since=parseKey(from).toLocaleDateString([], {month:"short",day:"numeric"});
+  el.textContent = `Weather saved for ${have} of the last ${total} ${total===1?"day":"days"} (since ${since}).`
+    + (missing.length ? ` Missing: ${missing.slice(0,6).map(k=>parseKey(k).toLocaleDateString([], {month:"short",day:"numeric"})).join(", ")}${missing.length>6?"…":""}. Missing days fill in by themselves the next time the app is open and online (up to 3 months back).` : "");
 }
 function setLocation(loc){
   state.wxloc=loc;
@@ -1222,14 +1458,30 @@ document.getElementById("wxCityForm").addEventListener("submit",async e=>{
     setLocation({lat:Math.round(r.latitude*100)/100,lon:Math.round(r.longitude*100)/100,label:[r.name,r.admin1].filter(Boolean).join(", ")});
   }catch(err){wxStatus("Couldn't look that up right now.")}
 });
-document.getElementById("wxKeyForm").addEventListener("submit",e=>{
+/* Saving the pollen key checks it straight away and says what happened in a pop-up,
+   and the line under the key box keeps showing whether pollen is working */
+document.getElementById("wxKeyForm").addEventListener("submit",async e=>{
   e.preventDefault();
-  const v=document.getElementById("wxKey").value.trim();
+  const inp=document.getElementById("wxKey"), v=inp.value.trim();
   if(v.startsWith("••")) return;
-  state.pollenKey=v;
-  const t=state.weather[todayKey()]; if(t) delete t.pollen;
-  persist(); wxWhereText(); wxStatus(v?"Pollen key saved.":"Pollen key removed.");
-  if(v) fetchWeather(true);
+  if(!v&&!state.pollenKey){ wxWhereText(); return; }
+  state.pollenKey=v; pollenErr="";
+  const tk=todayKey(), t=state.weather[tk]; if(t) delete t.pollen;
+  persist(); inp.blur(); wxWhereText(); wxStatus("");
+  if(!v){ pollenText(); renderSummary(); tell("Pollen key removed. Pollen won't be saved from now on; days already saved keep theirs."); return; }
+  if(!state.wxloc){ pollenText(); tell("Pollen key saved. Set your location (Use my location, or type a city) so pollen can be checked."); return; }
+  if(!navigator.onLine){ pollenText(); tell("Pollen key saved. You're offline, so it will be checked the next time you're online."); return; }
+  const el=document.getElementById("pollenStatus"); el.innerHTML="<b>Checking the pollen key…</b>";
+  try{
+    const p=await fetchPollen(state.wxloc,v);
+    if(p){ (state.weather[tk]||(state.weather[tk]={})).pollen=p; persist(); }
+    pollenText(); renderSummary();
+    tell(p ? `Pollen key works.\n\nToday near ${state.wxloc.label}: ${pollenWords(p)}.\n\nPollen is saved each day you open the app.`
+           : "Pollen key works, but Google has no pollen reading for your location today.");
+  }catch(err){
+    pollenErr=err.message||"unknown error"; pollenText();
+    tell(`That pollen key didn't work.\n\nGoogle said: ${pollenErr}\n\nCheck the key was copied in full and that the Pollen API is turned on for it in Google Cloud.`);
+  }
 });
 document.getElementById("wxKey").addEventListener("focus",e=>{if(e.target.value.startsWith("••"))e.target.value=""});
 // Only put the masked key back if the box was left empty and focus isn't moving to Save —
@@ -1301,8 +1553,10 @@ function sweep(){
 }
 
 /* ---------- events ---------- */
-document.getElementById("slots").addEventListener("click",e=>{
-  const med=e.target.closest(".med"), sym=e.target.closest(".sym"), all=e.target.closest("[data-all]"), add=e.target.closest("[data-add]");
+/* Today's taps, picks and typing are handled for the whole column (the day's boxes and the appointments below Notes) */
+const todayCol=document.querySelector(".colL");
+todayCol.addEventListener("click",e=>{
+  const med=e.target.closest(".med"), all=e.target.closest("[data-all]"), add=e.target.closest("[data-add]");
   const rm=e.target.closest("[data-rm]"), rmsym=e.target.closest("[data-rmsym]"), rmx=e.target.closest("[data-rmx]");
   const editmood=e.target.closest("[data-editmood]");
   if(editmood){ openMoodTime(viewDate,editmood.dataset.mt,editmood.dataset.editmood); return; }
@@ -1313,28 +1567,20 @@ document.getElementById("slots").addEventListener("click",e=>{
   const editk=e.target.closest("[data-editk]");
   if(editk){ openMedTime(viewDate,editk.dataset.editk); return; }
   const editsym=e.target.closest("[data-editsym]");
-  if(editsym){ openSymTime(viewDate,editsym.dataset.editsym); return; }
+  if(editsym){ openSymTime(viewDate,editsym.dataset.editsym,+editsym.dataset.si); return; }
+  const symd=e.target.closest("[data-symd]");
+  if(symd){ openSymDetail(viewDate,symd.dataset.symd); return; }
   const editx=e.target.closest("[data-editx]");
   if(editx){ openDoseTime(viewDate,+editx.dataset.editx); return; }
   if(rmx){ const list=state.xlog[viewDate]||[]; list.splice(+rmx.dataset.rmx,1); if(!list.length) delete state.xlog[viewDate]; commit(); return; }
-  const edits=e.target.closest("[data-edits]"), rms=e.target.closest("[data-rms]");
-  if(edits){ openSuppTime(viewDate,+edits.dataset.edits); return; }
-  if(rms){ const list=state.suplog[viewDate]||[]; list.splice(+rms.dataset.rms,1); if(!list.length) delete state.suplog[viewDate]; commit(); return; }
-  const editsm=e.target.closest("[data-editsm]"), rmsm=e.target.closest("[data-rmsm]");
-  if(editsm){ openSmellTime(viewDate,+editsm.dataset.editsm); return; }
-  if(rmsm){ const list=state.smlog[viewDate]||[]; list.splice(+rmsm.dataset.rmsm,1); if(!list.length) delete state.smlog[viewDate]; commit(); return; }
+  const evt=e.target.closest("[data-evt]"), evrm=e.target.closest("[data-evrm]");
+  if(evt){ openEvTime(evt.dataset.evt,viewDate,+evt.dataset.i); return; }
+  if(evrm){ const L=state[EVLOGS[evrm.dataset.evrm].log], list=L[viewDate]||[]; list.splice(+evrm.dataset.i,1); if(!list.length) delete L[viewDate]; commit(); return; }
   const rmmood=e.target.closest("[data-rmmood]");
-  if(rmmood){ const d=state.mlog[viewDate]||{}, mt=rmmood.dataset.mt; d[mt]=(d[mt]||[]).filter(id=>id!==rmmood.dataset.rmmood); tidyMoods(viewDate); commit(); return; }
-  if(rmsym){ const sd=state.slog[viewDate]||{}; delete sd[rmsym.dataset.rmsym]; if(!Object.keys(sd).length) delete state.slog[viewDate]; commit(); return; }
+  if(rmmood){ unlogMood(viewDate,rmmood.dataset.mt,rmmood.dataset.rmmood); commit(); return; }
+  if(rmsym){ const L=symList(viewDate,rmsym.dataset.rmsym); L.splice(+rmsym.dataset.si,1); tidySyms(viewDate); commit(); return; }
   if(add){openEditor(add.dataset.add,null);return}
   if(rm){ const m=mealOf(viewDate,rm.dataset.meal), i=m.foods.lastIndexOf(rm.dataset.rm); if(i>=0){ m.foods.splice(i,1); const x=m.fx&&m.fx[rm.dataset.rm]; if(x) x.pop(); } tidyMeals(viewDate); commit(); return; }
-  if(sym){
-    const sd=state.slog[viewDate]||(state.slog[viewDate]={});
-    const id=sym.dataset.sym;
-    if(sd[id]) delete sd[id]; else sd[id]=stampFor(viewDate);
-    if(!Object.keys(sd).length) delete state.slog[viewDate];
-    commit(); return;
-  }
   if(!med&&!all) return;
   const day=state.log[viewDate]||(state.log[viewDate]={});
   if(med){
@@ -1354,17 +1600,25 @@ function realTime(t){ return typeof t==="number" && t>1e11; }
 function logExtra(date,id){
   const list=state.xlog[date]||(state.xlog[date]=[]); list.push({id,t:stampFor(date)}); list.sort((a,b)=>a.t-b.t);
 }
-function logSupp(date,id){
-  const list=state.suplog[date]||(state.suplog[date]=[]); list.push({id,t:stampFor(date)}); list.sort((a,b)=>a.t-b.t);
-}
-function logSmell(date,id){
-  const list=state.smlog[date]||(state.smlog[date]=[]); list.push({id,t:stampFor(date)}); list.sort((a,b)=>a.t-b.t);
-}
-/* A symptom's value is a timestamp, or ALLDAY when it lasted the whole day */
+/* Each time a symptom is logged it gets an entry {t,i}: t is a timestamp, or ALLDAY when it lasted the whole day;
+   i is how strong it was, 1 (mild) to 10 (severe), if set. All-day entries sort first. */
 const ALLDAY="all";
 function symSortKey(v){ return v===ALLDAY ? -1 : realTime(v) ? v : 0; }
 function symLabel(v){ return v===ALLDAY ? "All day" : realTime(v) ? fmtTime(v) : ""; }
-function logSym(date,id){ (state.slog[date]||(state.slog[date]={}))[id]=stampFor(date); }
+function sortSym(list){ return list.sort((a,b)=>symSortKey(a.t)-symSortKey(b.t)); }
+function symList(date,id){ return ((state.slog[date]||{})[id])||[]; }
+function symMax(list){ const v=list.map(e=>e.i).filter(Boolean); return v.length?Math.max(...v):0; }
+function logSym(date,id){ const d=state.slog[date]||(state.slog[date]={}); sortSym((d[id]||(d[id]=[]))).push({t:stampFor(date)}); sortSym(d[id]); }
+function tidySyms(date){
+  const d=state.slog[date]; if(!d) return;
+  for(const [id,l] of Object.entries(d)) if(!Array.isArray(l)||!l.length) delete d[id];
+  if(!Object.keys(d).length) delete state.slog[date];
+}
+/* "Headache x2: 9:10 AM (7/10), 3:00 PM" — used in the spreadsheet */
+function symText(name,list){
+  const parts=list.map(e=>[e.t===ALLDAY?"all day":realTime(e.t)?fmtTime(e.t):"",e.i?"("+e.i+"/10)":""].filter(Boolean).join(" ")).filter(Boolean);
+  return name+(list.length>1?" x"+list.length:"")+(parts.length?": "+parts.join(", "):"");
+}
 /* Edit a dose's time */
 const xdlg=document.getElementById("xdlg"); let xedit=null;
 function openTimeDialog(title,label,removeText,t,allDay){
@@ -1384,15 +1638,10 @@ function openDoseTime(date,i){
   xedit={kind:"dose",date,i};
   openTimeDialog(m.name+(m.dose?" · "+m.dose:""),"Time taken","Remove dose",e.t);
 }
-function openSuppTime(date,i){
-  const e=(state.suplog[date]||[])[i], m=e&&suppOf(e.id); if(!m) return;
-  xedit={kind:"supp",date,i};
-  openTimeDialog(m.name+(m.dose?" · "+m.dose:""),"Time taken","Remove",e.t);
-}
-function openSmellTime(date,i){
-  const e=(state.smlog[date]||[])[i], m=e&&smellOf(e.id); if(!m) return;
-  xedit={kind:"smell",date,i};
-  openTimeDialog(m.name,"Time noticed","Remove",e.t);
+function openEvTime(kind,date,i){
+  const E=EVLOGS[kind], e=(state[E.log][date]||[])[i], m=e&&evOf(kind,e.id); if(!m) return;
+  xedit={kind:"ev",ev:kind,date,i};
+  openTimeDialog(m.name+(m.dose?" · "+m.dose:""),E.time,"Remove",e.t);
 }
 function openMoodTime(date,mt,id){
   const ids=((state.mlog[date]||{})[mt])||[], x=state.moods.find(q=>q.id===id), lab=MOODTIMES.find(q=>q.id===mt); if(!x||!ids.includes(id)) return;
@@ -1414,11 +1663,61 @@ function openMedTime(date,k){
   xedit={kind:"med",date,k};
   openTimeDialog(m.name+(m.dose?" · "+m.dose:"")+(s?" · "+s.label:""),"Time taken","Uncheck",t);
 }
-function openSymTime(date,id){
-  const t=(state.slog[date]||{})[id], x=state.symptoms.find(s=>s.id===id); if(!x||!t) return;
-  xedit={kind:"sym",date,id};
-  openTimeDialog(x.name,"Time noticed","Remove symptom",t,t===ALLDAY);
+function openSymTime(date,id,si){
+  const L=symList(date,id), e=L[si], x=state.symptoms.find(s=>s.id===id); if(!x||!e) return;
+  xedit={kind:"sym",date,id,si};
+  openTimeDialog(x.name,"Time noticed",L.length>1?"Remove this one":"Remove symptom",e.t,e.t===ALLDAY);
 }
+/* Symptom details pop-up: tap a symptom's name on Today. Changes are made on a copy and kept on Save. */
+const sdlg=document.getElementById("sdlg"); let sedit=null;
+function hhmm(t){const d=new Date(realTime(t)?t:Date.now());return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
+function openSymDetail(date,id){
+  const x=state.symptoms.find(s=>s.id===id); if(!x) return;
+  sedit={date,id,list:symList(date,id).map(e=>({...e}))};
+  if(!sedit.list.length) sedit.list.push({t:stampFor(date)});
+  document.getElementById("sdlgTitle").textContent=x.name;
+  renderSymDetail(); sdlg.showModal(); sdlg.querySelector('[type="submit"]').focus();
+}
+function renderSymDetail(){
+  const many=sedit.list.length>1;
+  document.getElementById("sOcc").innerHTML=sedit.list.map((e,i)=>`<div class="occ">
+    <div class="occhead">${many?`<span class="occn">${i+1}</span>`:""}
+      <input type="time" data-otime="${i}" value="${hhmm(e.t)}" ${e.t===ALLDAY?"disabled":""} aria-label="Time noticed">
+      <label class="allday"><input type="checkbox" data-oall="${i}" ${e.t===ALLDAY?"checked":""}><span>All day</span></label>
+      <button type="button" class="occx" data-orm="${i}" aria-label="Remove this one">×</button></div>
+    <p class="ilabel">Intensity${e.i?": <b>"+e.i+"</b> of 10":""}</p>
+    <div class="scale" role="group" aria-label="Intensity, 1 mild to 10 severe">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button type="button" style="--i:${n}" data-oi="${i}" data-lv="${n}" aria-pressed="${e.i===n}">${n}</button>`).join("")}</div>
+    <div class="scalelab"><span>Mild</span><span>Severe</span></div>
+  </div>`).join("") || `<p class="hint" style="margin:0 0 12px">All removed. Save to clear this symptom from the day.</p>`;
+}
+function readSymTimes(){
+  for(const inp of sdlg.querySelectorAll("[data-otime]")){
+    const e=sedit.list[+inp.dataset.otime]; if(!e||e.t===ALLDAY||!/^\d\d:\d\d/.test(inp.value)) continue;
+    const d=parseKey(sedit.date); d.setHours(+inp.value.slice(0,2),+inp.value.slice(3,5),0); e.t=d.getTime();
+  }
+}
+sdlg.addEventListener("click",e=>{
+  if(!sedit) return;
+  const lv=e.target.closest("[data-lv]"), rm=e.target.closest("[data-orm]");
+  if(lv){ readSymTimes(); const o=sedit.list[+lv.dataset.oi], n=+lv.dataset.lv; if(o){ if(o.i===n) delete o.i; else o.i=n; } renderSymDetail(); return; }
+  if(rm){ readSymTimes(); sedit.list.splice(+rm.dataset.orm,1); renderSymDetail(); return; }
+});
+sdlg.addEventListener("change",e=>{
+  const a=e.target.closest("[data-oall]"); if(!a||!sedit) return;
+  readSymTimes(); const o=sedit.list[+a.dataset.oall];
+  if(o) o.t = a.checked ? ALLDAY : stampFor(sedit.date);
+  renderSymDetail();
+});
+document.getElementById("sAgain").onclick=()=>{ readSymTimes(); sedit.list.push({t:stampFor(sedit.date)}); renderSymDetail(); };
+document.getElementById("scancel").onclick=()=>sdlg.close();
+sdlg.addEventListener("close",()=>{sedit=null});
+document.getElementById("sform").addEventListener("submit",ev=>{
+  ev.preventDefault(); if(!sedit) return;
+  readSymTimes();
+  const d=state.slog[sedit.date]||(state.slog[sedit.date]={});
+  d[sedit.id]=sortSym(sedit.list.map(e=>e.i?{t:e.t,i:e.i}:{t:e.t}));
+  tidySyms(sedit.date); sdlg.close(); commit();
+});
 function syncAllDay(){
   const on=document.getElementById("xallday").checked && document.getElementById("xalldayRow").style.display!=="none";
   document.getElementById("xtime").disabled=on; document.getElementById("xtimeRow").classList.toggle("off",on);
@@ -1427,29 +1726,43 @@ document.getElementById("xallday").addEventListener("change",syncAllDay);
 document.getElementById("xform").addEventListener("submit",ev=>{
   ev.preventDefault();
   const v=document.getElementById("xtime").value;
-  if(xedit.kind==="sym"&&document.getElementById("xallday").checked){ const sd=state.slog[xedit.date]; if(sd&&sd[xedit.id]) sd[xedit.id]=ALLDAY; }
+  const se=xedit.kind==="sym"&&symList(xedit.date,xedit.id)[xedit.si];
+  if(se&&document.getElementById("xallday").checked){ se.t=ALLDAY; sortSym(symList(xedit.date,xedit.id)); }
   else if(/^\d\d:\d\d/.test(v)){
     const d=parseKey(xedit.date); d.setHours(+v.slice(0,2),+v.slice(3,5),0);
-    if(xedit.kind==="sym"){ const sd=state.slog[xedit.date]; if(sd&&sd[xedit.id]) sd[xedit.id]=d.getTime(); }
+    if(xedit.kind==="sym"){ if(se){ se.t=d.getTime(); sortSym(symList(xedit.date,xedit.id)); } }
     else if(xedit.kind==="med"){ const day=state.log[xedit.date]; if(day&&day[xedit.k]) day[xedit.k]=d.getTime(); }
     else if(xedit.kind==="mood"){ if((((state.mlog[xedit.date]||{})[xedit.mt])||[]).includes(xedit.id)){ const day=state.mtlog[xedit.date]||(state.mtlog[xedit.date]={}); (day[xedit.mt]||(day[xedit.mt]={}))[xedit.id]=d.getTime(); } }
     else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&(m.foods||[]).includes(xedit.id)) (m.ft||(m.ft={}))[xedit.id]=d.getTime(); }
-    else { const list=(xedit.kind==="supp"?state.suplog:xedit.kind==="smell"?state.smlog:state.xlog)[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=d.getTime(); list.sort((a,b)=>a.t-b.t); } }
+    else { const list=(xedit.kind==="ev"?state[EVLOGS[xedit.ev].log]:state.xlog)[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=d.getTime(); list.sort((a,b)=>a.t-b.t); } }
   }
   xdlg.close(); commit();
 });
 document.getElementById("xcancel").onclick=()=>xdlg.close();
 document.getElementById("xremove").onclick=()=>{
-  if(xedit.kind==="sym"){ const sd=state.slog[xedit.date]||{}; delete sd[xedit.id]; if(!Object.keys(sd).length) delete state.slog[xedit.date]; }
+  if(xedit.kind==="sym"){ symList(xedit.date,xedit.id).splice(xedit.si,1); tidySyms(xedit.date); }
   else if(xedit.kind==="med"){ const day=state.log[xedit.date]||{}; delete day[xedit.k]; if(!Object.keys(day).length) delete state.log[xedit.date]; }
   else if(xedit.kind==="mood"){ delete moodTimes(xedit.date,xedit.mt)[xedit.id]; tidyMoods(xedit.date); }
   else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&m.ft){ delete m.ft[xedit.id]; tidyMeals(xedit.date); } }
-  else { const log=xedit.kind==="supp"?state.suplog:xedit.kind==="smell"?state.smlog:state.xlog, list=log[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete log[xedit.date]; }
+  else { const log=xedit.kind==="ev"?state[EVLOGS[xedit.ev].log]:state.xlog, list=log[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete log[xedit.date]; }
   xdlg.close(); commit();
 };
 /* Moods and foods get the current time when added, like doses; tap the time to change it */
-function logMood(date,mt,id){ const d=state.mlog[date]||(state.mlog[date]={}), a=d[mt]||(d[mt]=[]); if(a.includes(id)) return; a.push(id);
-  const day=state.mtlog[date]||(state.mtlog[date]={}), o=day[mt]||(day[mt]={}); if(!realTime(o[id])) o[id]=stampFor(date); }
+/* A mood can be logged more than once in the same part of the day: mlog keeps one id per time it was felt,
+   mtlog the first time, mxlog the times after that (like foods' m.fx) */
+function logMood(date,mt,id){ const d=state.mlog[date]||(state.mlog[date]={}), a=d[mt]||(d[mt]=[]), had=a.includes(id); a.push(id);
+  const day=state.mtlog[date]||(state.mtlog[date]={}), o=day[mt]||(day[mt]={}), t=stampFor(date);
+  if(!had||!realTime(o[id])) o[id]=t;
+  else { const xd=state.mxlog[date]||(state.mxlog[date]={}), xm=xd[mt]||(xd[mt]={}); (xm[id]||(xm[id]=[])).push(t); } }
+/* Remove the latest time a mood was felt; the last one takes its first time with it */
+function unlogMood(date,mt,id){
+  const a=((state.mlog[date]||{})[mt])||[], i=a.lastIndexOf(id); if(i<0) return;
+  a.splice(i,1);
+  const xs=((state.mxlog[date]||{})[mt]||{})[id];
+  if(xs&&xs.length) xs.pop();
+  tidyMoods(date);
+}
+function moodExtra(date,mt,id){ return ((((state.mxlog[date]||{})[mt])||{})[id]||[]).filter(realTime); }
 /* m.fx holds the times of the 2nd, 3rd… time a food was added to a meal (the app still shows "x2") */
 function logFood(date,meal,id){ const m=mealOf(date,meal), had=m.foods.includes(id); m.foods.push(id); const ft=m.ft||(m.ft={}), t=stampFor(date);
   if(!had||!realTime(ft[id])) ft[id]=t; else { const fx=m.fx||(m.fx={}); (fx[id]||(fx[id]=[])).push(t); } }
@@ -1458,6 +1771,12 @@ function logFood(date,meal,id){ const m=mealOf(date,meal), had=m.foods.includes(
 function moodTimes(date,mt){return ((state.mtlog[date]||{})[mt])||{}}
 function groupTime(times,ids){const ts=ids.map(id=>times[id]).filter(realTime);return ts.length?Math.min(...ts):0}
 function tidyMoods(date){
+  const xl=state.mxlog[date];
+  if(xl){ const cur=state.mlog[date]||{};
+    for(const [mt,o] of Object.entries(xl)){ const c=countFoods(cur[mt]);
+      for(const id of Object.keys(o)){ const a=(o[id]||[]).filter(realTime).slice(0,Math.max(0,(c.get(id)||0)-1)); if(a.length) o[id]=a; else delete o[id]; }
+      if(!Object.keys(o).length) delete xl[mt]; }
+    if(!Object.keys(xl).length) delete state.mxlog[date]; }
   const tl=state.mtlog[date];
   if(tl){ const cur=state.mlog[date]||{};
     for(const [mt,o] of Object.entries(tl)){ for(const id of Object.keys(o)) if(!(cur[mt]||[]).includes(id)) delete o[id]; if(!Object.keys(o).length) delete tl[mt]; }
@@ -1527,9 +1846,12 @@ fdlg.addEventListener("click",e=>{
   const rmi=e.target.closest("[data-rming]");
   if(rmi){ fedit.ings.splice(+rmi.dataset.rming,1); renderIngs(); return; }
   const dv=e.target.closest("[data-delver]");
-  if(dv){ const v=verOf(f,dv.dataset.delver); if(!v||!confirm(`Delete the version "${v.name}"? Meals already logged keep their ingredients.`)) return;
-    f.versions=f.versions.filter(x=>x.id!==v.id); if(!f.versions.length) delete f.versions;
-    if(fedit.v===v.id) fedit.v=null; persist(); renderIngs(); return; }
+  if(dv){ const v=verOf(f,dv.dataset.delver); if(!v) return;
+    ask(`Delete the version "${v.name}"? Meals already logged keep their ingredients.`,{ok:"Delete"}).then(yes=>{
+      if(!yes||!fedit) return;
+      f.versions=(f.versions||[]).filter(x=>x.id!==v.id); if(!f.versions.length) delete f.versions;
+      if(fedit.v===v.id) fedit.v=null; persist(); renderIngs(); });
+    return; }
   const vp=e.target.closest("[data-ver]");
   if(vp){ const v=verOf(f,vp.dataset.ver); fedit.v=v?v.id:null; fedit.ings=v?[...v.ings]:[];
     document.getElementById("fverName").value=v?v.name:""; renderIngs(); }
@@ -1557,7 +1879,7 @@ document.getElementById("fform").addEventListener("submit",ev=>{
   if(fedit.ings.length||vid) fi[fedit.id]=vid?{v:vid,ings:[...fedit.ings]}:{ings:[...fedit.ings]}; else delete fi[fedit.id];
   tidyMeals(fedit.date); fdlg.close(); commit();
 });
-document.getElementById("slots").addEventListener("change",e=>{
+todayCol.addEventListener("change",e=>{
   const sel=e.target.closest("select[data-pick]"); if(!sel) return;
   if(sel.dataset.pick==="xmed"){
     const v=sel.value;
@@ -1565,16 +1887,10 @@ document.getElementById("slots").addEventListener("change",e=>{
     if(v){ logExtra(viewDate,v); commit(); }
     return;
   }
-  if(sel.dataset.pick==="supp"){
-    const v=sel.value;
-    if(v==="__new"){ sel.value=""; openEditor("supp",null,{date:viewDate,supp:true}); return; }
-    if(v){ logSupp(viewDate,v); commit(); }
-    return;
-  }
-  if(sel.dataset.pick==="smell"){
-    const v=sel.value;
-    if(v==="__new"){ sel.value=""; openEditor("smell",null,{date:viewDate,smell:true}); return; }
-    if(v){ logSmell(viewDate,v); commit(); }
+  if(sel.dataset.pick==="ev"){
+    const v=sel.value, kind=sel.dataset.ev;
+    if(v==="__new"){ sel.value=""; openEditor(kind,null,{date:viewDate,ev:kind}); return; }
+    if(v){ logEv(kind,viewDate,v); commit(); }
     return;
   }
   if(sel.dataset.pick==="mood"){
@@ -1602,8 +1918,37 @@ document.getElementById("dayTitle").addEventListener("click",()=>{ if(viewDate!=
 function flushText(){ if(textTimer){clearTimeout(textTimer);textTimer=null;persist()} if(document.activeElement&&document.activeElement.tagName==="TEXTAREA") document.activeElement.blur() }
 document.getElementById("prevDay").onclick=()=>{flushText();viewDate=shiftKey(viewDate,-1);render()};
 document.getElementById("nextDay").onclick=()=>{if(viewDate<todayKey()){flushText();viewDate=shiftKey(viewDate,1);render()}};
+/* Swipe on Today: right goes back a day, left goes forward (not past today), like turning pages.
+   Starts near the screen edges are left alone so the phone's back gesture still works. */
+function goDay(n){
+  const tk=todayKey(), next=shiftKey(viewDate,n), col=document.querySelector(".colL");
+  const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(n>0&&viewDate>=tk){ if(!still&&col.animate) col.animate([{transform:"translateX(0)"},{transform:"translateX(-14px)"},{transform:"translateX(0)"}],{duration:260,easing:"ease-out"}); return false; }
+  flushText(); viewDate=next; render();
+  if(!still&&col.animate) col.animate([{transform:`translateX(${n>0?36:-36}px)`,opacity:.35},{transform:"translateX(0)",opacity:1}],{duration:220,easing:"ease-out"});
+  return true;
+}
+{
+  let sx=0, sy=0, st=0, on=false;
+  const skip="input,select,textarea,dialog";
+  document.addEventListener("touchstart",e=>{
+    on=false; if(e.touches.length!==1) return;
+    const t=e.touches[0], w=window.innerWidth, phone=matchMedia("(max-width:719px)").matches;
+    if(phone ? document.body.dataset.page!=="today" : !e.target.closest(".colL")) return;
+    if(e.target.closest(skip)||document.querySelector("dialog[open]")) return;
+    if(t.clientX<24||t.clientX>w-24) return;
+    sx=t.clientX; sy=t.clientY; st=Date.now(); on=true;
+  },{passive:true});
+  document.addEventListener("touchend",e=>{
+    if(!on) return; on=false;
+    const t=e.changedTouches[0], dx=t.clientX-sx, dy=t.clientY-sy;
+    if(Date.now()-st>800||Math.abs(dx)<60||Math.abs(dx)<2*Math.abs(dy)) return;
+    goDay(dx<0?1:-1);
+  },{passive:true});
+  document.addEventListener("touchcancel",()=>{on=false},{passive:true});
+}
 for(const ta of document.querySelectorAll("textarea")) ta.addEventListener("input",()=>onTextInput(ta));
-document.getElementById("slots").addEventListener("input",e=>{ if(e.target.matches("textarea[data-note]")) onTextInput(e.target); });
+todayCol.addEventListener("input",e=>{ if(e.target.matches("textarea[data-note]")&&e.target.id!=="dayNotes") onTextInput(e.target); });
 window.addEventListener("pagehide",()=>{ if(textTimer){clearTimeout(textTimer);persist()} });
 document.addEventListener("visibilitychange",()=>{ if(document.hidden&&textTimer){clearTimeout(textTimer);textTimer=null;persist()} });
 document.getElementById("medList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-med]");if(b)openEditor("med",b.dataset.editMed)});
@@ -1620,6 +1965,13 @@ document.getElementById("addMood").onclick=()=>openEditor("mood",null);
 document.getElementById("addSmell").onclick=()=>openEditor("smell",null);
 document.getElementById("smellList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-smell]");if(b)openEditor("smell",b.dataset.editSmell)});
 document.getElementById("trackSmells").addEventListener("change",e=>{state.trackSmells=e.target.checked;commit()});
+document.getElementById("showYearCal").addEventListener("change",e=>{state.showYearCal=e.target.checked;commit()});
+document.getElementById("addOther").onclick=()=>openEditor("other",null);
+document.getElementById("otherList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-other]");if(b)openEditor("other",b.dataset.editOther)});
+document.getElementById("trackOther").addEventListener("change",e=>{state.trackOther=e.target.checked;commit()});
+document.getElementById("addAppt").onclick=()=>openEditor("appt",null);
+document.getElementById("apptList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-appt]");if(b)openEditor("appt",b.dataset.editAppt)});
+document.getElementById("trackAppts").addEventListener("change",e=>{state.trackAppts=e.target.checked;commit()});
 document.getElementById("moodList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-mood]");if(b)openEditor("mood",b.dataset.editMood)});
 document.getElementById("foodList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-food]");if(b)openEditor("food",b.dataset.editFood)});
 document.getElementById("placeList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-place]");if(b)openEditor("place",b.dataset.editPlace)});
@@ -1652,11 +2004,15 @@ const KINDS={
   mood: {list:()=>state.moods,    set:v=>state.moods=v,    word:"mood or emotion", ph:"e.g. calm, anxious"},
   extra:{list:()=>state.extras,   set:v=>state.extras=v,   word:"additional medication", ph:"e.g. Tylenol, aspirin"},
   supp: {list:()=>state.supps,    set:v=>state.supps=v,    word:"supplement", ph:"e.g. vitamin D, magnesium"},
-  smell:{list:()=>state.smells,   set:v=>state.smells=v,   word:"smell",      ph:"e.g. perfume, smoke, bleach"}
+  smell:{list:()=>state.smells,   set:v=>state.smells=v,   word:"smell",      ph:"e.g. perfume, smoke, bleach"},
+  other:{list:()=>state.others,   set:v=>state.others=v,   word:"thing to log", ph:"e.g. air travel, hot tub, late night"},
+  appt: {list:()=>state.appts,    set:v=>state.appts=v,    word:"appointment", ph:"e.g. GI follow-up, physical therapy"}
 };
 function openEditor(kind,id,pending){
   editing={kind,id,pending:pending||null};
-  const K=KINDS[kind], isMed=kind==="med", isExtra=kind==="extra"||kind==="supp";
+  const K=KINDS[kind], isMed=kind==="med", isExtra=kind==="extra"||kind==="supp"||kind==="appt";
+  document.getElementById("doseLabel").textContent=kind==="appt"?"Who or where":"Dose";
+  F("dose").placeholder=kind==="appt"?"e.g. Dr. Lee, City Clinic":"e.g. 50 mg, 2 tablets";
   const item=id?K.list().find(x=>x.id===id):null;
   form.classList.toggle("is-sym",!isMed&&!isExtra);
   form.classList.toggle("is-extra",isExtra);
@@ -1691,11 +2047,11 @@ form.addEventListener("submit",e=>{
     let item=editing.id ? state.extras.find(x=>x.id===editing.id) : state.extras.find(x=>x.name.toLowerCase()===name.toLowerCase());
     if(item) Object.assign(item,{name,dose}); else state.extras.push(item={id:uid(),name,dose});
     if(editing.pending&&editing.pending.xmed) logExtra(editing.pending.date,item.id);
-  } else if(editing.kind==="supp"){
-    const dose=F("dose").value.trim();
-    let item=editing.id ? state.supps.find(x=>x.id===editing.id) : state.supps.find(x=>x.name.toLowerCase()===name.toLowerCase());
-    if(item) Object.assign(item,{name,dose}); else state.supps.push(item={id:uid(),name,dose});
-    if(editing.pending&&editing.pending.supp) logSupp(editing.pending.date,item.id);
+  } else if(editing.kind==="supp"||editing.kind==="appt"){
+    const dose=F("dose").value.trim(), list=K.list();
+    let item=editing.id ? list.find(x=>x.id===editing.id) : list.find(x=>x.name.toLowerCase()===name.toLowerCase());
+    if(item) Object.assign(item,{name,dose}); else list.push(item={id:uid(),name,dose});
+    if(editing.pending&&editing.pending.ev) logEv(editing.kind,editing.pending.date,item.id);
   } else if(editing.id){
     K.list().find(x=>x.id===editing.id).name=name;
   } else {
@@ -1705,17 +2061,17 @@ form.addEventListener("submit",e=>{
     const p=editing.pending;
     if(p&&p.sym){ logSym(p.date,item.id); }
     else if(p&&p.mood){ logMood(p.date,p.mt,item.id); }
-    else if(p&&p.smell){ logSmell(p.date,item.id); }
+    else if(p&&p.ev){ logEv(p.ev,p.date,item.id); }
     else if(p){ const m=mealOf(p.date,p.meal);
       if(editing.kind==="food"){ logFood(p.date,p.meal,item.id) } else m.place=item.id; }
   }
   dlg.close(); commit();
 });
-document.getElementById("delItem").onclick=()=>{
+document.getElementById("delItem").onclick=async()=>{
   const K=KINDS[editing.kind], item=K.list().find(x=>x.id===editing.id);
   if(!item) return;
-  const note={med:"",extra:" Its logged doses will no longer be shown.",supp:" Its logged doses will no longer be shown.",sym:" Its history will no longer be counted.",food:" It will be removed from past meals.",mood:" It will be removed from past days.",smell:" Its logged times will no longer be shown.",place:" It will be removed from past meals."}[editing.kind];
-  if(!confirm(`Delete ${item.name}?`+note)) return;
+  const note={med:"",extra:" Its logged doses will no longer be shown.",supp:" Its logged doses will no longer be shown.",sym:" Its history will no longer be counted.",food:" It will be removed from past meals.",mood:" It will be removed from past days.",smell:" Its logged times will no longer be shown.",other:" Its logged times will no longer be shown.",appt:" Its logged visits will no longer be shown.",place:" It will be removed from past meals."}[editing.kind];
+  if(!await ask(`Delete ${item.name}?`+note,{ok:"Delete"})) return;
   K.set(K.list().filter(x=>x.id!==editing.id));
   dlg.close(); commit();
 };
@@ -1755,13 +2111,13 @@ function buildCSV(start,end){
   const slotLabel=sl=>(SLOTS.find(x=>x.id===sl)||{}).label||sl;
   const tk=todayKey();
   const head=["date","weekday","doses_taken","doses_scheduled","doses_taken_list","missed_doses","doses_not_yet_taken","additional_meds","additional_med_count","supplements","supplement_count","symptoms","symptom_count",
-    ...syms.map(x=>"symptom: "+x.name),
+    ...syms.map(x=>"symptom: "+x.name),...syms.map(x=>"intensity: "+x.name),
     ...MEALS.flatMap(m=>{const b=m.label.toLowerCase().replace(/ /g,"_");return [b+"_time",b+"_foods",b+"_restaurant"]}),
     "restaurants_today",...places.map(x=>"ate at: "+x.name),
     ...MOODTIMES.flatMap(m=>["mood_"+m.id+"_time","mood_"+m.id]),
-    "smells","smell_count",
+    "smells","smell_count","other","other_count","appointments","appointment_count",
     "weather","high_"+(US_UNITS?"F":"C"),"low_"+(US_UNITS?"F":"C"),"precip_"+(US_UNITS?"in":"mm"),"humidity_pct","pressure_hpa","pressure_change_hpa","us_aqi","pm2_5","pollen_tree","pollen_grass","pollen_weed",
-    "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells"];
+    "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells_other","notes_appointments"];
   if(state.name) head.unshift("name");
   const rows=[head.map(q).join(",")];
   for(let k=start;k<=end;k=shiftKey(k,1)){
@@ -1780,23 +2136,25 @@ function buildCSV(start,end){
       taken.length,sched.length,takenList,missed.map(x=>x.label).join("; "),pending.map(x=>x.label).join("; "),
       xd.map(e=>{const m=anyMed(e.id);return m.name+(m.dose?" ("+m.dose+")":"")+" at "+fmtTime(e.t)}).join("; "),xd.length,
       [...new Set(sd.map(e=>e.id))].map(id=>{const m=suppOf(id), ts=sd.filter(e=>e.id===id).map(e=>fmtTime(e.t));return m.name+(m.dose?" ("+m.dose+")":"")+(ts.length>1?" x"+ts.length:"")+" at "+ts.join(", ")}).join("; "),sd.length,
-      [...had].sort((a,b)=>symSortKey(sl[a.id])-symSortKey(sl[b.id])).map(x=>x.name+(sl[x.id]===ALLDAY?" (all day)":realTime(sl[x.id])?" at "+fmtTime(sl[x.id]):"")).join("; "),had.length,
-      ...syms.map(x=>sl[x.id]?1:0),
+      [...had].sort((a,b)=>symSortKey(sl[a.id][0].t)-symSortKey(sl[b.id][0].t)).map(x=>symText(x.name,sl[x.id])).join("; "),had.length,
+      ...syms.map(x=>(sl[x.id]||[]).length),...syms.map(x=>symMax(sl[x.id]||[])||""),
       ...MEALS.flatMap(m=>{const e=meals[m.id]||{}, mt=mealTime(e);return [mt?fmtTime(mt):"",[...countFoods(e.foods)].map(([id,n])=>{const nm=nameOf(state.foods,id), ft=foodTime(e,id);const ts=[ft||mt,...((e.fx||{})[id]||[]).filter(realTime)].filter(Boolean).sort((a,b)=>a-b);
         const fe=(e.fi||{})[id], fv=fe&&fe.v&&verOf(state.foods.find(x=>x.id===id),fe.v), ing=fe&&(fe.ings||[]).length?" ("+fe.ings.join(", ")+")":"";
         return nm&&(n>1?nm+(fv?" · "+fv.name:"")+ing+" x"+n:nm+(fv?" · "+fv.name:"")+ing)+(ts.length>1?" at "+ts.map(fmtTime).join(", "):ft&&ft!==mt?" at "+fmtTime(ft):"")}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
       placesToday.map(id=>nameOf(state.places,id)).filter(Boolean).join("; "),
       ...places.map(x=>placesToday.includes(x.id)?1:0),
-      ...MOODTIMES.flatMap(m=>{const ids=(state.mlog[k]||{})[m.id]||[], tt=moodTimes(k,m.id), gt=groupTime(tt,ids);
-        return [gt?fmtTime(gt):"",ids.map(id=>{const nm=nameOf(state.moods,id);return nm&&nm+(realTime(tt[id])&&tt[id]!==gt?" at "+fmtTime(tt[id]):"")}).filter(Boolean).join("; ")]}),
-      ...(()=>{const sm=smdoses(k);return [[...new Set(sm.map(e=>e.id))].map(id=>{const m=smellOf(id), ts=sm.filter(e=>e.id===id).map(e=>fmtTime(e.t));return m.name+(ts.length>1?" x"+ts.length:"")+" at "+ts.join(", ")}).join("; "),sm.length]})(),
+      ...MOODTIMES.flatMap(m=>{const all=(state.mlog[k]||{})[m.id]||[], c=countFoods(all), ids=[...c.keys()], tt=moodTimes(k,m.id), gt=groupTime(tt,ids);
+        return [gt?fmtTime(gt):"",ids.map(id=>{const nm=nameOf(state.moods,id); if(!nm) return "";
+          const ts=[realTime(tt[id])?tt[id]:0,...moodExtra(k,m.id,id)].filter(Boolean).sort((a,b)=>a-b), n=c.get(id);
+          return nm+(n>1?" x"+n:"")+(ts.length>1||(ts.length&&ts[0]!==gt)?" at "+ts.map(fmtTime).join(", "):"")}).filter(Boolean).join("; ")]}),
+      ...["smell","other","appt"].flatMap(kind=>{const sm=evHits(kind,k);return [[...new Set(sm.map(e=>e.id))].map(id=>{const m=evOf(kind,id), ts=sm.filter(e=>e.id===id).map(e=>fmtTime(e.t));return m.name+(kind==="appt"&&m.dose?" ("+m.dose+")":"")+(ts.length>1?" x"+ts.length:"")+" at "+ts.join(", ")}).join("; "),sm.length]}),
       ...(()=>{const w=state.weather[k], pw=state.weather[shiftKey(k,-1)];
         if(!w||w.hi==null) return ["","","","","","","","","","","",""];
         const T=c=>c==null?"":Math.round(US_UNITS?c*9/5+32:c), P=w.pollen||{};
         return [WMO[w.code]||"",T(w.hi),T(w.lo),w.rain==null?"":US_UNITS?(w.rain/25.4).toFixed(2):w.rain,w.hum??"",w.press??"",
           pw&&pw.press!=null&&w.press!=null?(w.press-pw.press).toFixed(1):"",w.aqi??"",w.pm25??"",P.tree??"",P.grass??"",P.weed??""]})(),
       MEALS.filter(m=>typed[m.id]).map(m=>m.label+": "+typed[m.id]).join(" | "),
-      state.notes[k]||"",...["food","meds","syms","mood","smell"].map(n=>(state.pnotes[n]||{})[k]||"")];
+      state.notes[k]||"",...["food","meds","syms","mood","smell","appt"].map(n=>(state.pnotes[n]||{})[k]||"")];
     if(state.name) row.unshift(state.name);
     rows.push(row.map(q).join(","));
   }
@@ -1831,7 +2189,7 @@ document.getElementById("importFile").onchange=async e=>{
   try{
     const data=JSON.parse(await f.text());
     if(!data||!Array.isArray(data.meds)) throw 0;
-    if(!confirm("Replace everything in the app with this backup?")) return;
+    if(!await ask("Replace everything in the app with this backup?",{ok:"Replace"})) return;
     state=normalize(data); commit();
     backupMsg.textContent="Backup restored.";
   }catch(err){backupMsg.textContent="That file isn't a backup from this app."}
@@ -1850,6 +2208,29 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden){checkRoll
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 }
+
+/* ---------- install ----------
+   A home screen icon made with "Add to home screen" is only a bookmark: Android shows it with a small Chrome badge,
+   opens it under the short name, and labels its notices with the website address. "Install app" makes a real app
+   (Chrome builds a proper Android package for it) with the Daily meds name and icon. */
+let installEvt=null;
+function installUI(){
+  const standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+  const hint=document.getElementById("installHint"), btns=document.getElementById("installBtns");
+  if(standalone){ hint.textContent="Daily meds is installed. If its icon still has a small Chrome badge, it was added as a shortcut: open the app's website in Chrome, remove the old icon, then tap Install app here."; btns.hidden=true; return; }
+  btns.hidden=!installEvt;
+  hint.textContent = installEvt
+    ? "Install Daily meds so it opens as its own app, with its own icon and name. If you already have an icon with a small Chrome badge, remove it first."
+    : "To install, open this page in Chrome and choose Install app from the ⋮ menu. If the menu only offers Add to home screen, the icon will carry a Chrome badge.";
+}
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e;installUI()});
+window.addEventListener("appinstalled",()=>{installEvt=null;installUI();tell("Daily meds is installed. You'll find it on your home screen and in your app list.")});
+document.getElementById("installBtn").onclick=async()=>{
+  if(!installEvt) return;
+  const e=installEvt; installEvt=null; e.prompt();
+  try{ await e.userChoice; }catch(err){}
+  installUI();
+};
 
 /* ---------- updates ----------
    The installed app has no pull-to-refresh, so it checks for a new version when it opens and whenever it
@@ -1884,6 +2265,7 @@ render();
   document.getElementById("welcomeStart").onclick=()=>{w.close();openEditor("med",null)};
 }
 wxWhereText();
+installUI();
 fetchWeather(true);
 </script>
 </body>
