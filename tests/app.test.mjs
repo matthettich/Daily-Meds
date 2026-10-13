@@ -192,8 +192,8 @@ await test("same mood logs twice in one part of the day and shows ×2", async pa
 
 /* ---------- 5. Appointments ---------- */
 await test("appointments: at the bottom of Today, log one, hide from Settings", async page => {
-  const last = await page.evaluate(() => [...document.querySelectorAll(".colL .sect")].pop().textContent);
-  eq(last, "Appointments", "last section on Today, below Notes");
+  const order = await page.$$eval("[data-sec]", l => l.map(x => x.dataset.sec));
+  eq(order.slice(-2), ["appts", "notes"], "appointments near the bottom, above Notes");
   await page.selectOption('select[data-pick="ev"][data-ev="appt"]', "__new");
   await page.fill('#itemForm [name="name"]', "GI follow-up");
   await page.fill('#itemForm [name="dose"]', "Dr. Lee");
@@ -204,8 +204,8 @@ await test("appointments: at the bottom of Today, log one, hide from Settings", 
   assert((await page.textContent('[data-evbox="appt"]')).includes("Dr. Lee"), "shows who");
   await page.click('[data-tab="set"][role="tab"]');
   assert(await page.isVisible("#apptBox"), "settings list visible");
-  await page.uncheck("#trackAppts");
-  eq((await page.state()).trackAppts, false, "hidden");
+  await page.uncheck('[data-show="appts"]');
+  eq((await page.state()).layout.find(e => e.id === "appts").show, false, "hidden");
   eq(await page.locator('[data-evbox="appt"]').count(), 0, "gone from Today");
   const csv = await page.evaluate(k => buildCSV(k, k), today);
   assert(csv.includes("GI follow-up (Dr. Lee) at"), "in spreadsheet");
@@ -316,6 +316,42 @@ await test("backup restore keeps new data and uses the in-app pop-up", async pag
   const s = await page.state();
   eq(s.alog[today].length, 1, "appointments"); eq(s.slog[today].s1[0].i, 5, "intensity");
 }, base);
+
+/* ---------- Today page sections: order, fold, reorder, hide ---------- */
+await test("Today sections default to the day's story order", async page => {
+  eq(await page.$$eval("[data-sec]", l => l.map(x => x.dataset.sec)), ["meds", "food", "smells", "mood", "syms", "appts", "notes"], "order");
+  eq(await page.textContent('[data-fold="syms"] .sl'), "Symptoms", "heading");
+}, base);
+await test("tap a heading to fold a section; it stays folded and shows a count", async page => {
+  await page.selectOption('select[data-pick="sym"]', "s1");
+  await page.click('[data-fold="syms"]');
+  eq(await page.locator('[data-sec="syms"] .tbody').count(), 0, "folded");
+  eq(await page.getAttribute('[data-fold="syms"]', "aria-expanded"), "false", "aria");
+  eq(await page.textContent('[data-fold="syms"] .ssum'), "1", "count while folded");
+  await page.reload();
+  eq(await page.locator('[data-sec="syms"] .tbody').count(), 0, "still folded after reopening");
+  await page.click('[data-fold="syms"]');
+  eq(await page.locator('[data-sec="syms"] select[data-pick="sym"]').count(), 1, "unfolded");
+}, base);
+await test("Settings reorders and hides Today sections", async page => {
+  await page.click('[data-tab="set"][role="tab"]');
+  eq(await page.locator("#layoutList .lrow").count(), 7, "one row per section");
+  assert(await page.isDisabled('[data-move="meds"][data-dir="-1"]'), "first can't move up");
+  await page.click('[data-move="syms"][data-dir="-1"]');
+  await page.click('[data-move="syms"][data-dir="-1"]');
+  eq((await page.state()).layout.map(e => e.id), ["meds", "food", "syms", "smells", "mood", "appts", "notes"], "moved up twice");
+  await page.uncheck('[data-show="food"]');
+  eq(await page.$$eval("[data-sec]", l => l.map(x => x.dataset.sec)), ["meds", "syms", "smells", "mood", "appts", "notes"], "Today follows");
+  await page.click("#layoutReset");
+  const L = (await page.state()).layout;
+  eq(L.map(e => e.id), ["meds", "food", "smells", "mood", "syms", "appts", "notes"], "reset order");
+  eq(L.find(e => e.id === "food").show, false, "reset keeps what's hidden");
+}, base);
+await test("older saved data gets the new layout; hidden appointments stay hidden", async page => {
+  const L = (await page.state()).layout;
+  eq(L.length, 7, "all sections"); eq(L.find(e => e.id === "appts").show, false, "carried over");
+  eq(await page.locator('[data-sec="appts"]').count(), 0, "not on Today");
+}, { ...base, trackAppts: false });
 
 /* ---------- Existing features still work ---------- */
 await test("checking off a med and adding a food still work", async page => {

@@ -112,6 +112,27 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
 .sect{display:flex;align-items:center;gap:10px;margin:26px 0 0;font-size:12px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .sect::after{content:"";flex:1;height:1px;background:var(--rule)}
 .sect.first{margin:0 0 10px}
+/* Today sections: the heading is a button that folds the section */
+.tsec .sect{margin:26px 0 0;padding:0}
+.tsec:first-child .sect{margin-top:0}
+.tsec .sect::after{display:none}
+.fold{display:flex;align-items:center;gap:10px;width:100%;min-height:40px;border:0;background:transparent;padding:0;
+  font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;text-align:left}
+.fold .sl{white-space:nowrap}
+.fold .ln{flex:1;height:1px;background:var(--rule)}
+.fold .ssum{letter-spacing:0;text-transform:none;font-size:13px;color:var(--ink);border:1px solid var(--rule);padding:0 6px;font-variant-numeric:tabular-nums}
+.fold svg{width:16px;height:16px;flex:none;color:var(--ink);transition:transform .2s}
+.folded .fold svg{transform:rotate(-90deg)}
+.tbody{margin-top:10px}
+.tbody > .progress{margin:0 0 12px}
+/* Settings → Today page rows: show switch, then move up / move down */
+.lrow{display:flex;align-items:center;border-top:1px solid var(--hair)}
+.lrow:first-child{border-top:0}
+.lrow .toggle{flex:1;min-width:0}
+.lmove{width:48px;align-self:stretch;min-height:52px;border:0;border-left:1px solid var(--hair);background:transparent;display:grid;place-items:center;color:var(--ink)}
+.lmove svg{width:16px;height:16px;transform:rotate(180deg)}
+.lmove.dn svg{transform:none}
+.lmove:disabled{color:#BBB;cursor:default}
 .sect + .box{margin-top:10px}
 .progress{display:flex;align-items:center;gap:10px;margin:0 0 12px;font-size:13px;color:var(--muted)}
 .progress:empty{display:none}
@@ -379,18 +400,9 @@ body{display:flex;flex-direction:column}
     </section>
 
     <section class="view pg-white pg-today" id="v-today" data-tab="today">
-      <div class="sect first" role="heading" aria-level="2">Medications and Supplements</div>
-      <div class="progress" id="progress"></div>
       <div id="slots"></div>
     </section>
 
-    <section class="view pg-white pg-today" data-tab="today">
-      <div class="sect" role="heading" aria-level="2">Notes</div>
-      <div class="box l-notes"><div class="lid"><label for="dayNotes">Notes</label><span class="saved" data-saved="note-today">Saved</span></div><textarea id="dayNotes" data-note="today" rows="3" placeholder="How was today?"></textarea></div>
-    </section>
-
-    <!-- Appointments sit at the very bottom of Today (hide them in Settings) -->
-    <section class="view pg-white pg-today" data-tab="today" id="apptSlot"></section>
    </div>
 
    <div class="col colR">
@@ -409,8 +421,19 @@ body{display:flex;flex-direction:column}
     </section>
 
     <!-- Settings: one long page, a band per section in that section's color -->
+    <!-- Today page: which sections show, and in what order -->
+    <section class="view pg-white sset" data-tab="set" style="display:none">
+      <div class="sect first" role="heading" aria-level="2">Today page</div>
+      <div class="box l-list">
+        <div class="lid"><h2>Sections</h2></div>
+        <p class="hint">Choose which sections show on Today and put them in the order you like. On Today, tap a section's heading to fold it away.</p>
+        <div id="layoutList"></div>
+        <div class="backup-btns"><button class="ghost" id="layoutReset">Reset order</button></div>
+      </div>
+    </section>
+
     <section class="view pg-white pg-meds sset" data-tab="set" style="display:none">
-      <div class="sect first" role="heading" aria-level="2">Medications and Supplements</div>
+      <div class="sect" role="heading" aria-level="2">Medications and Supplements</div>
       <div class="box l-list">
         <div class="lid"><h2>Medications</h2><button class="act add" id="addMed">Add</button></div>
         <div id="medList"></div>
@@ -473,10 +496,7 @@ body{display:flex;flex-direction:column}
 
     <section class="view pg-color pg-appt sset band" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Appointments</div>
-      <div class="box l-list">
-        <label class="toggle"><input type="checkbox" id="trackAppts"><span>Show appointments on Today</span></label>
-      </div>
-      <div class="box l-list" id="apptBox" hidden>
+      <div class="box l-list" id="apptBox">
         <div class="lid"><h2>Appointments</h2><button class="act add" id="addAppt">Add</button></div>
         <div id="apptList"></div>
       </div>
@@ -667,14 +687,36 @@ const KEEP_MED_DAYS = 400;   // medication check-offs; symptom history is kept f
    mxlog: {date:{morning:{id:[t,…]}}} — times of the 2nd, 3rd… time a mood was felt in that part of the day
    slog: {date:{symId:[{t,i},…]}} — each time a symptom was noticed: t is a timestamp or "all" (all day), i is intensity 1–10 (optional)
    others: "Other" list (air travel, hot tub…). olog: {date:[{id,t}]}. trackOther: show the Other box on Today
-   appts: appointment list ({id,name,dose} — dose holds who/where). alog: {date:[{id,t}]}. trackAppts: show Appointments on Today
+   appts: appointment list ({id,name,dose} — dose holds who/where). alog: {date:[{id,t}]}
+   layout: [{id,show}] — the Today page's sections in order, and whether each shows. folded: {id:true} — sections folded on Today
    showYearCal: show the year calendar on Recap
    smells: smell list. smlog: {date:[{id,t}]} — each smell noticed. trackSmells: show the Smells box on Today
    weather: {date:{hi,lo,rain,code,hum,press,aqi,pm25,pollen:{tree,grass,weed},final}} (°C, mm, %, hPa). wxloc: {lat,lon,label}
    name: who this tracking is for — shown on Recap and in exported files */
+/* ---------- Today page sections ----------
+   Default order tells the day's story: what you took, ate and were around, then how you felt. */
+const SECTIONS=[
+  {id:"meds",  label:"Medications & supplements"},
+  {id:"food",  label:"Food"},
+  {id:"smells",label:"Smells & other"},
+  {id:"mood",  label:"Mood & emotions"},
+  {id:"syms",  label:"Symptoms"},
+  {id:"appts", label:"Appointments"},
+  {id:"notes", label:"Notes"}
+];
+/* Keeps a saved layout valid: known sections only, each once; any missing (e.g. added in an update) go in their default spot */
+function normLayout(saved,hidden){
+  const out=[], seen=new Set();
+  for(const e of Array.isArray(saved)?saved:[]) if(e&&SECTIONS.some(x=>x.id===e.id)&&!seen.has(e.id)){ seen.add(e.id); out.push({id:e.id,show:e.show!==false}); }
+  SECTIONS.forEach((x,i)=>{ if(seen.has(x.id)) return;
+    const after=SECTIONS.slice(0,i).map(y=>y.id).reverse().find(id=>seen.has(id)), at=after?out.findIndex(e=>e.id===after)+1:0;
+    out.splice(at,0,{id:x.id,show:!(hidden||[]).includes(x.id)}); seen.add(x.id); });
+  return out;
+}
+function secShown(id){ const e=state.layout.find(x=>x.id===id); return !e||e.show; }
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{},
   moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:[], olog:{}, trackOther:true,
-  appts:[], alog:{}, trackAppts:true, showYearCal:true, weather:{}, wxloc:null, pollenKey:"", name:"", updated:0};
+  appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, pollenKey:"", name:"", updated:0};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
 
@@ -721,7 +763,8 @@ function normalize(s){
           moods:Array.isArray(s.moods)?s.moods:defaultMoods(), mlog:obj(s.mlog), mtlog:obj(s.mtlog), mxlog:obj(s.mxlog),
           smells:Array.isArray(s.smells)?s.smells:[], smlog:obj(s.smlog), trackSmells:s.trackSmells===true,
           others:Array.isArray(s.others)?s.others:[], olog:obj(s.olog), trackOther:s.trackOther!==false,
-          appts:Array.isArray(s.appts)?s.appts:[], alog:obj(s.alog), trackAppts:s.trackAppts!==false,
+          appts:Array.isArray(s.appts)?s.appts:[], alog:obj(s.alog),
+          layout:normLayout(s.layout,s.trackAppts===false?["appts"]:[]), folded:obj(s.folded),
           showYearCal:s.showYearCal!==false,
           weather:obj(s.weather), wxloc:(s.wxloc&&isFinite(s.wxloc.lat)&&isFinite(s.wxloc.lon))?s.wxloc:null,
           pollenKey:typeof s.pollenKey==="string"?s.pollenKey:"",
@@ -799,6 +842,14 @@ function fillTexts(){
 function noteBox(key,cls,label,ph){
   return `<div class="box ${cls} l-notes"><div class="lid"><label for="n-${key}">${label}</label><span class="saved" data-saved="note-${key}">Saved</span></div><textarea id="n-${key}" data-note="${key}" rows="2" placeholder="${ph}"></textarea></div>`;
 }
+/* A Today section: its heading folds it away (remembered); folded, the heading shows a quick count */
+const CHEV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+function todaySect(id,body,sum){
+  const open=!state.folded[id], label=SECTIONS.find(x=>x.id===id).label;
+  return `<div class="tsec${open?"":" folded"}" data-sec="${id}">
+    <h2 class="sect"><button type="button" class="fold" data-fold="${id}" aria-expanded="${open}"><span class="sl">${esc(label)}</span>${!open&&sum!==""&&sum!=null?`<span class="ssum">${esc(String(sum))}</span>`:""}<span class="ln" aria-hidden="true"></span>${CHEV}</button></h2>
+    ${open?`<div class="tbody">${body}</div>`:""}</div>`;
+}
 function medsFor(slot){return state.meds.filter(m=>m.slots&&m.slots.includes(slot))}
 /* An additional dose can point at an as-needed med or a regular one */
 function anyMed(id){return state.extras.find(x=>x.id===id)||state.meds.find(x=>x.id===id)}
@@ -855,7 +906,9 @@ function render(){
   dayBtn.setAttribute("aria-label", away ? "Showing "+d.toLocaleDateString([], {weekday:"long", month:"long", day:"numeric"})+". Tap to go back to today" : "Today");
   document.getElementById("nextDay").disabled = viewDate>=tk;
 
-  /* Today: medication slots */
+  /* Today: each section is built on its own, then laid out in the order chosen in Settings */
+  const S={}, SUM={};
+  /* Medications & supplements: timed doses, additional medication, supplements */
   const day=state.log[viewDate]||{};
   let total=0, taken=0, html="";
   for(const s of SLOTS){
@@ -899,9 +952,15 @@ function render(){
   html+=evBox("supp");
 
   html+=noteBox("meds","","Medication notes","Side effects, doctor changes…");
+  {
+    const back = viewDate!==tk ? `<button class="today-link" id="goToday">Today</button>` : "";
+    const prog = total ? `<div class="progress"><span class="count">${taken}/${total}</span><div class="bar"><i style="width:${Math.round(taken/total*100)}%"></i></div>${back}</div>`
+      : back ? `<div class="progress">${back}</div>` : "";
+    S.meds=prog+html; SUM.meds=total?taken+"/"+total:"";
+  }
 
-  /* Today: symptoms */
-  html+=`<div class="sect" role="heading" aria-level="2">Symptoms</div>`;
+  /* Symptoms */
+  html="";
   const sday=state.slog[viewDate]||{};
   {
     const symsSorted=[...state.symptoms].sort((a,b)=>a.name.localeCompare(b.name));
@@ -925,9 +984,10 @@ function render(){
   }
 
   html+=noteBox("syms","l-sym","Symptom notes","Anything about how you felt…");
+  S.syms=html; SUM.syms=state.symptoms.filter(x=>(sday[x.id]||[]).length).length||"";
 
-  /* Today: meals */
-  html+=`<div class="sect" role="heading" aria-level="2">Food</div>`;
+  /* Food */
+  html="";
   const mday=state.meals[viewDate]||{}, legacy=state.food[viewDate]||{};
   const byId=(list,id)=>list.find(x=>x.id===id);
   const foodsSorted=[...state.foods].sort((a,b)=>a.name.localeCompare(b.name));
@@ -959,9 +1019,10 @@ function render(){
   }
 
   html+=noteBox("food","meal","Food notes","How did food sit today?");
+  S.food=html; SUM.food=MEALS.reduce((n,ml)=>n+((mday[ml.id]||{}).foods||[]).filter(id=>byId(state.foods,id)).length,0)||"";
 
-  /* Today: mood & emotions, morning / afternoon / evening */
-  html+=`<div class="sect" role="heading" aria-level="2">Mood &amp; emotions</div>`;
+  /* Mood & emotions, morning / afternoon / evening */
+  html="";
   const moday=state.mlog[viewDate]||{};
   const moodsSorted=[...state.moods].sort((a,b)=>a.name.localeCompare(b.name));
   for(const mt of MOODTIMES){
@@ -984,33 +1045,34 @@ function render(){
   }
 
   html+=noteBox("mood","mood","Mood notes","What shaped your mood today?");
+  S.mood=html; SUM.mood=MOODTIMES.reduce((n,mt)=>n+((moday[mt.id]||[]).filter(id=>byId(state.moods,id)).length),0)||"";
 
-  /* Today: smells & other (each only when switched on in Settings) */
+  /* Smells & other (each box only when switched on in Settings) */
   if(state.trackSmells||state.trackOther){
-    html+=`<div class="sect" role="heading" aria-level="2">Smells &amp; Other</div>`;
-    if(state.trackSmells) html+=evBox("smell");
-    if(state.trackOther) html+=evBox("other");
-    html+=noteBox("smell","meal","Smells &amp; other notes","Where were you, how strong was it…");
+    S.smells=(state.trackSmells?evBox("smell"):"")+(state.trackOther?evBox("other"):"")
+      +noteBox("smell","meal","Smells &amp; other notes","Where were you, how strong was it…");
+    SUM.smells=(state.trackSmells?evHits("smell",viewDate).length:0)+(state.trackOther?evHits("other",viewDate).length:0)||"";
   }
 
-  /* Today: appointments, at the very bottom, below Notes (hide them in Settings) */
-  document.getElementById("apptSlot").innerHTML = state.trackAppts
-    ? `<div class="sect" role="heading" aria-level="2">Appointments</div>`+evBox("appt")
-      +noteBox("appt","appt","Appointment notes","What the doctor said, changes, next visit…")
-    : "";
+  /* Appointments */
+  S.appts=evBox("appt")+noteBox("appt","appt","Appointment notes","What the doctor said, changes, next visit…");
+  SUM.appts=evHits("appt",viewDate).length||"";
+
+  /* Notes for the whole day */
+  S.notes=noteBox("today","","Notes","How was today?");
+  SUM.notes=(state.notes[viewDate]||"").trim()?"written":"";
+
+  html="";
+  for(const e of state.layout) if(e.show&&S[e.id]) html+=todaySect(e.id,S[e.id],SUM[e.id]);
+  if(!html) html=`<div class="box l-list"><p class="hint">Every section is hidden. Turn some back on in Settings, under Today page.</p></div>`;
 
   const slotsEl=document.getElementById("slots");
-  const prog=document.getElementById("progress");
   if(!state.meds.length&&!state.symptoms.length){
     html=`<div class="box l-waking"><div class="lid">Get started</div>
       <p class="hint">Add your medications, symptoms and foods. A fresh checklist appears every day.</p>
       <div class="backup-btns"><button class="primary" data-add="med">Add medication</button><button class="ghost" data-add="sym">Add symptom</button></div></div>`+html;
   }
   slotsEl.innerHTML=html;
-  const back = viewDate!==tk ? `<button class="today-link" id="goToday">Today</button>` : "";
-  prog.innerHTML = total
-    ? `<span class="count">${taken}/${total}</span><div class="bar"><i style="width:${Math.round(taken/total*100)}%"></i></div>${back}`
-    : back;
 
   /* Lists */
   fillTexts();
@@ -1050,8 +1112,7 @@ function render(){
         <span class="nm">${esc(m.name)}</span>
         <span class="side">${n} ${n===1?"time":"times"} in ${esc(month)}</span></button>`}).join("")
     : `<div class="empty-row">Anything else worth tracking: air travel, a hot tub, a late night… Tap Add.</div>`;
-  document.getElementById("trackAppts").checked=state.trackAppts;
-  document.getElementById("apptBox").hidden=!state.trackAppts;
+  renderLayout();
   document.getElementById("apptList").innerHTML = state.appts.length
     ? [...state.appts].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>{const n=evMonth("appt",m.id);return `<button class="row" data-edit-appt="${esc(m.id)}">
         <span><span class="nm">${esc(m.name)}</span>${m.dose?`<span class="ds">${esc(m.dose)}</span>`:""}</span>
@@ -1260,7 +1321,7 @@ function renderSummary(){
   }
 
   /* Smells, other and appointments: days and times in this period */
-  for(const [kind,on,title,empty] of [["smell",state.trackSmells,"Smells","No smells logged"],["other",state.trackOther,"Other","Nothing else logged"],["appt",state.trackAppts,"Appointments","No appointments logged"]]){
+  for(const [kind,on,title,empty] of [["smell",state.trackSmells,"Smells","No smells logged"],["other",state.trackOther,"Other","Nothing else logged"],["appt",secShown("appts"),"Appointments","No appointments logged"]]){
     const E=EVLOGS[kind], tally={};
     for(const [k,v] of Object.entries(state[E.log])){ if(k<from||k>upto) continue;
       const seen=new Set();
@@ -1556,6 +1617,10 @@ function sweep(){
 /* Today's taps, picks and typing are handled for the whole column (the day's boxes and the appointments below Notes) */
 const todayCol=document.querySelector(".colL");
 todayCol.addEventListener("click",e=>{
+  if(e.target.id==="goToday"){ flushText(); viewDate=todayKey(); render(); return; }
+  const fold=e.target.closest("[data-fold]");
+  if(fold){ flushText(); const id=fold.dataset.fold; if(state.folded[id]) delete state.folded[id]; else state.folded[id]=true; commit();
+    document.querySelector(`[data-fold="${id}"]`)?.focus(); return; }
   const med=e.target.closest(".med"), all=e.target.closest("[data-all]"), add=e.target.closest("[data-add]");
   const rm=e.target.closest("[data-rm]"), rmsym=e.target.closest("[data-rmsym]"), rmx=e.target.closest("[data-rmx]");
   const editmood=e.target.closest("[data-editmood]");
@@ -1913,7 +1978,7 @@ todayCol.addEventListener("change",e=>{
   else { if(v) m.place=v; else delete m.place; }
   tidyMeals(viewDate); commit();
 });
-document.getElementById("progress").addEventListener("click",e=>{if(e.target.id==="goToday"){flushText();viewDate=todayKey();render()}});
+
 document.getElementById("dayTitle").addEventListener("click",()=>{ if(viewDate!==todayKey()){flushText();viewDate=todayKey();render();} });
 function flushText(){ if(textTimer){clearTimeout(textTimer);textTimer=null;persist()} if(document.activeElement&&document.activeElement.tagName==="TEXTAREA") document.activeElement.blur() }
 document.getElementById("prevDay").onclick=()=>{flushText();viewDate=shiftKey(viewDate,-1);render()};
@@ -1948,7 +2013,7 @@ function goDay(n){
   document.addEventListener("touchcancel",()=>{on=false},{passive:true});
 }
 for(const ta of document.querySelectorAll("textarea")) ta.addEventListener("input",()=>onTextInput(ta));
-todayCol.addEventListener("input",e=>{ if(e.target.matches("textarea[data-note]")&&e.target.id!=="dayNotes") onTextInput(e.target); });
+todayCol.addEventListener("input",e=>{ if(e.target.matches("textarea[data-note]")) onTextInput(e.target); });
 window.addEventListener("pagehide",()=>{ if(textTimer){clearTimeout(textTimer);persist()} });
 document.addEventListener("visibilitychange",()=>{ if(document.hidden&&textTimer){clearTimeout(textTimer);textTimer=null;persist()} });
 document.getElementById("medList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-med]");if(b)openEditor("med",b.dataset.editMed)});
@@ -1971,7 +2036,30 @@ document.getElementById("otherList").addEventListener("click",e=>{const b=e.targ
 document.getElementById("trackOther").addEventListener("change",e=>{state.trackOther=e.target.checked;commit()});
 document.getElementById("addAppt").onclick=()=>openEditor("appt",null);
 document.getElementById("apptList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-appt]");if(b)openEditor("appt",b.dataset.editAppt)});
-document.getElementById("trackAppts").addEventListener("change",e=>{state.trackAppts=e.target.checked;commit()});
+/* Settings → Today page: show/hide and move sections */
+function renderLayout(){
+  const L=state.layout;
+  document.getElementById("layoutList").innerHTML=L.map((e,i)=>{const lb=SECTIONS.find(x=>x.id===e.id).label;
+    return `<div class="lrow"><label class="toggle"><input type="checkbox" data-show="${e.id}" ${e.show?"checked":""}><span>Show ${esc(lb)}</span></label>
+      <button type="button" class="lmove" data-move="${e.id}" data-dir="-1" ${i===0?"disabled":""} aria-label="Move ${esc(lb)} up">${CHEV}</button>
+      <button type="button" class="lmove dn" data-move="${e.id}" data-dir="1" ${i===L.length-1?"disabled":""} aria-label="Move ${esc(lb)} down">${CHEV}</button></div>`}).join("");
+}
+document.getElementById("layoutList").addEventListener("change",e=>{
+  const c=e.target.closest("[data-show]"); if(!c) return;
+  const x=state.layout.find(y=>y.id===c.dataset.show); if(x){ x.show=c.checked; commit(); }
+});
+document.getElementById("layoutList").addEventListener("click",e=>{
+  const b=e.target.closest("[data-move]"); if(!b) return;
+  const L=state.layout, i=L.findIndex(y=>y.id===b.dataset.move), j=i+(+b.dataset.dir);
+  if(i<0||j<0||j>=L.length) return;
+  [L[i],L[j]]=[L[j],L[i]]; commit();
+  const again=document.querySelector(`#layoutList [data-move="${b.dataset.move}"][data-dir="${b.dataset.dir}"]`);
+  (again&&!again.disabled?again:document.querySelector(`#layoutList [data-move="${b.dataset.move}"]:not([disabled])`))?.focus();
+});
+document.getElementById("layoutReset").onclick=()=>{
+  const shown=Object.fromEntries(state.layout.map(e=>[e.id,e.show]));
+  state.layout=SECTIONS.map(x=>({id:x.id,show:shown[x.id]!==false})); commit();
+};
 document.getElementById("moodList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-mood]");if(b)openEditor("mood",b.dataset.editMood)});
 document.getElementById("foodList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-food]");if(b)openEditor("food",b.dataset.editFood)});
 document.getElementById("placeList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-place]");if(b)openEditor("place",b.dataset.editPlace)});
