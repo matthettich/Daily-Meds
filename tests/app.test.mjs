@@ -53,11 +53,14 @@ function weatherJSON(u) {
 }
 
 const browser = await chromium.launch();
-async function open(seed, { width = 412, height = 900 } = {}) {
-  const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: true, isMobile: true, timezoneId: "America/Denver", locale: "en-US", serviceWorkers: "block" });
+let elevation = 1600;
+async function open(seed, { width = 412, height = 900, geo = null } = {}) {
+  const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: true, isMobile: true, timezoneId: "America/Denver", locale: "en-US", serviceWorkers: "block",
+    ...(geo ? { geolocation: geo, permissions: ["geolocation"] } : {}) });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ status: 200, body: "" }));
   await ctx.route(/open-meteo\.com/, r => {
     const u = new URL(r.request().url());
+    if (u.pathname.endsWith("/elevation")) return r.fulfill({ json: { elevation: [elevation] } });
     if (u.hostname.startsWith("geocoding")) return r.fulfill({ json: { results: [{ name: "Denver", admin1: "Colorado", latitude: 39.74, longitude: -104.99 }] } });
     return r.fulfill({ json: weatherJSON(u) });
   });
@@ -382,6 +385,53 @@ await test("Coffee ×2: tap the time to give each serving its own time", async p
   await page.click('.box.meal.l-waking [data-editf="f2"]'); await page.fill('#pdlg [data-ptime="0"]', "09:00"); await page.click("#pcancel");
   eq(new Date((await page.state()).meals[today].breakfast.ft.f2).getHours(), 10, "cancel changes nothing");
 }, { ...base, foods: [{ id: "f1", name: "Oatmeal" }, { id: "f2", name: "Coffee" }] });
+
+/* ---------- Location tracking ---------- */
+await test("track location saves today's spot and elevation, and weather follows", async page => {
+  await page.click('.tab[data-tab="set"]').catch(() => {});
+  await page.evaluate(() => document.getElementById("trackLoc").click());
+  await page.waitForFunction(() => state.geo[todayKey()] && state.geo[todayKey()].el != null);
+  const st = await page.saved();
+  eq(st.trackLoc, true, "setting saved");
+  eq(st.geo[today], { lat: 38.84, lon: -106.13, el: 1600 }, "position rounded to ~1 km, with elevation");
+  eq([st.wxloc.lat, st.wxloc.lon], [38.84, -106.13], "weather follows the tracked spot");
+  assert(/Today's spot is saved/.test(await page.textContent("#trackMsg")), "status line says it's on");
+}, base, { geo: { latitude: 38.8412, longitude: -106.1311 } });
+
+await test("only once a day: reopening doesn't overwrite today's spot", async page => {
+  await page.evaluate(() => trackToday());
+  eq((await page.state()).geo[today], { lat: 39.74, lon: -104.99, el: 1609 }, "kept the first reading");
+}, { ...base, trackLoc: true, geo: { [today]: { lat: 39.74, lon: -104.99, el: 1609 } }, wxloc: { lat: 39.74, lon: -104.99, label: "your location" } },
+   { geo: { latitude: 38.84, longitude: -106.13 } });
+
+await test("Recap Travel box finds 50+ mile and 2,000+ ft moves and compares symptoms after them", async page => {
+  const html = await page.textContent("#sumBody");
+  assert(/Travel & symptoms/.test(html), "travel box shows");
+  const moves = await page.evaluate(k => [geoMove(k.d1), geoMove(k.d2), geoMove(k.d3)], { d1: shift(today, -6), d2: shift(today, -4), d3: shift(today, -2) });
+  assert(moves[0].far && moves[0].mi > 50, "Denver to Colorado Springs is a big move (~60 mi)");
+  assert(!moves[1].far && moves[1].high, "short drive with a big climb counts as an altitude move");
+  assert(!moves[2].far && !moves[2].high, "small hop is not a big move");
+  assert(/After a move/.test(html) && /2 big moves/.test(html), "two big moves listed: " + html.match(/Travel[^]{0,200}/)[0]);
+}, (() => {
+  const g = {}, slog = {}, set = (n, lat, lon, el) => g[shift(today, -n)] = { lat, lon, el };
+  for (let n = 12; n >= 7; n--) set(n, 39.74, -104.99, 1609);   // Denver
+  set(6, 38.83, -104.82, 1839);                                 // Colorado Springs, ~60 mi
+  set(5, 38.83, -104.82, 1839);
+  set(4, 38.84, -105.04, 4302);                                 // Pikes Peak, ~12 mi but +8,000 ft
+  set(3, 38.84, -105.04, 4302);
+  set(2, 38.90, -105.04, 4250);                                 // small hop
+  set(1, 38.90, -105.04, 4250); set(0, 38.90, -105.04, 4250);
+  slog[shift(today, -5)] = { s1: [{ t: "all" }] };
+  return { ...base, trackLoc: true, geo: g, slog, log: { [shift(today, -12)]: {} } };
+})());
+
+await test("export includes location columns", async page => {
+  const csv = await page.evaluate(([a, b]) => buildCSV(a, b), [shift(today, -1), today]);
+  const lines = csv.replace(/^\ufeff/, "").split("\r\n"), head = parseCSVLine(lines[0]);
+  const row = parseCSVLine(lines.find(l => l.startsWith(today)));
+  const col = n => row[head.indexOf(n)];
+  eq([col("latitude"), col("elevation_ft"), col("distance_from_last_mi"), col("big_move")], ["38.83", "6033", "64", "1"], "today's location columns");
+}, { ...base, trackLoc: true, geo: { [shift(today, -1)]: { lat: 39.74, lon: -104.99, el: 1609 }, [today]: { lat: 38.83, lon: -104.82, el: 1839 } } });
 
 /* ---------- Existing features still work ---------- */
 await test("checking off a med and adding a food still work", async page => {

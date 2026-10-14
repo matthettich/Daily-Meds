@@ -525,6 +525,8 @@ body{display:flex;flex-direction:column}
         <div class="lid"><h2>Weather</h2></div>
         <p class="hint" id="wxWhere">Weather and air quality are saved with each day so you can compare them with symptoms on the Recap page.</p>
         <div class="backup-btns"><button class="ghost" id="wxGeo">Use my location</button></div>
+        <label class="toggle"><input type="checkbox" id="trackLoc"><span>Track location</span></label>
+        <p class="hint" id="trackMsg" role="status"></p>
         <form class="wxset" id="wxCityForm"><input id="wxCity" placeholder="or type a city" autocomplete="off" aria-label="City"><button class="ghost" type="submit">Set</button></form>
         <p class="hint wxcover" id="wxCover" role="status"></p>
         <p class="hint">Pollen in the US needs a free Google Pollen API key. Paste it here and today's tree, grass and weed pollen is saved each day you open the app.</p>
@@ -707,6 +709,7 @@ const KEEP_MED_DAYS = 400;   // medication check-offs; symptom history is kept f
    showYearCal: show the year calendar on Recap
    smells: smell list. smlog: {date:[{id,t}]} — each smell noticed. trackSmells: show the Smells box on Today
    weather: {date:{hi,lo,rain,code,hum,press,aqi,pm25,pollen:{tree,grass,weed},final}} (°C, mm, %, hPa). wxloc: {lat,lon,label}
+   trackLoc: check where you are once a day. geo: {date:{lat,lon,el}} — that day's rough position (about 1 km) and elevation in meters
    name: who this tracking is for — shown on Recap and in exported files */
 /* ---------- Today page sections ----------
    Default order tells the day's story: what you took, ate and were around, then how you felt. */
@@ -731,7 +734,7 @@ function normLayout(saved,hidden){
 function secShown(id){ const e=state.layout.find(x=>x.id===id); return !e||e.show; }
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{},
   moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:[], olog:{}, trackOther:true,
-  appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, pollenKey:"", name:"", updated:0};
+  appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, trackLoc:false, geo:{}, pollenKey:"", name:"", updated:0};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
 
@@ -783,6 +786,7 @@ function normalize(s){
           showYearCal:s.showYearCal!==false,
           weather:obj(s.weather), wxloc:(s.wxloc&&isFinite(s.wxloc.lat)&&isFinite(s.wxloc.lon))?s.wxloc:null,
           pollenKey:typeof s.pollenKey==="string"?s.pollenKey:"",
+          trackLoc:s.trackLoc===true, geo:obj(s.geo),
           name:typeof s.name==="string"?s.name.trim().slice(0,60):"",
           updated:Number(s.updated)||0};
 }
@@ -1122,6 +1126,7 @@ function render(){
         <span class="side">${n} ${n===1?"time":"times"} in ${esc(month)}</span></button>`}).join("")
     : `<div class="empty-row">Perfume, smoke, cleaning products… Tap Add.</div>`;
   document.getElementById("showYearCal").checked=state.showYearCal;
+  document.getElementById("trackLoc").checked=state.trackLoc; trackText();
   document.getElementById("trackOther").checked=state.trackOther;
   document.getElementById("otherBox").hidden=!state.trackOther;
   document.getElementById("otherList").innerHTML = state.others.length
@@ -1353,6 +1358,7 @@ function renderSummary(){
 
   /* Weather vs symptoms */
   html+=wxSummary(from,upto);
+  html+=travelSummary(from,upto);
 
   /* Export for AI */
   const yr=P.start.slice(0,4);
@@ -1413,7 +1419,7 @@ let wxBusy=false, wxLast=0;
 function wxStatus(t){const el=document.getElementById("wxMsg"); if(el) el.textContent=t||"";}
 function wxWhereText(){
   const el=document.getElementById("wxWhere"); if(!el) return;
-  el.textContent = state.wxloc ? `Saving weather for ${state.wxloc.label}. Change it below if you move.`
+  el.textContent = state.wxloc ? (state.trackLoc ? `Saving weather for wherever you are each day.` : `Saving weather for ${state.wxloc.label}. Change it below if you move.`)
     : "Weather and air quality are saved with each day so you can compare them with symptoms on the Recap page. Pick a location to turn it on.";
   document.getElementById("wxKey").value = state.pollenKey ? "••••••••"+state.pollenKey.slice(-4) : "";
   wxCoverText(); pollenText();
@@ -1615,7 +1621,127 @@ function wxSummary(from,upto){
 }
 document.getElementById("sumBody").addEventListener("change",e=>{const s=e.target.closest("[data-wxsym]");if(s){wxSym=s.value;renderSummary()}});
 document.getElementById("sumBody").addEventListener("click",e=>{if(e.target.closest("[data-wxgeo]"))document.getElementById("wxGeo").click()});
-window.addEventListener("online",()=>fetchWeather(true));
+window.addEventListener("online",()=>{trackToday();fetchWeather(true)});
+
+/* ---------- location tracking ----------
+   With "Track location" on, the first time the app is opened each day it saves a rough position (rounded to about 1 km)
+   and its elevation. Weather then follows you. A web app can't run while it's closed, so days the app isn't opened
+   have no position. Recap's Travel box looks for big moves and checks symptoms in the days after them. */
+const MOVE_MI=50, CLIMB_M=610;          // a big move: 50+ miles, or 2,000+ ft up or down
+const AFTER_DAYS=3;                      // symptoms are counted on the move day and the 3 days after
+let geoBusy=false, geoErr="";
+function miles(a,b){
+  const R=3958.8, rad=x=>x*Math.PI/180, dLat=rad(b.lat-a.lat), dLon=rad(b.lon-a.lon);
+  const h=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
+}
+function fmtDist(mi){return US_UNITS?Math.round(mi).toLocaleString()+" mi":Math.round(mi*1.609344).toLocaleString()+" km"}
+function fmtElev(m){return m==null?"–":US_UNITS?Math.round(m*3.28084).toLocaleString()+" ft":Math.round(m).toLocaleString()+" m"}
+function fmtClimb(m){return m==null?"":(m>=0?"+":"−")+fmtElev(Math.abs(m))}
+/* How far a day is from the last day before it that has a position (looking back up to 2 weeks) */
+function geoMove(k){
+  const g=state.geo[k]; if(!g) return null;
+  for(let i=1;i<=14;i++){
+    const pk=shiftKey(k,-i), p=state.geo[pk]; if(!p) continue;
+    const mi=miles(p,g), de=g.el!=null&&p.el!=null?g.el-p.el:null;
+    return {from:pk, mi, de, far:mi>=MOVE_MI, high:de!=null&&Math.abs(de)>=CLIMB_M};
+  }
+  return null;
+}
+function getPos(){
+  return new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(
+    p=>res({lat:Math.round(p.coords.latitude*100)/100,lon:Math.round(p.coords.longitude*100)/100}),rej,
+    {maximumAge:3600000,timeout:20000}));
+}
+async function elevationAt(L){
+  try{const j=await getJSON(`https://api.open-meteo.com/v1/elevation?latitude=${L.lat}&longitude=${L.lon}`);
+    const v=j&&j.elevation&&j.elevation[0]; return isFinite(v)?Math.round(v):null;}catch(e){return null}
+}
+/* Save today's position once (and fill in its elevation later if it was offline). force: ask again even if today has one. */
+async function trackToday(force){
+  if(!state.trackLoc||geoBusy||!navigator.geolocation) return false;
+  const tk=todayKey(), have=state.geo[tk];
+  if(have&&!force){
+    if(!state.wxloc){ state.wxloc={lat:have.lat,lon:have.lon,label:"your location"}; persist(); wxWhereText(); fetchWeather(true); }
+    if(have.el==null&&navigator.onLine){ const el=await elevationAt(have); if(el!=null){ have.el=el; persist(); renderSummary(); } }
+    return true;
+  }
+  geoBusy=true;
+  try{
+    const L=await getPos();
+    const el=navigator.onLine?await elevationAt(L):null;
+    state.geo[tk]={lat:L.lat,lon:L.lon,el};
+    geoErr="";
+    /* Weather follows you: today (and any day not yet final) is fetched for where you are now.
+       Past days already saved keep the weather from where you were. */
+    const moved=!state.wxloc||miles(state.wxloc,L)>=5;
+    if(moved) state.wxloc={lat:L.lat,lon:L.lon,label:"your location"};
+    persist(); trackText(); wxWhereText(); renderSummary();
+    if(moved) fetchWeather(true);
+    return true;
+  }catch(e){
+    geoErr = e&&e.code===1 ? "Location permission is off for this app. Turn it back on in the browser's site settings, or uncheck Track location."
+      : "Couldn't get your location just now. It will try again next time you open the app.";
+    trackText(); return false;
+  }finally{ geoBusy=false; }
+}
+function trackText(){
+  const el=document.getElementById("trackMsg"); if(!el) return;
+  if(!state.trackLoc){ el.textContent="Saves where you are once a day, the first time you open the app, so Recap can check whether big trips (50+ miles or 2,000+ ft) line up with symptoms. Weather then follows you too."; return; }
+  if(geoErr){ el.textContent=geoErr; return; }
+  const n=Object.keys(state.geo).length, g=state.geo[todayKey()];
+  el.textContent = g ? `On. Today's spot is saved${g.el!=null?" (elevation "+fmtElev(g.el)+")":""}. ${n} ${n===1?"day":"days"} saved so far. It only stays on this phone.`
+    : "On. Waiting for today's location.";
+}
+document.getElementById("trackLoc").addEventListener("change",async e=>{
+  const on=e.target.checked;
+  if(!on){ state.trackLoc=false; geoErr=""; persist(); trackText(); wxWhereText(); return; }
+  if(!navigator.geolocation){ e.target.checked=false; tell("This browser can't share your location."); return; }
+  state.trackLoc=true; geoErr=""; trackText();
+  const ok=await trackToday(true);
+  if(!ok&&!state.geo[todayKey()]){
+    state.trackLoc=false; e.target.checked=false; persist(); trackText();
+    tell("Location wasn't shared, so tracking is off. Allow location for this app and try again."); return;
+  }
+  persist(); wxWhereText();
+});
+
+/* Recap: did symptoms show up more in the days after a big move? */
+let trSym="any";
+function travelSummary(from,upto){
+  if(!state.trackLoc&&!Object.keys(state.geo).length) return `<div class="box l-list"><div class="lid">Travel &amp; symptoms</div>
+    <p class="hint">Turn on <b>Track location</b> in Settings (in the Weather box) to see whether big trips or altitude changes line up with symptoms.</p></div>`;
+  const hasSym=k=>{const v=state.slog[k]||{};return trSym==="any"?state.symptoms.some(x=>v[x.id]):!!v[trSym]};
+  const tk=todayKey(), fu=firstUse();
+  /* Moves inside this period, plus ones just before it whose after-days spill in */
+  const moves=[];
+  for(let k=shiftKey(from,-AFTER_DAYS);k<=upto;k=shiftKey(k,1)){ const m=geoMove(k); if(m&&(m.far||m.high)) moves.push({k,...m}); }
+  const after=new Set(); for(const m of moves) for(let i=0;i<=AFTER_DAYS;i++) after.add(shiftKey(m.k,i));
+  /* Only days with a saved position count, so "other days" are days we know you stayed put */
+  let aN=0,aS=0,bN=0,bS=0;
+  for(let k=from<fu?fu:from;k<=upto&&k<=tk;k=shiftKey(k,1)){
+    const known=state.geo[k]||after.has(k); if(!known) continue;
+    if(after.has(k)){aN++; if(hasSym(k)) aS++;} else {bN++; if(hasSym(k)) bS++;}
+  }
+  const pc=(s,n)=>n?Math.round(s/n*100)+"%":"–";
+  const inP=moves.filter(m=>m.k>=from);
+  const list=inP.slice(-8).reverse().map(m=>{
+    let s=0; for(let i=0;i<=AFTER_DAYS;i++){const d=shiftKey(m.k,i); if(d<=tk&&hasSym(d)) s++;}
+    const days=Math.min(AFTER_DAYS+1,daysBetween(m.k,tk));
+    return `<div class="stat"><span class="nm">${parseKey(m.k).toLocaleDateString([], {month:"short",day:"numeric"})}</span><span class="num">${fmtDist(m.mi)}${m.de!=null?" · "+fmtClimb(m.de):""} · symptoms ${s} of ${days} ${days===1?"day":"days"}</span></div>`;
+  }).join("");
+  const opts=`<option value="any" ${trSym==="any"?"selected":""}>any symptom</option>`+[...state.symptoms].sort((a,b)=>a.name.localeCompare(b.name)).map(x=>`<option value="${esc(x.id)}" ${trSym===x.id?"selected":""}>${esc(x.name)}</option>`).join("");
+  const a=aN?aS/aN:null, b=bN?bS/bN:null, big=a!=null&&b!=null&&Math.abs(a-b)>=0.1;
+  return `<div class="box l-list"><div class="lid">Travel &amp; symptoms<span class="st">${inP.length} big ${inP.length===1?"move":"moves"}</span></div>
+    <label class="wxpick">Days with<select data-trsym>${opts}</select></label>
+    ${aN+bN?`<div class="wxt"><span class="k h"></span><span class="h">After a move (${aN})</span><span class="h">Other days (${bN})</span>
+      <span class="k">Days with symptoms</span><span class="v ${big&&a>b?"hi":""}">${pc(aS,aN)}</span><span class="v ${big&&b>a?"hi":""}">${pc(bS,bN)}</span></div>`
+      :`<div class="empty-row">No locations saved for this period yet.</div>`}
+    ${list?`<div class="lid" style="border:0;padding-bottom:0">Big moves</div>${list}`:aN+bN?`<div class="empty-row">No big moves this period.</div>`:""}
+    <p class="hint">A big move is ${US_UNITS?"50+ miles":"80+ km"} or ${US_UNITS?"2,000+ ft":"600+ m"} up or down from the last day the app saved where you were. "After a move" is the move day and the ${AFTER_DAYS} days after. Only days the app was opened have a location.</p>
+  </div>`;
+}
+document.getElementById("sumBody").addEventListener("change",e=>{const s=e.target.closest("[data-trsym]");if(s){trSym=s.value;renderSummary()}});
 
 /* ---------- check-off sweep ---------- */
 let sweepAnim=null;
@@ -2271,7 +2397,7 @@ function buildCSV(start,end){
     "restaurants_today",...places.map(x=>"ate at: "+x.name),
     ...MOODTIMES.flatMap(m=>["mood_"+m.id+"_time","mood_"+m.id]),
     "smells","smell_count","other","other_count","appointments","appointment_count",
-    "weather","high_"+(US_UNITS?"F":"C"),"low_"+(US_UNITS?"F":"C"),"precip_"+(US_UNITS?"in":"mm"),"humidity_pct","pressure_hpa","pressure_change_hpa","us_aqi","pm2_5","pollen_tree","pollen_grass","pollen_weed",
+    "weather","high_"+(US_UNITS?"F":"C"),"low_"+(US_UNITS?"F":"C"),"precip_"+(US_UNITS?"in":"mm"),"humidity_pct","pressure_hpa","pressure_change_hpa","us_aqi","pm2_5","pollen_tree","pollen_grass","pollen_weed","latitude","longitude","elevation_"+(US_UNITS?"ft":"m"),"distance_from_last_"+(US_UNITS?"mi":"km"),"elevation_change_"+(US_UNITS?"ft":"m"),"big_move",
     "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells_other","notes_appointments"];
   if(state.name) head.unshift("name");
   const rows=[head.map(q).join(",")];
@@ -2308,6 +2434,9 @@ function buildCSV(start,end){
         const T=c=>c==null?"":Math.round(US_UNITS?c*9/5+32:c), P=w.pollen||{};
         return [WMO[w.code]||"",T(w.hi),T(w.lo),w.rain==null?"":US_UNITS?(w.rain/25.4).toFixed(2):w.rain,w.hum??"",w.press??"",
           pw&&pw.press!=null&&w.press!=null?(w.press-pw.press).toFixed(1):"",w.aqi??"",w.pm25??"",P.tree??"",P.grass??"",P.weed??""]})(),
+      ...(()=>{const g=state.geo[k]; if(!g) return ["","","","","",""];
+        const m=geoMove(k), el=v=>v==null?"":Math.round(US_UNITS?v*3.28084:v);
+        return [g.lat,g.lon,el(g.el),m?(US_UNITS?m.mi:m.mi*1.609344).toFixed(0):"",m&&m.de!=null?el(m.de):"",m&&(m.far||m.high)?1:0]})(),
       MEALS.filter(m=>typed[m.id]).map(m=>m.label+": "+typed[m.id]).join(" | "),
       state.notes[k]||"",...["food","meds","syms","mood","smell","appt"].map(n=>(state.pnotes[n]||{})[k]||"")];
     if(state.name) row.unshift(state.name);
@@ -2357,7 +2486,7 @@ function checkRollover(){
   if(tk!==lastToday){ flushText(); if(viewDate===lastToday) viewDate=tk; lastToday=tk; render(); }
 }
 setInterval(checkRollover,60000);
-document.addEventListener("visibilitychange",()=>{if(!document.hidden){checkRollover();fetchWeather()}});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){checkRollover();trackToday();fetchWeather()}});
 
 /* ---------- offline support ---------- */
 if("serviceWorker" in navigator){
@@ -2421,6 +2550,7 @@ render();
 }
 wxWhereText();
 installUI();
+trackToday();
 fetchWeather(true);
 </script>
 </body>
