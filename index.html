@@ -189,6 +189,9 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
 .ghost{border:1px solid var(--rule);background:var(--white);padding:8px 14px;min-height:40px}
 .danger{border:0;background:transparent;color:var(--danger);padding:8px 0}
 .box .hint{margin:10px;font-size:13px;color:var(--muted)}
+.box .hint a{color:inherit;text-underline-offset:2px}
+/* Data credits (Open-Meteo, Copernicus, Google) under the boxes that show their data */
+.box .credit{font-size:12px;margin-top:4px}
 .backup-btns{display:flex;flex-wrap:wrap;gap:8px;margin:10px}
 
 /* Dialog */
@@ -372,7 +375,7 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 /* Help: a small box at the very bottom center of every page */
 body{display:flex;flex-direction:column}
 .wrap{flex:1 0 auto;width:100%}
-.helpfoot{display:flex;justify-content:center;padding:0 12px 24px}
+.helpfoot{display:flex;justify-content:center;gap:8px;padding:0 12px 24px}
 .helpfoot a{border:1px solid var(--rule);background:var(--white);color:var(--ink);text-decoration:none;font-size:13px;padding:4px 14px;min-height:32px;display:inline-flex;align-items:center}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -533,6 +536,7 @@ body{display:flex;flex-direction:column}
         <form class="wxset" id="wxKeyForm"><input id="wxKey" placeholder="Google Pollen API key" autocomplete="off" aria-label="Google Pollen API key"><button class="ghost" type="submit">Save</button></form>
         <p class="hint pstat" id="pollenStatus" role="status"></p>
         <p class="hint" id="wxMsg" role="status"></p>
+        <p class="hint credit" id="wxCredit"></p>
       </div>
     </section>
 
@@ -553,7 +557,7 @@ body{display:flex;flex-direction:column}
    </div>
   </div>
 </div>
-<footer class="helpfoot"><a href="help.html">Help</a></footer>
+<footer class="helpfoot"><a href="help.html">Help</a><a href="privacy.html">Privacy</a></footer>
 
 <div id="sweep" aria-hidden="true"></div>
 <!-- The app's own pop-up. The browser's built-in confirm() boxes are titled with the website address
@@ -784,7 +788,7 @@ function normalize(s){
           appts:Array.isArray(s.appts)?s.appts:[], alog:obj(s.alog),
           layout:normLayout(s.layout,s.trackAppts===false?["appts"]:[]), folded:obj(s.folded),
           showYearCal:s.showYearCal!==false,
-          weather:obj(s.weather), wxloc:(s.wxloc&&isFinite(s.wxloc.lat)&&isFinite(s.wxloc.lon))?s.wxloc:null,
+          weather:prunePollen(obj(s.weather)), wxloc:(s.wxloc&&isFinite(s.wxloc.lat)&&isFinite(s.wxloc.lon))?s.wxloc:null,
           pollenKey:typeof s.pollenKey==="string"?s.pollenKey:"",
           trackLoc:s.trackLoc===true, geo:obj(s.geo),
           name:typeof s.name==="string"?s.name.trim().slice(0,60):"",
@@ -809,10 +813,19 @@ function normSlog(slog){
 function loadLocal(){
   try{const raw=localStorage.getItem(LS_KEY);if(raw){const s=JSON.parse(raw);if(s&&Array.isArray(s.meds))state=normalize(s)}}catch(e){}
 }
+/* Google's terms let each day's pollen reading be kept for up to 365 days, so older readings are dropped
+   (on load, on restoring a backup, and on every save). That day's weather from Open-Meteo stays. */
+const KEEP_POLLEN_DAYS = 365;
+function prunePollen(weather){
+  const cutoff=shiftKey(todayKey(),-(KEEP_POLLEN_DAYS-1));
+  for(const [k,w] of Object.entries(weather)) if(k<cutoff && w && typeof w==="object" && "pollen" in w) delete w.pollen;
+  return weather;
+}
 function persist(){
   state.updated=Date.now();
   const cutoff=shiftKey(todayKey(),-KEEP_MED_DAYS);
   for(const k of Object.keys(state.log)) if(k<cutoff) delete state.log[k];
+  prunePollen(state.weather);
   try{localStorage.setItem(LS_KEY,JSON.stringify(state));return true}catch(e){return false}
 }
 function commit(){ persist(); render(); }
@@ -1403,6 +1416,17 @@ function updateChrome(){
    Weather and air quality come from Open-Meteo (free, no account). Pollen in the US comes from the Google Pollen API
    with the user's own key; it only has forecasts, so each day's pollen is saved on the days the app is opened. */
 const WX_PAST=92;
+/* Credits the data licences ask for, shown under every box that shows the data. Open-Meteo is CC BY 4.0: link to them and
+   the licence, and say the app changed the data (hourly readings are averaged into days). Its air quality and elevation
+   come from Copernicus. Google's pollen needs "Includes data from Google Maps" next to it. */
+const COPERNICUS_LICENCE="https://object-store.os-api.cci2.ecmwf.int/cci2-prod-catalogue/licenses/licence-to-use-copernicus-products/licence-to-use-copernicus-products_b4b9451f54cffa16ecef5c912c9cebd6979925a956e3fa677976e0cf198c2c18.pdf";
+const extLink=(href,text)=>`<a href="${href}" target="_blank" rel="noopener">${text}</a>`;
+const OM_LINKS=`${extLink("https://open-meteo.com/","Open-Meteo.com")} (${extLink("https://creativecommons.org/licenses/by/4.0/","CC BY 4.0")})`;
+const GOOGLE_POLLEN_CREDIT="Includes data from Google Maps.";
+function wxCredit(pollen){
+  return `<p class="hint credit">Weather data by ${OM_LINKS}, averaged into days by this app. Air quality from ${extLink(COPERNICUS_LICENCE,"Copernicus")}.${pollen?" "+GOOGLE_POLLEN_CREDIT:""}</p>`;
+}
+const ELEV_CREDIT=`<p class="hint credit">Elevation from ${OM_LINKS}, using ${extLink(COPERNICUS_LICENCE,"Copernicus")} data.</p>`;
 const US_UNITS=/^en-(US|LR)\b|^my\b/i.test(navigator.language||"en-US");
 const WMO={0:"Clear",1:"Mostly clear",2:"Partly cloudy",3:"Cloudy",45:"Fog",48:"Fog",51:"Light drizzle",53:"Drizzle",55:"Heavy drizzle",
   56:"Freezing drizzle",57:"Freezing drizzle",61:"Light rain",63:"Rain",65:"Heavy rain",66:"Freezing rain",67:"Freezing rain",
@@ -1422,6 +1446,8 @@ function wxWhereText(){
   el.textContent = state.wxloc ? (state.trackLoc ? `Saving weather for wherever you are each day.` : `Saving weather for ${state.wxloc.label}. Change it below if you move.`)
     : "Weather and air quality are saved with each day so you can compare them with symptoms on the Recap page. Pick a location to turn it on.";
   document.getElementById("wxKey").value = state.pollenKey ? "••••••••"+state.pollenKey.slice(-4) : "";
+  document.getElementById("wxCredit").innerHTML = `Weather, air quality, elevation and city search by ${OM_LINKS}, with ${extLink(COPERNICUS_LICENCE,"Copernicus")} data.`
+    + (state.pollenKey ? " Pollen: "+GOOGLE_POLLEN_CREDIT : "");
   wxCoverText(); pollenText();
 }
 async function getJSON(u){
@@ -1560,7 +1586,7 @@ document.getElementById("wxKeyForm").addEventListener("submit",async e=>{
     const p=await fetchPollen(state.wxloc,v);
     if(p){ (state.weather[tk]||(state.weather[tk]={})).pollen=p; persist(); }
     pollenText(); renderSummary();
-    tell(p ? `Pollen key works.\n\nToday near ${state.wxloc.label}: ${pollenWords(p)}.\n\nPollen is saved each day you open the app.`
+    tell(p ? `Pollen key works.\n\nToday near ${state.wxloc.label}: ${pollenWords(p)}.\n\nPollen is saved each day you open the app.\n\n${GOOGLE_POLLEN_CREDIT}`
            : "Pollen key works, but Google has no pollen reading for your location today.");
   }catch(err){
     pollenErr=err.message||"unknown error"; pollenText();
@@ -1617,6 +1643,7 @@ function wxSummary(from,upto){
     <label class="wxpick">Days with<select data-wxsym>${opts}</select></label>
     ${A.length+B.length?`<div class="wxt">${grid}</div><p class="hint">Averages. Pressure change is vs. the day before; pollen is 0–5. The larger number is underlined when the two differ noticeably. A few weeks of data makes this more reliable.</p>`
       :`<div class="empty-row">No weather saved for this period yet.</div>`}
+    ${wxCredit(anyPollen||!!(t&&t.pollen))}
   </div>`;
 }
 document.getElementById("sumBody").addEventListener("change",e=>{const s=e.target.closest("[data-wxsym]");if(s){wxSym=s.value;renderSummary()}});
@@ -1739,6 +1766,7 @@ function travelSummary(from,upto){
       :`<div class="empty-row">No locations saved for this period yet.</div>`}
     ${list?`<div class="lid" style="border:0;padding-bottom:0">Big moves</div>${list}`:aN+bN?`<div class="empty-row">No big moves this period.</div>`:""}
     <p class="hint">A big move is ${US_UNITS?"50+ miles":"80+ km"} or ${US_UNITS?"2,000+ ft":"600+ m"} up or down from the last day the app saved where you were. "After a move" is the move day and the ${AFTER_DAYS} days after. Only days the app was opened have a location.</p>
+    ${Object.values(state.geo).some(g=>g&&g.el!=null)?ELEV_CREDIT:""}
   </div>`;
 }
 document.getElementById("sumBody").addEventListener("change",e=>{const s=e.target.closest("[data-trsym]");if(s){trSym=s.value;renderSummary()}});

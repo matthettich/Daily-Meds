@@ -114,6 +114,16 @@ await test("manifest names the app Daily meds (not Meds)", async page => {
   eq(m.short_name, "Daily meds", "short_name"); eq(m.name, "Daily meds", "name");
   assert(m.icons.some(i => i.purpose === "maskable"), "maskable icon");
 });
+await test("privacy page is linked from the app and the help page, and works offline", async page => {
+  eq(await page.getAttribute('.helpfoot a[href="privacy.html"]', "href"), "privacy.html", "footer link");
+  const [help, sw] = await page.evaluate(() => Promise.all(["help.html", "sw.js"].map(f => fetch(f).then(r => r.text()))));
+  assert(help.includes('href="privacy.html"'), "help page links it");
+  assert(sw.includes('"privacy.html"'), "offline worker caches it");
+  await page.click('.helpfoot a[href="privacy.html"]');
+  await page.waitForSelector("h1");
+  assert((await page.textContent("h1")).includes("Privacy"), "page opens");
+  eq(page.errors, [], "privacy page errors");
+});
 await test("deleting asks in the app's own pop-up titled Daily meds", async page => {
   await page.click('[data-tab="set"][role="tab"]');
   await page.click('[data-edit-sym="s2"]');
@@ -308,6 +318,34 @@ await test("pollen key without a location asks for one", async page => {
   await page.waitForSelector("#askDlg[open]");
   assert((await askText(page)).includes("Set your location"), "asks for location");
 }, base);
+/* Google lets pollen readings be kept for 365 days; older ones are dropped but that day's weather stays */
+const oldPollen = { tree: 3, grass: 2, weed: 1 };
+const pollenHistory = { [shift(today, -365)]: { hi: 10, lo: 2, pollen: oldPollen, final: true }, [shift(today, -364)]: { hi: 11, lo: 3, pollen: oldPollen, final: true } };
+await test("pollen older than 365 days is dropped on load and on restore; weather stays", async page => {
+  let s = await page.state();
+  eq(s.weather[shift(today, -365)].pollen, undefined, "366th day back: pollen dropped");
+  eq(s.weather[shift(today, -365)].hi, 10, "366th day back: weather kept");
+  eq(s.weather[shift(today, -364)].pollen, oldPollen, "365th day back: pollen kept");
+  await page.click('[data-tab="set"][role="tab"]');
+  await page.setInputFiles("#importFile", { name: "b.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ ...base, weather: pollenHistory })) });
+  await page.waitForSelector("#askDlg[open]"); await page.click("#askYes");
+  await page.waitForFunction(() => /restored/.test(document.getElementById("backupMsg").textContent));
+  const saved = await page.saved();
+  eq(saved.weather[shift(today, -365)].pollen, undefined, "restored backup: old pollen not saved");
+  eq(saved.weather[shift(today, -364)].pollen, oldPollen, "restored backup: recent pollen saved");
+}, { ...base, weather: pollenHistory });
+await test("weather, air quality, pollen and elevation show their data credits", async page => {
+  await page.click('[data-tab="set"][role="tab"]');
+  const set = await page.innerHTML("#wxCredit");
+  assert(set.includes('href="https://open-meteo.com/"') && set.includes("creativecommons.org/licenses/by/4.0") && set.includes("Copernicus"), "Settings credit: " + set);
+  assert(set.includes("Includes data from Google Maps"), "Settings credit names Google Maps when pollen is on");
+  await page.click('[data-tab="sum"][role="tab"]');
+  const credits = await page.$$eval("#sumBody .credit", l => l.map(x => x.textContent));
+  assert(credits.some(t => /Weather data by Open-Meteo\.com/.test(t) && /Google Maps/.test(t)), "Recap weather credit: " + credits.join(" | "));
+  assert(credits.some(t => /Elevation from Open-Meteo\.com/.test(t)), "Recap travel credit: " + credits.join(" | "));
+}, { ...base, wxloc: { lat: 39.74, lon: -104.99, label: "Denver, Colorado" }, pollenKey: "AIzaGOODKEY1234", trackLoc: false,
+     weather: { [today]: { hi: 20, lo: 8, code: 1, pollen: { tree: 2, grass: 1, weed: 0 } } },
+     geo: { [shift(today, -1)]: { lat: 39.74, lon: -104.99, el: 1600 }, [today]: { lat: 39.74, lon: -104.99, el: 1600 } } });
 
 /* ---------- 9. Backups round-trip the new data ---------- */
 await test("backup restore keeps new data and uses the in-app pop-up", async page => {
