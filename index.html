@@ -891,7 +891,23 @@ function todaySect(id,body,sum){
     <h2 class="sect"><button type="button" class="fold" data-fold="${id}" aria-expanded="${open}"><span class="sl">${esc(label)}</span>${!open&&sum!==""&&sum!=null?`<span class="ssum">${esc(String(sum))}</span>`:""}<span class="ln" aria-hidden="true"></span>${CHEV}</button></h2>
     ${open?`<div class="tbody">${body}</div>`:""}</div>`;
 }
-function medsFor(slot){return state.meds.filter(m=>m.slots&&m.slots.includes(slot))}
+/* ---------- archiving ----------
+   Any item in Settings (med, food, restaurant, symptom…) can be archived: it leaves the Today pickers but keeps its history.
+   item.archived = the day it was archived (older saves may hold true = archived, day unknown).
+   item.off = finished archive spells [[from,to)], kept when it's unarchived so those days aren't counted as missed doses. */
+function activeOn(x,k){
+  if((x.off||[]).some(([a,b])=>k>=a&&k<b)) return false;
+  return !x.archived||(typeof x.archived==="string"&&k<x.archived);
+}
+function setArchived(x,on){
+  const tk=todayKey();
+  if(on){ if(!x.archived) x.archived=tk; return; }
+  if(typeof x.archived==="string"&&x.archived<tk) (x.off||(x.off=[])).push([x.archived,tk]);
+  delete x.archived;
+}
+/* A regular med is due on day k when it was active then, or when a dose was checked off anyway */
+function dueOn(m,sl,k){return activeOn(m,k)||!!(state.log[k]||{})[m.id+"|"+sl]}
+function medsFor(slot,k=viewDate){return state.meds.filter(m=>m.slots&&m.slots.includes(slot)&&dueOn(m,slot,k))}
 /* An additional dose can point at an as-needed med or a regular one */
 function anyMed(id){return state.extras.find(x=>x.id===id)||state.meds.find(x=>x.id===id)}
 function xdoses(date){return (state.xlog[date]||[]).filter(e=>anyMed(e.id))}
@@ -914,7 +930,7 @@ function logEv(kind,date,id){const L=state[EVLOGS[kind].log], list=L[date]||(L[d
 function evBox(kind){
   const E=EVLOGS[kind], hits=evHits(kind,viewDate);
   const groups=new Map(); for(const e of hits){ const g=groups.get(e.id); if(g){g.n++;g.last=e} else groups.set(e.id,{n:1,last:e}) }
-  const items=[...state[E.items]].sort((a,b)=>a.name.localeCompare(b.name));
+  const items=state[E.items].filter(m=>activeOn(m,viewDate)).sort((a,b)=>a.name.localeCompare(b.name));
   return `<div class="box ${E.cls}" data-evbox="${kind}">
       <div class="lid">${E.title}<span class="st">${hits.length?E.count(hits.length):"None"}</span></div>
       <div class="chips">${groups.size?[...groups].map(([id,g])=>{const m=evOf(kind,id),e=g.last;return `<span class="chip">${esc(m.name)}${m.dose&&kind==="appt"?`<span class="qty">${esc(m.dose)}</span>`:""}${g.n>1?`<span class="qty">×${g.n}</span>`:""}<button class="t" data-evt="${kind}" data-i="${e.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-evrm="${kind}" data-i="${e.i}" aria-label="Remove ${g.n>1?"one ":""}${esc(m.name)}">×</button></span>`}).join(""):`<span class="none">${E.none}</span>`}</div>
@@ -975,14 +991,15 @@ function render(){
     const doses=(state.xlog[viewDate]||[]).map((e,i)=>({...e,i})).filter(e=>anyMed(e.id));
     const bySort=list=>[...list].sort((a,b)=>a.name.localeCompare(b.name));
     const opt=m=>`<option value="${esc(m.id)}">${esc(m.name)}${m.dose?" · "+esc(m.dose):""}</option>`;
+    const xLive=state.extras.filter(m=>activeOn(m,viewDate)), mLive=state.meds.filter(m=>activeOn(m,viewDate));
     html+=`<div class="box l-extra">
       <div class="lid">Additional medication<span class="st">${doses.length?doses.length+(doses.length===1?" dose":" doses"):"None"}</span></div>
       <div class="chips">${doses.length?doses.map(e=>{const m=anyMed(e.id);return `<span class="chip">${esc(m.name)}<button class="t" data-editx="${e.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-rmx="${e.i}" aria-label="Remove ${esc(m.name)} at ${fmtTime(e.t)}">×</button></span>`}).join(""):`<span class="none">Nothing extra taken</span>`}</div>
       <div class="pickers one">
         <select data-pick="xmed" aria-label="Add an additional medication">
           <option value="">Add medication…</option>
-          ${state.extras.length?`<optgroup label="Additional">${bySort(state.extras).map(opt).join("")}</optgroup>`:""}
-          ${state.meds.length?`<optgroup label="Regular">${bySort(state.meds).map(opt).join("")}</optgroup>`:""}
+          ${xLive.length?`<optgroup label="Additional">${bySort(xLive).map(opt).join("")}</optgroup>`:""}
+          ${mLive.length?`<optgroup label="Regular">${bySort(mLive).map(opt).join("")}</optgroup>`:""}
           <option value="__new">+ New additional medication…</option>
         </select>
       </div>
@@ -1017,7 +1034,7 @@ function render(){
       <div class="pickers one">
         <select data-pick="sym" aria-label="Add a symptom">
           <option value="">Add symptom…</option>
-          ${symsSorted.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}${(sday[x.id]||[]).length?" (again)":""}</option>`).join("")}
+          ${symsSorted.filter(x=>activeOn(x,viewDate)).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}${(sday[x.id]||[]).length?" (again)":""}</option>`).join("")}
           <option value="__new">+ New symptom…</option>
         </select>
       </div>
@@ -1049,12 +1066,12 @@ function render(){
       <div class="pickers">
         <select data-pick="food" data-meal="${ml.id}" aria-label="Add food to ${ml.label}">
           <option value="">Add food…</option>
-          ${foodsSorted.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`+(f.versions||[]).map(v=>`<option value="${esc(f.id)}|${esc(v.id)}">${esc(f.name)} · ${esc(v.name)}</option>`).join("")).join("")}
+          ${foodsSorted.filter(f=>activeOn(f,viewDate)).map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`+(f.versions||[]).map(v=>`<option value="${esc(f.id)}|${esc(v.id)}">${esc(f.name)} · ${esc(v.name)}</option>`).join("")).join("")}
           <option value="__new">+ New food…</option>
         </select>
         <select data-pick="place" data-meal="${ml.id}" aria-label="Restaurant for ${ml.label}">
           <option value="">${place?"Not eating out":"Restaurant…"}</option>
-          ${placesSorted.filter(p=>!p.archived||(place&&place.id===p.id)).map(p=>`<option value="${esc(p.id)}" ${place&&place.id===p.id?"selected":""}>${esc(p.name)}</option>`).join("")}
+          ${placesSorted.filter(p=>activeOn(p,viewDate)||(place&&place.id===p.id)).map(p=>`<option value="${esc(p.id)}" ${place&&place.id===p.id?"selected":""}>${esc(p.name)}</option>`).join("")}
           <option value="__new">+ New restaurant…</option>
         </select>
       </div>
@@ -1080,7 +1097,7 @@ function render(){
       <div class="pickers one">
         <select data-pick="mood" data-mt="${mt.id}" aria-label="Add a mood for ${mt.label.toLowerCase()}">
           <option value="">Add mood or emotion…</option>
-          ${moodsSorted.map(x=>`<option value="${esc(x.id)}">${esc(x.name)}${ids.includes(x.id)?" (again)":""}</option>`).join("")}
+          ${moodsSorted.filter(x=>activeOn(x,viewDate)).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}${ids.includes(x.id)?" (again)":""}</option>`).join("")}
           <option value="__new">+ New mood…</option>
         </select>
       </div>
@@ -1120,53 +1137,53 @@ function render(){
   /* Lists */
   fillTexts();
   renderSummary();
-  const ml=document.getElementById("medList");
-  ml.innerHTML = state.meds.length
-    ? [...state.meds].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>`<button class="row" data-edit-med="${esc(m.id)}">
-        <span><span class="nm">${esc(m.name)}</span>${m.dose?`<span class="ds">${esc(m.dose)}</span>`:""}</span>
-        <span class="side">${esc(SLOTS.filter(s=>m.slots.includes(s.id)).map(s=>s.label).join(", "))}</span></button>`).join("")
-    : `<div class="empty-row">No medications. Tap Add.</div>`;
   const month=new Date().toLocaleDateString([], {month:"short"});
-  const xMonth=id=>{const prefix=todayKey().slice(0,7);let n=0;for(const [k,v] of Object.entries(state.xlog)) if(k.startsWith(prefix)) for(const e of v) if(e.id===id) n++;return n};
-  document.getElementById("extraList").innerHTML = state.extras.length
-    ? [...state.extras].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>{const n=xMonth(m.id);return `<button class="row" data-edit-extra="${esc(m.id)}">
-        <span><span class="nm">${esc(m.name)}</span>${m.dose?`<span class="ds">${esc(m.dose)}</span>`:""}</span>
-        <span class="side">${n} ${n===1?"dose":"doses"} in ${esc(month)}</span></button>`}).join("")
-    : `<div class="empty-row">As-needed meds like Tylenol. Tap Add.</div>`;
-  const sMonth=id=>{const prefix=todayKey().slice(0,7);let n=0;for(const [k,v] of Object.entries(state.suplog)) if(k.startsWith(prefix)) for(const e of v) if(e.id===id) n++;return n};
-  document.getElementById("suppList").innerHTML = state.supps.length
-    ? [...state.supps].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>{const n=sMonth(m.id);return `<button class="row" data-edit-supp="${esc(m.id)}">
-        <span><span class="nm">${esc(m.name)}</span>${m.dose?`<span class="ds">${esc(m.dose)}</span>`:""}</span>
-        <span class="side">${n} ${n===1?"time":"times"} in ${esc(month)}</span></button>`}).join("")
-    : `<div class="empty-row">Vitamins, minerals and the like. Tap Add.</div>`;
+  /* Each Settings list: active items first, then archived ones (greyed, hidden from Today) under their own heading.
+     row(x,sub) draws the tappable row; sub is "archived Oct 16" for archived items, to show under the name. */
+  const ds=(...p)=>{const t=p.filter(Boolean).join(" · ");return t?`<span class="ds">${esc(t)}</span>`:""};
+  const put=(id,kind,list,row,empty,every,sorted=true)=>{
+    const L=sorted?[...list].sort((a,b)=>a.name.localeCompare(b.name)):[...list], live=L.filter(x=>!x.archived), arch=L.filter(x=>x.archived);
+    const one=(x,a)=>`<div class="prow${a?" arch":""}">${row(x,a?(typeof x.archived==="string"?("archived "+parseKey(x.archived).toLocaleDateString([], {month:"short",day:"numeric"})).replace(/ /g,"\u00a0"):"archived"):"")}
+        <button type="button" class="parch" data-arch="${kind}" data-id="${esc(x.id)}" aria-label="${a?"Unarchive":"Archive"} ${esc(x.name)}">${a?"Unarchive":"Archive"}</button></div>`;
+    document.getElementById(id).innerHTML=(live.length?live.map(x=>one(x,false)).join(""):`<div class="empty-row">${arch.length?every+" Tap Add for a new one.":empty}</div>`)
+      +(arch.length?`<div class="psub">Archived · hidden from Today, history kept</div>`+arch.map(x=>one(x,true)).join(""):"");
+  };
+  const inMonth=(log,id)=>{const prefix=todayKey().slice(0,7);let n=0;for(const [k,v] of Object.entries(log)) if(k.startsWith(prefix)) for(const e of v) if(e.id===id) n++;return n};
+  const times=(n,one,many)=>`${n} ${n===1?one:many} in ${esc(month)}`;
+  put("medList","med",state.meds,(m,a)=>`<button class="row" data-edit-med="${esc(m.id)}">
+        <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,a)}</span>
+        <span class="side">${esc(SLOTS.filter(s=>m.slots.includes(s.id)).map(s=>s.label).join(", "))}</span></button>`,
+    "No medications. Tap Add.","Every medication is archived.");
+  put("extraList","extra",state.extras,(m,a)=>`<button class="row" data-edit-extra="${esc(m.id)}">
+        <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,a)}</span>
+        <span class="side">${times(inMonth(state.xlog,m.id),"dose","doses")}</span></button>`,
+    "As-needed meds like Tylenol. Tap Add.","Every additional medication is archived.");
+  put("suppList","supp",state.supps,(m,a)=>`<button class="row" data-edit-supp="${esc(m.id)}">
+        <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,a)}</span>
+        <span class="side">${times(inMonth(state.suplog,m.id),"time","times")}</span></button>`,
+    "Vitamins, minerals and the like. Tap Add.","Every supplement is archived.");
   document.getElementById("trackSmells").checked=state.trackSmells;
   document.getElementById("smellBox").hidden=!state.trackSmells;
-  const smMonth=id=>{const prefix=todayKey().slice(0,7);let n=0;for(const [k,v] of Object.entries(state.smlog)) if(k.startsWith(prefix)) for(const e of v) if(e.id===id) n++;return n};
-  document.getElementById("smellList").innerHTML = state.smells.length
-    ? [...state.smells].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>{const n=smMonth(m.id);return `<button class="row" data-edit-smell="${esc(m.id)}">
-        <span class="nm">${esc(m.name)}</span>
-        <span class="side">${n} ${n===1?"time":"times"} in ${esc(month)}</span></button>`}).join("")
-    : `<div class="empty-row">Perfume, smoke, cleaning products… Tap Add.</div>`;
+  put("smellList","smell",state.smells,(m,a)=>`<button class="row" data-edit-smell="${esc(m.id)}">
+        <span><span class="nm">${esc(m.name)}</span>${ds(a)}</span>
+        <span class="side">${times(inMonth(state.smlog,m.id),"time","times")}</span></button>`,
+    "Perfume, smoke, cleaning products… Tap Add.","Every smell is archived.");
   document.getElementById("showYearCal").checked=state.showYearCal;
   document.getElementById("trackLoc").checked=state.trackLoc; trackText();
   document.getElementById("trackOther").checked=state.trackOther;
   document.getElementById("otherBox").hidden=!state.trackOther;
-  document.getElementById("otherList").innerHTML = state.others.length
-    ? [...state.others].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>{const n=evMonth("other",m.id);return `<button class="row" data-edit-other="${esc(m.id)}">
-        <span class="nm">${esc(m.name)}</span>
-        <span class="side">${n} ${n===1?"time":"times"} in ${esc(month)}</span></button>`}).join("")
-    : `<div class="empty-row">Anything else worth tracking: air travel, a hot tub, a late night… Tap Add.</div>`;
+  put("otherList","other",state.others,(m,a)=>`<button class="row" data-edit-other="${esc(m.id)}">
+        <span><span class="nm">${esc(m.name)}</span>${ds(a)}</span>
+        <span class="side">${times(evMonth("other",m.id),"time","times")}</span></button>`,
+    "Anything else worth tracking: air travel, a hot tub, a late night… Tap Add.","Everything here is archived.");
   renderLayout();
-  document.getElementById("apptList").innerHTML = state.appts.length
-    ? [...state.appts].sort((a,b)=>a.name.localeCompare(b.name)).map(m=>{const n=evMonth("appt",m.id);return `<button class="row" data-edit-appt="${esc(m.id)}">
-        <span><span class="nm">${esc(m.name)}</span>${m.dose?`<span class="ds">${esc(m.dose)}</span>`:""}</span>
-        <span class="side">${n} ${n===1?"visit":"visits"} in ${esc(month)}</span></button>`}).join("")
-    : `<div class="empty-row">Doctor visits, therapy, lab work… Tap Add.</div>`;
-  const sl=document.getElementById("symList");
-  sl.innerHTML = state.symptoms.length
-    ? state.symptoms.map(x=>{const n=monthCount(x.id);return `<button class="row" data-edit-sym="${esc(x.id)}">
-        <span class="nm">${esc(x.name)}</span><span class="side">${n} ${n===1?"day":"days"} in ${esc(month)}</span></button>`}).join("")
-    : `<div class="empty-row">No symptoms. Tap Add.</div>`;
+  put("apptList","appt",state.appts,(m,a)=>`<button class="row" data-edit-appt="${esc(m.id)}">
+        <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,a)}</span>
+        <span class="side">${times(evMonth("appt",m.id),"visit","visits")}</span></button>`,
+    "Doctor visits, therapy, lab work… Tap Add.","Every appointment is archived.");
+  put("symList","sym",state.symptoms,(x,a)=>`<button class="row" data-edit-sym="${esc(x.id)}">
+        <span><span class="nm">${esc(x.name)}</span>${ds(a)}</span><span class="side">${times(monthCount(x.id),"day","days")}</span></button>`,
+    "No symptoms. Tap Add.","Every symptom is archived.",false);
   const mealCount=(field,id)=>{
     const prefix=todayKey().slice(0,7); let days=0, times=0;
     for(const [k,v] of Object.entries(state.meals)){ if(!k.startsWith(prefix)) continue;
@@ -1174,24 +1191,17 @@ function render(){
       if(hit){days++;times+=hit} }
     return field==="foods"?days:times;
   };
-  document.getElementById("foodList").innerHTML = state.foods.length
-    ? [...state.foods].sort((a,b)=>a.name.localeCompare(b.name)).map(x=>{const n=mealCount("foods",x.id);return `<button class="row" data-edit-food="${esc(x.id)}">
-        <span class="nm">${esc(x.name)}</span><span class="side">${n} ${n===1?"day":"days"} in ${esc(month)}</span></button>`}).join("")
-    : `<div class="empty-row">No foods. Tap Add.</div>`;
+  put("foodList","food",state.foods,(x,a)=>`<button class="row" data-edit-food="${esc(x.id)}">
+        <span><span class="nm">${esc(x.name)}</span>${ds(a)}</span><span class="side">${times(mealCount("foods",x.id),"day","days")}</span></button>`,
+    "No foods. Tap Add.","Every food is archived.");
   const moodDays=id=>{const prefix=todayKey().slice(0,7);let n=0;for(const [k,v] of Object.entries(state.mlog)) if(k.startsWith(prefix)&&Object.values(v).some(a=>a.includes(id))) n++;return n};
-  document.getElementById("moodList").innerHTML = state.moods.length
-    ? [...state.moods].sort((a,b)=>a.name.localeCompare(b.name)).map(x=>{const n=moodDays(x.id);return `<button class="row" data-edit-mood="${esc(x.id)}">
-        <span class="nm">${esc(x.name)}</span><span class="side">${n} ${n===1?"day":"days"} in ${esc(month)}</span></button>`}).join("")
-    : `<div class="empty-row">No moods. Tap Add.</div>`;
+  put("moodList","mood",state.moods,(x,a)=>`<button class="row" data-edit-mood="${esc(x.id)}">
+        <span><span class="nm">${esc(x.name)}</span>${ds(a)}</span><span class="side">${times(moodDays(x.id),"day","days")}</span></button>`,
+    "No moods. Tap Add.","Every mood is archived.");
   /* Archived restaurants (travel spots, places you don't go any more) keep their history but leave the Today picker */
-  const placeRow=(x,arch)=>{const n=mealCount("place",x.id);return `<div class="prow${arch?" arch":""}"><button class="row" data-edit-place="${esc(x.id)}">
-        <span class="nm">${esc(x.name)}</span><span class="side">${n} ${n===1?"visit":"visits"} in ${esc(month)}</span></button>
-        <button type="button" class="parch" data-arch-place="${esc(x.id)}" aria-label="${arch?"Unarchive":"Archive"} ${esc(x.name)}">${arch?"Unarchive":"Archive"}</button></div>`};
-  const placesAZ=[...state.places].sort((a,b)=>a.name.localeCompare(b.name)), liveP=placesAZ.filter(x=>!x.archived), archP=placesAZ.filter(x=>x.archived);
-  document.getElementById("placeList").innerHTML =
-    (liveP.length ? liveP.map(x=>placeRow(x,false)).join("")
-      : `<div class="empty-row">${archP.length?"Every restaurant is archived. Tap Add for a new one.":"No restaurants. Tap Add."}</div>`)
-    + (archP.length ? `<div class="psub">Archived · hidden from Today, history kept</div>`+archP.map(x=>placeRow(x,true)).join("") : "");
+  put("placeList","place",state.places,(x,a)=>`<button class="row" data-edit-place="${esc(x.id)}">
+        <span><span class="nm">${esc(x.name)}</span>${ds(a)}</span><span class="side">${times(mealCount("place",x.id),"visit","visits")}</span></button>`,
+    "No restaurants. Tap Add.","Every restaurant is archived.");
 }
 
 /* ---------- summary ---------- */
@@ -1314,17 +1324,14 @@ function renderSummary(){
   if(state.meds.length){
     const begin = from;
     let expected=0, taken=0;
-    if(begin<=upto){
-      const perDay=state.meds.reduce((t,m)=>t+m.slots.length,0);
-      expected=perDay*daysBetween(begin,upto);
-      const valid=new Set(state.meds.flatMap(m=>m.slots.map(sl=>m.id+"|"+sl)));
-      for(const [k,v] of Object.entries(state.log)) if(k>=begin&&k<=upto) for(const id of Object.keys(v)) if(valid.has(id)) taken++;
-    }
+    /* Day by day, so an archived med counts only on the days it was on your list */
+    if(begin<=upto) for(let k=begin;k<=upto;k=shiftKey(k,1)){ const v=state.log[k]||{};
+      for(const m of state.meds) for(const sl of m.slots||[]) if(dueOn(m,sl,k)){ expected++; if(v[m.id+"|"+sl]) taken++; } }
     const pct=expected?Math.round(taken/expected*100):0;
     html+=`<div class="box l-list"><div class="lid">Medication</div>
       <div class="big">${expected?pct+"%":"–"}<small>of doses checked off</small></div>
       <div class="stat"><span class="nm">Doses</span><span class="num">${taken} of ${expected}</span><div class="track"><i style="width:${pct}%"></i></div></div>
-      <p class="hint">Based on your current medication list, counted from when you started using the app.</p></div>`;
+      <p class="hint">Based on your medication list, counted from when you started using the app. Archived meds count only before the day you archived them.</p></div>`;
   }
   /* Additional (as-needed) medication */
   {
@@ -2298,10 +2305,6 @@ document.getElementById("layoutReset").onclick=()=>{
 document.getElementById("moodList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-mood]");if(b)openEditor("mood",b.dataset.editMood)});
 document.getElementById("foodList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-food]");if(b)openEditor("food",b.dataset.editFood)});
 document.getElementById("placeList").addEventListener("click",e=>{
-  const a=e.target.closest("[data-arch-place]");
-  if(a){ const p=state.places.find(x=>x.id===a.dataset.archPlace); if(!p) return;
-    if(p.archived) delete p.archived; else p.archived=true;
-    commit(); document.querySelector(`#placeList [data-arch-place="${CSS.escape(p.id)}"]`)?.focus(); return; }
   const b=e.target.closest("[data-edit-place]");if(b)openEditor("place",b.dataset.editPlace)});
 
 function selectTab(name){
@@ -2368,17 +2371,20 @@ form.addEventListener("submit",e=>{
     const slots=[...form.querySelectorAll('[name="slot"]:checked')].map(c=>c.value);
     if(!slots.length){err.textContent="Pick at least one time.";return}
     const data={name,dose:F("dose").value.trim(),notes:F("notes").value.trim(),slots};
+    /* Adding a med with the name of an archived one restarts that med, so its history stays together */
+    const back=!editing.id&&state.meds.find(x=>x.archived&&x.name.toLowerCase()===name.toLowerCase());
     if(editing.id) Object.assign(state.meds.find(x=>x.id===editing.id),data);
+    else if(back){ Object.assign(back,data); setArchived(back,false); }
     else state.meds.push({id:uid(),...data});
   } else if(editing.kind==="extra"){
     const dose=F("dose").value.trim();
     let item=editing.id ? state.extras.find(x=>x.id===editing.id) : state.extras.find(x=>x.name.toLowerCase()===name.toLowerCase());
-    if(item) Object.assign(item,{name,dose}); else state.extras.push(item={id:uid(),name,dose});
+    if(item){ Object.assign(item,{name,dose}); if(!editing.id&&item.archived) setArchived(item,false); } else state.extras.push(item={id:uid(),name,dose});
     if(editing.pending&&editing.pending.xmed) logExtra(editing.pending.date,item.id);
   } else if(editing.kind==="supp"||editing.kind==="appt"){
     const dose=F("dose").value.trim(), list=K.list();
     let item=editing.id ? list.find(x=>x.id===editing.id) : list.find(x=>x.name.toLowerCase()===name.toLowerCase());
-    if(item) Object.assign(item,{name,dose}); else list.push(item={id:uid(),name,dose});
+    if(item){ Object.assign(item,{name,dose}); if(!editing.id&&item.archived) setArchived(item,false); } else list.push(item={id:uid(),name,dose});
     if(editing.pending&&editing.pending.ev) logEv(editing.kind,editing.pending.date,item.id);
   } else if(editing.id){
     K.list().find(x=>x.id===editing.id).name=name;
@@ -2386,7 +2392,7 @@ form.addEventListener("submit",e=>{
     /* Reuse an existing entry with the same name instead of making a duplicate */
     let item=K.list().find(x=>x.name.toLowerCase()===name.toLowerCase());
     if(!item){item={id:uid(),name};K.list().push(item)}
-    else if(item.archived) delete item.archived;   // adding an archived restaurant again brings it back
+    else if(item.archived) setArchived(item,false);   // adding an archived item's name again brings it back
     const p=editing.pending;
     if(p&&p.sym){ logSym(p.date,item.id); }
     else if(p&&p.mood){ logMood(p.date,p.mt,item.id); }
@@ -2404,6 +2410,14 @@ document.getElementById("delItem").onclick=async()=>{
   K.set(K.list().filter(x=>x.id!==editing.id));
   dlg.close(); commit();
 };
+
+/* Archive / Unarchive buttons on every Settings list */
+document.addEventListener("click",e=>{
+  const a=e.target.closest&&e.target.closest("[data-arch]"); if(!a) return;
+  const K=KINDS[a.dataset.arch], x=K&&K.list().find(y=>y.id===a.dataset.id); if(!x) return;
+  setArchived(x,!x.archived); commit();
+  document.querySelector(`[data-arch="${a.dataset.arch}"][data-id="${CSS.escape(x.id)}"]`)?.focus();
+});
 
 /* Time boxes in pop-ups: tapping anywhere on the time opens the time picker, not only the small clock icon.
    showPicker() needs a recent browser; older ones keep their normal behavior. */
@@ -2444,7 +2458,7 @@ function buildCSV(start,end){
   const nameOf=(list,id)=>(list.find(x=>x.id===id)||{}).name;
   const syms=[...state.symptoms].sort((a,b)=>a.name.localeCompare(b.name));
   const places=[...state.places].sort((a,b)=>a.name.localeCompare(b.name));
-  const sched=state.meds.flatMap(m=>m.slots.map(sl=>({key:m.id+"|"+sl,label:m.name+" ("+(SLOTS.find(x=>x.id===sl)||{}).label+")"})));
+  const schedAll=state.meds.flatMap(m=>m.slots.map(sl=>({m,sl,key:m.id+"|"+sl,label:m.name+" ("+(SLOTS.find(x=>x.id===sl)||{}).label+")"})));
   const slotLabel=sl=>(SLOTS.find(x=>x.id===sl)||{}).label||sl;
   const tk=todayKey();
   const head=["date","weekday","doses_taken","doses_scheduled","doses_taken_list","missed_doses","doses_not_yet_taken","additional_meds","additional_med_count","supplements","supplement_count","symptoms","symptom_count",
@@ -2459,6 +2473,7 @@ function buildCSV(start,end){
   const rows=[head.map(q).join(",")];
   for(let k=start;k<=end;k=shiftKey(k,1)){
     const log=state.log[k]||{}, sl=state.slog[k]||{}, meals=state.meals[k]||{}, typed=state.food[k]||{};
+    const sched=schedAll.filter(x=>dueOn(x.m,x.sl,k));   // archived meds drop out from the day they were archived
     const taken=sched.filter(x=>log[x.key]), notTaken=sched.filter(x=>!log[x.key]);
     /* Today isn't over, so untaken doses are "not yet taken" rather than missed */
     const missed=k===tk?[]:notTaken, pending=k===tk?notTaken:[];

@@ -477,12 +477,12 @@ const travelSeed = { ...base, places: [{ id: "p1", name: "Chipotle" }, { id: "p2
 const placeOpts = (page, meal) => page.$$eval(`select[data-pick="place"][data-meal="${meal}"] option`, os => os.map(o => o.value + (o.defaultSelected ? "*" : "")));
 await test("Settings archives a restaurant: off the Today list, history and export kept, Unarchive brings it back", async page => {
   await page.click('[data-tab="set"][role="tab"]');
-  await page.click('[data-arch-place="p2"]');
-  eq((await page.saved()).places.find(p => p.id === "p2").archived, true, "saved as archived");
+  await page.click('[data-arch="place"][data-id="p2"]');
+  eq((await page.saved()).places.find(p => p.id === "p2").archived, today, "saved as archived today");
   eq(await page.textContent("#placeList .psub"), "Archived · hidden from Today, history kept", "archived group label");
   eq(await page.textContent("#placeList .prow.arch .nm"), "Franklin BBQ", "listed under Archived");
-  eq(await page.textContent('[data-arch-place="p2"]'), "Unarchive", "button flips");
-  eq(await page.evaluate(() => document.activeElement.dataset.archPlace), "p2", "focus stays on the restaurant");
+  eq(await page.textContent('[data-arch="place"][data-id="p2"]'), "Unarchive", "button flips");
+  eq(await page.evaluate(() => document.activeElement.dataset.id), "p2", "focus stays on the restaurant");
   await page.click('[role="tab"][data-tab="today"]');
   eq(await placeOpts(page, "lunch"), ["", "p1", "__new"], "lunch picker hides the archived restaurant");
   eq(await placeOpts(page, "dinner"), ["", "p1", "p2*", "__new"], "a meal already at the archived place still shows it");
@@ -490,7 +490,7 @@ await test("Settings archives a restaurant: off the Today list, history and expo
   const csv = await page.evaluate(([a, b]) => buildCSV(a, b), [shift(today, -1), today]);
   assert(csv.includes("ate at: Franklin BBQ"), "export keeps its column");
   await page.click('[data-tab="set"][role="tab"]');
-  await page.click('[data-arch-place="p2"]');
+  await page.click('[data-arch="place"][data-id="p2"]');
   assert(!("archived" in (await page.state()).places.find(p => p.id === "p2")), "unarchived");
   eq(await page.$("#placeList .psub"), null, "archived group gone");
   await page.click('[role="tab"][data-tab="today"]');
@@ -512,6 +512,70 @@ await test("every restaurant archived shows a clear empty message", async page =
   eq(await page.textContent("#placeList .empty-row"), "Every restaurant is archived. Tap Add for a new one.", "empty message");
   eq(await placeOpts(page, "lunch"), ["", "__new"], "Today picker only offers New");
 }, { ...base, places: [{ id: "p1", name: "Chipotle", archived: true }] });
+
+/* ---------- Archiving any list item ---------- */
+const optVals = (page, sel) => page.$$eval(sel + " option", os => os.map(o => o.value));
+await test("archive works on every Settings list, and Today's pickers skip archived items", async page => {
+  await page.click('[data-tab="set"][role="tab"]');
+  const lists = { sym: "s2", food: "f1", mood: "md1", extra: "x1", supp: "u1", appt: "a1", place: "p1" };
+  for (const [kind, id] of Object.entries(lists)) await page.click(`[data-arch="${kind}"][data-id="${id}"]`);
+  const s = await page.saved();
+  for (const [kind, list] of [["sym", "symptoms"], ["food", "foods"], ["mood", "moods"], ["extra", "extras"], ["supp", "supps"], ["appt", "appts"], ["place", "places"]])
+    eq(s[list].find(x => x.id === lists[kind]).archived, today, kind + " archived");
+  eq(await page.$$eval("#symList .prow.arch .nm", e => e.map(x => x.textContent)), ["Nausea"], "symptom under Archived");
+  assert(/^archived\s/.test(await page.textContent("#symList .prow.arch .ds")), "shows when it was archived");
+  await page.click('[role="tab"][data-tab="today"]');
+  eq(await optVals(page, 'select[data-pick="sym"]'), ["", "s1", "__new"], "symptom picker");
+  eq(await optVals(page, 'select[data-pick="food"][data-meal="lunch"]'), ["", "f2", "__new"], "food picker");
+  eq(await optVals(page, 'select[data-pick="mood"][data-mt="morning"]'), ["", "md2", "__new"], "mood picker");
+  eq(await optVals(page, 'select[data-pick="xmed"]'), ["", "x2", "m1", "__new"], "additional med picker");
+  eq(await optVals(page, 'select[data-pick="ev"][data-ev="supp"]'), ["", "u2", "__new"], "supplement picker");
+  eq(await optVals(page, 'select[data-pick="ev"][data-ev="appt"]'), ["", "__new"], "appointment picker");
+  // things already logged today still show, even though they're archived
+  assert((await page.textContent(".box.l-sym .chips")).includes("Nausea"), "logged symptom still shows");
+  assert((await page.textContent(".box.meal.l-morning .chips")).includes("Oatmeal"), "logged food still shows");
+  // and backfilling a day before it was archived still offers it
+  await page.click("#prevDay");
+  assert((await optVals(page, 'select[data-pick="food"][data-meal="lunch"]')).includes("f1"), "yesterday's picker still has it");
+}, { ...base, foods: [{ id: "f1", name: "Oatmeal" }, { id: "f2", name: "Toast" }], places: [{ id: "p1", name: "Chipotle" }],
+     extras: [{ id: "x1", name: "Tylenol" }, { id: "x2", name: "Aspirin" }], supps: [{ id: "u1", name: "Iron" }, { id: "u2", name: "Vitamin D" }],
+     appts: [{ id: "a1", name: "GI follow-up" }],
+     slog: { [today]: { s2: [{ t: "all" }] } }, meals: { [today]: { lunch: { foods: ["f1"] } } } });
+
+await test("archived med leaves the checklist from that day; earlier days still count it, unarchive doesn't fill the gap with misses", async page => {
+  const csvRow = async k => { const csv = await page.evaluate(([a, b]) => buildCSV(a, b), [shift(today, -6), today]);
+    const lines = csv.replace(/^\ufeff/, "").split("\r\n"), head = parseCSVLine(lines[0]), row = parseCSVLine(lines.find(l => l.startsWith(k)));
+    return [row[head.indexOf("doses_scheduled")], row[head.indexOf("missed_doses")]]; };
+  eq(await page.$('.row.med[data-k="m1|morning"]'), null, "archived med not on today's checklist");
+  eq(await page.$('.row.med[data-k="m2|morning"]') !== null, true, "other med still there");
+  eq(await csvRow(shift(today, -5)), ["2", "Lisinopril (Morning); Metformin (Morning)"], "before archiving: both due");
+  eq(await csvRow(shift(today, -3)), ["1", "Metformin (Morning)"], "after archiving: only the active med is due");
+  eq(await csvRow(shift(today, -2)), ["2", "Metformin (Morning)"], "a dose checked off while archived still counts");
+  await page.click('[data-tab="set"][role="tab"]');
+  assert((await page.textContent("#medList .prow.arch")).includes("Lisinopril"), "under Archived");
+  await page.click('[data-arch="med"][data-id="m1"]');
+  const m1 = (await page.state()).meds.find(m => m.id === "m1");
+  eq([m1.archived, m1.off], [undefined, [[shift(today, -4), today]]], "archive spell kept");
+  eq(await csvRow(shift(today, -3)), ["1", "Metformin (Morning)"], "gap days are not counted as missed");
+  await page.click('[role="tab"][data-tab="today"]');
+  assert(await page.$('.row.med[data-k="m1|morning"]'), "back on today's checklist");
+}, { ...base, meds: [{ id: "m1", name: "Lisinopril", dose: "10 mg", slots: ["morning"], archived: shift(today, -4) }, { id: "m2", name: "Metformin", slots: ["morning"] }],
+     log: { [shift(today, -6)]: {}, [shift(today, -2)]: { "m1|morning": at(shift(today, -2), 8) } } });
+
+await test("a med checked off on the day it's archived stays on that day's list", async page => {
+  assert(await page.$('.row.med[aria-checked="true"][data-k="m1|morning"]'), "still shows, checked");
+}, { ...base, meds: [{ id: "m1", name: "Lisinopril", slots: ["morning"], archived: today }], log: { [today]: { "m1|morning": at(today, 8) } } });
+
+await test("adding a med with an archived med's name brings that med back", async page => {
+  await page.click('[data-tab="set"][role="tab"]');
+  await page.click("#addMed");
+  await page.fill('#itemForm [name="name"]', "lisinopril");
+  await page.click('#slotPick input[value="evening"]', { force: true });
+  await page.click("#saveItem");
+  const meds = (await page.state()).meds;
+  eq(meds.length, 1, "no duplicate");
+  eq([meds[0].id, meds[0].archived, meds[0].slots], ["m1", undefined, ["evening"]], "same med, new time, unarchived");
+}, { ...base, meds: [{ id: "m1", name: "Lisinopril", slots: ["morning"], archived: shift(today, -1) }] });
 
 /* ---------- Time boxes open the picker when tapped anywhere ---------- */
 await test("tapping the time in a pop-up opens the time picker, not just the clock icon", async page => {
