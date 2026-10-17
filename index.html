@@ -133,6 +133,14 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
 .lmove svg{width:16px;height:16px;transform:rotate(180deg)}
 .lmove.dn svg{transform:none}
 .lmove:disabled{color:#BBB;cursor:default}
+/* Settings → Restaurants: each row has an Archive button; archived ones sit below, greyed, hidden from Today */
+.prow{display:flex;align-items:stretch;border-top:1px solid var(--hair)}
+.prow:first-child{border-top:0}
+.prow .row{flex:1;min-width:0;border-top:0}
+.parch{flex:none;min-width:84px;border:0;border-left:1px solid var(--hair);background:transparent;color:var(--ink);font:inherit;font-size:13px;font-weight:500;padding:0 10px}
+.psub{padding:8px 10px;border-top:3px solid var(--rule);border-bottom:1px solid var(--hair);background:var(--white);font-size:13px;color:var(--muted)}
+.psub + .prow{border-top:0}
+.prow.arch .nm{color:var(--muted)}
 .sect + .box{margin-top:10px}
 .progress{display:flex;align-items:center;gap:10px;margin:0 0 12px;font-size:13px;color:var(--muted)}
 .progress:empty{display:none}
@@ -292,6 +300,7 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .occhead{display:flex;align-items:center;gap:10px;margin:0 0 10px}
 .occhead input[type=time]{min-height:40px;padding:6px 8px;border:1px solid var(--rule);background:var(--white);font:inherit;color:var(--ink)}
 .occhead input[type=time]:disabled{opacity:.4}
+input[type=time]:not(:disabled){cursor:pointer}
 .occhead .allday{margin:0;min-height:40px}
 .occn{display:inline-grid;place-items:center;width:24px;height:24px;border:1px solid var(--rule);font-size:13px}
 .occx{margin-left:auto;width:40px;height:40px;border:1px solid var(--rule);background:var(--white);font-size:18px;line-height:1}
@@ -1045,7 +1054,7 @@ function render(){
         </select>
         <select data-pick="place" data-meal="${ml.id}" aria-label="Restaurant for ${ml.label}">
           <option value="">${place?"Not eating out":"Restaurant…"}</option>
-          ${placesSorted.map(p=>`<option value="${esc(p.id)}" ${place&&place.id===p.id?"selected":""}>${esc(p.name)}</option>`).join("")}
+          ${placesSorted.filter(p=>!p.archived||(place&&place.id===p.id)).map(p=>`<option value="${esc(p.id)}" ${place&&place.id===p.id?"selected":""}>${esc(p.name)}</option>`).join("")}
           <option value="__new">+ New restaurant…</option>
         </select>
       </div>
@@ -1174,10 +1183,15 @@ function render(){
     ? [...state.moods].sort((a,b)=>a.name.localeCompare(b.name)).map(x=>{const n=moodDays(x.id);return `<button class="row" data-edit-mood="${esc(x.id)}">
         <span class="nm">${esc(x.name)}</span><span class="side">${n} ${n===1?"day":"days"} in ${esc(month)}</span></button>`}).join("")
     : `<div class="empty-row">No moods. Tap Add.</div>`;
-  document.getElementById("placeList").innerHTML = state.places.length
-    ? [...state.places].sort((a,b)=>a.name.localeCompare(b.name)).map(x=>{const n=mealCount("place",x.id);return `<button class="row" data-edit-place="${esc(x.id)}">
-        <span class="nm">${esc(x.name)}</span><span class="side">${n} ${n===1?"visit":"visits"} in ${esc(month)}</span></button>`}).join("")
-    : `<div class="empty-row">No restaurants. Tap Add.</div>`;
+  /* Archived restaurants (travel spots, places you don't go any more) keep their history but leave the Today picker */
+  const placeRow=(x,arch)=>{const n=mealCount("place",x.id);return `<div class="prow${arch?" arch":""}"><button class="row" data-edit-place="${esc(x.id)}">
+        <span class="nm">${esc(x.name)}</span><span class="side">${n} ${n===1?"visit":"visits"} in ${esc(month)}</span></button>
+        <button type="button" class="parch" data-arch-place="${esc(x.id)}" aria-label="${arch?"Unarchive":"Archive"} ${esc(x.name)}">${arch?"Unarchive":"Archive"}</button></div>`};
+  const placesAZ=[...state.places].sort((a,b)=>a.name.localeCompare(b.name)), liveP=placesAZ.filter(x=>!x.archived), archP=placesAZ.filter(x=>x.archived);
+  document.getElementById("placeList").innerHTML =
+    (liveP.length ? liveP.map(x=>placeRow(x,false)).join("")
+      : `<div class="empty-row">${archP.length?"Every restaurant is archived. Tap Add for a new one.":"No restaurants. Tap Add."}</div>`)
+    + (archP.length ? `<div class="psub">Archived · hidden from Today, history kept</div>`+archP.map(x=>placeRow(x,true)).join("") : "");
 }
 
 /* ---------- summary ---------- */
@@ -2283,7 +2297,12 @@ document.getElementById("layoutReset").onclick=()=>{
 };
 document.getElementById("moodList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-mood]");if(b)openEditor("mood",b.dataset.editMood)});
 document.getElementById("foodList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-food]");if(b)openEditor("food",b.dataset.editFood)});
-document.getElementById("placeList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-place]");if(b)openEditor("place",b.dataset.editPlace)});
+document.getElementById("placeList").addEventListener("click",e=>{
+  const a=e.target.closest("[data-arch-place]");
+  if(a){ const p=state.places.find(x=>x.id===a.dataset.archPlace); if(!p) return;
+    if(p.archived) delete p.archived; else p.archived=true;
+    commit(); document.querySelector(`#placeList [data-arch-place="${CSS.escape(p.id)}"]`)?.focus(); return; }
+  const b=e.target.closest("[data-edit-place]");if(b)openEditor("place",b.dataset.editPlace)});
 
 function selectTab(name){
   for(const o of document.querySelectorAll('[role="tab"]')) o.setAttribute("aria-selected",o.dataset.tab===name);
@@ -2367,6 +2386,7 @@ form.addEventListener("submit",e=>{
     /* Reuse an existing entry with the same name instead of making a duplicate */
     let item=K.list().find(x=>x.name.toLowerCase()===name.toLowerCase());
     if(!item){item={id:uid(),name};K.list().push(item)}
+    else if(item.archived) delete item.archived;   // adding an archived restaurant again brings it back
     const p=editing.pending;
     if(p&&p.sym){ logSym(p.date,item.id); }
     else if(p&&p.mood){ logMood(p.date,p.mt,item.id); }
@@ -2384,6 +2404,14 @@ document.getElementById("delItem").onclick=async()=>{
   K.set(K.list().filter(x=>x.id!==editing.id));
   dlg.close(); commit();
 };
+
+/* Time boxes in pop-ups: tapping anywhere on the time opens the time picker, not only the small clock icon.
+   showPicker() needs a recent browser; older ones keep their normal behavior. */
+document.addEventListener("click",e=>{
+  const i=e.target.closest&&e.target.closest('input[type="time"]');
+  if(!i||i.disabled||i.readOnly||typeof i.showPicker!=="function") return;
+  try{ i.showPicker(); e.preventDefault(); }catch(_){}
+});
 
 /* ---------- name (Settings → Personalize) ---------- */
 /* "Sam Lee" → "sam-lee-" for file names; empty when no name is set */

@@ -471,6 +471,68 @@ await test("export includes location columns", async page => {
   eq([col("latitude"), col("elevation_ft"), col("distance_from_last_mi"), col("big_move")], ["38.83", "6033", "64", "1"], "today's location columns");
 }, { ...base, trackLoc: true, geo: { [shift(today, -1)]: { lat: 39.74, lon: -104.99, el: 1609 }, [today]: { lat: 38.83, lon: -104.82, el: 1839 } } });
 
+/* ---------- Archived restaurants ---------- */
+const travelSeed = { ...base, places: [{ id: "p1", name: "Chipotle" }, { id: "p2", name: "Franklin BBQ" }],
+  meals: { [shift(today, -1)]: { lunch: { place: "p2" } }, [today]: { dinner: { place: "p2" } } } };
+const placeOpts = (page, meal) => page.$$eval(`select[data-pick="place"][data-meal="${meal}"] option`, os => os.map(o => o.value + (o.defaultSelected ? "*" : "")));
+await test("Settings archives a restaurant: off the Today list, history and export kept, Unarchive brings it back", async page => {
+  await page.click('[data-tab="set"][role="tab"]');
+  await page.click('[data-arch-place="p2"]');
+  eq((await page.saved()).places.find(p => p.id === "p2").archived, true, "saved as archived");
+  eq(await page.textContent("#placeList .psub"), "Archived · hidden from Today, history kept", "archived group label");
+  eq(await page.textContent("#placeList .prow.arch .nm"), "Franklin BBQ", "listed under Archived");
+  eq(await page.textContent('[data-arch-place="p2"]'), "Unarchive", "button flips");
+  eq(await page.evaluate(() => document.activeElement.dataset.archPlace), "p2", "focus stays on the restaurant");
+  await page.click('[role="tab"][data-tab="today"]');
+  eq(await placeOpts(page, "lunch"), ["", "p1", "__new"], "lunch picker hides the archived restaurant");
+  eq(await placeOpts(page, "dinner"), ["", "p1", "p2*", "__new"], "a meal already at the archived place still shows it");
+  assert((await page.textContent(".box.meal.l-afternoon .lid")).includes("at Franklin BBQ"), "dinner still says where you ate");
+  const csv = await page.evaluate(([a, b]) => buildCSV(a, b), [shift(today, -1), today]);
+  assert(csv.includes("ate at: Franklin BBQ"), "export keeps its column");
+  await page.click('[data-tab="set"][role="tab"]');
+  await page.click('[data-arch-place="p2"]');
+  assert(!("archived" in (await page.state()).places.find(p => p.id === "p2")), "unarchived");
+  eq(await page.$("#placeList .psub"), null, "archived group gone");
+  await page.click('[role="tab"][data-tab="today"]');
+  eq(await placeOpts(page, "lunch"), ["", "p1", "p2", "__new"], "back on the lunch picker");
+}, travelSeed);
+
+await test("adding a restaurant with an archived name brings it back instead of duplicating", async page => {
+  await page.selectOption('select[data-pick="place"][data-meal="lunch"]', "__new");
+  await page.fill('#itemForm [name="name"]', "franklin bbq");
+  await page.click("#saveItem");
+  const s = await page.state();
+  eq(s.places.length, 2, "no duplicate");
+  assert(!s.places.find(p => p.id === "p2").archived, "unarchived");
+  eq(s.meals[today].lunch.place, "p2", "lunch set to it");
+}, { ...travelSeed, places: [{ id: "p1", name: "Chipotle" }, { id: "p2", name: "Franklin BBQ", archived: true }] });
+
+await test("every restaurant archived shows a clear empty message", async page => {
+  await page.click('[data-tab="set"][role="tab"]');
+  eq(await page.textContent("#placeList .empty-row"), "Every restaurant is archived. Tap Add for a new one.", "empty message");
+  eq(await placeOpts(page, "lunch"), ["", "__new"], "Today picker only offers New");
+}, { ...base, places: [{ id: "p1", name: "Chipotle", archived: true }] });
+
+/* ---------- Time boxes open the picker when tapped anywhere ---------- */
+await test("tapping the time in a pop-up opens the time picker, not just the clock icon", async page => {
+  await page.evaluate(() => { window.__picked = []; HTMLInputElement.prototype.showPicker = function () { window.__picked.push(this.id || this.dataset.otime || this.dataset.ptime || "?"); }; });
+  await page.click('.row.med[data-k="m1|morning"]');
+  await page.click(".medrow button.when");
+  await page.waitForSelector("#xdlg[open]");
+  await page.click("#xtime", { position: { x: 12, y: 10 } });   // on the digits, far from the clock icon
+  eq(await page.evaluate(() => window.__picked), ["xtime"], "picker opened from the time text");
+  await page.click("#xlabel");                                 // the label above it too
+  eq(await page.evaluate(() => window.__picked.length), 2, "label tap opens it as well");
+  await page.evaluate(() => { const i = document.getElementById("xtime"); i.disabled = true; i.click(); i.disabled = false; });
+  eq(await page.evaluate(() => window.__picked.length), 2, "a disabled time box doesn't open");
+}, base);
+await test("real time picker: tapping a time box raises no errors", async page => {
+  await page.click('.row.med[data-k="m1|morning"]');
+  await page.click(".medrow button.when");
+  await page.click("#xtime", { position: { x: 12, y: 10 } });
+  await page.keyboard.press("Escape");
+}, base);
+
 /* ---------- Existing features still work ---------- */
 await test("checking off a med and adding a food still work", async page => {
   await page.click('.row.med[data-k="m1|morning"]');
