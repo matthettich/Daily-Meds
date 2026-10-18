@@ -166,6 +166,15 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
 .lid .act{align-self:stretch;border:0;border-left:1px solid var(--rule);background:transparent;color:var(--tx);font-size:13px;padding:0 12px;font-weight:500}
 .lid .act.add{margin-left:auto}
 .lid .st + .act{margin-left:0}
+/* A box's name on Today is a button (except in Medications): tap it for the Copy Yesterday's… menu */
+.lid .cpn{align-self:stretch;min-height:38px;margin-left:-10px;padding:0 6px 0 10px;border:0;background:transparent;color:inherit;font:inherit;text-align:left}
+dialog.menu{margin:0;inset:auto;width:auto;max-width:none;max-height:none}
+dialog.menu::backdrop{background:transparent}
+.mitem{display:block;width:100%;border:0;background:var(--white);text-align:left;padding:12px 14px;min-height:52px}
+.mitem .mt{display:block;font-size:15px;font-weight:500;color:var(--tx)}
+.mitem .ms{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:2px;font-size:13px;color:var(--muted)}
+.mitem:disabled{cursor:default}
+.mitem:disabled .mt{color:var(--muted)}
 
 .row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;min-height:52px;border-top:1px solid var(--hair)}
 .lid + .row,.lid + .medrow .row{border-top:0}
@@ -603,6 +612,7 @@ body{display:flex;flex-direction:column}
   <form method="dialog" id="xform">
     <h3 id="xdlgTitle">Dose</h3>
     <div class="body">
+      <p class="askmsg" id="xnote" hidden></p>
       <label class="allday" id="xalldayRow"><input type="checkbox" id="xallday"><span>All day</span></label>
       <label class="f" id="xtimeRow"><span id="xlabel">Time taken</span><input type="time" id="xtime"></label>
       <div class="actions">
@@ -612,6 +622,10 @@ body{display:flex;flex-direction:column}
       </div>
     </div>
   </form>
+</dialog>
+<!-- Tap a box's name on Today (Breakfast, Morning, Symptoms…) for this menu: copy that box from the day before -->
+<dialog id="cmenu" class="menu" aria-label="Copy from yesterday">
+  <button type="button" class="mitem" id="cmCopy"><span class="mt" id="cmText">Copy Yesterday's Meal</span><span class="ms" id="cmSub"></span></button>
 </dialog>
 <!-- Symptom details: every time it was logged today, each with its own time and 1–10 intensity -->
 <dialog id="sdlg">
@@ -932,7 +946,7 @@ function evBox(kind){
   const groups=new Map(); for(const e of hits){ const g=groups.get(e.id); if(g){g.n++;g.last=e} else groups.set(e.id,{n:1,last:e}) }
   const items=state[E.items].filter(m=>activeOn(m,viewDate)).sort((a,b)=>a.name.localeCompare(b.name));
   return `<div class="box ${E.cls}" data-evbox="${kind}">
-      <div class="lid">${E.title}<span class="st">${hits.length?E.count(hits.length):"None"}</span></div>
+      <div class="lid">${COPY[kind]?copyName(kind,kind,E.title):E.title}<span class="st">${hits.length?E.count(hits.length):"None"}</span></div>
       <div class="chips">${groups.size?[...groups].map(([id,g])=>{const m=evOf(kind,id),e=g.last;return `<span class="chip">${esc(m.name)}${m.dose&&kind==="appt"?`<span class="qty">${esc(m.dose)}</span>`:""}${g.n>1?`<span class="qty">×${g.n}</span>`:""}<button class="t" data-evt="${kind}" data-i="${e.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-evrm="${kind}" data-i="${e.i}" aria-label="Remove ${g.n>1?"one ":""}${esc(m.name)}">×</button></span>`}).join(""):`<span class="none">${E.none}</span>`}</div>
       <div class="pickers one">
         <select data-pick="ev" data-ev="${kind}" aria-label="${E.add.replace("…","")}">
@@ -1026,7 +1040,7 @@ function render(){
     /* One chip per symptom: ×N when logged more than once; tap the name for every time and its intensity;
        the time and × act on the latest one */
     html+=`<div class="box l-sym">
-      <div class="lid">Symptoms<span class="st">${had.length?had.length+" today":"None"}</span></div>
+      <div class="lid">${copyName("syms","syms","Symptoms")}<span class="st">${had.length?had.length+" today":"None"}</span></div>
       <div class="chips">${had.length?[...had].sort((a,b)=>symSortKey(sday[a.id][0].t)-symSortKey(sday[b.id][0].t)).map(x=>{
         const L=sday[x.id], last=L.length-1, lb=symLabel(L[last].t), mx=symMax(L);
         const nb=`<button class="nm" data-symd="${esc(x.id)}" aria-label="${esc(x.name)}${mx?", intensity "+mx+" of 10":""}. Tap to set intensity and times">${esc(x.name)}${mx?`<span class="lvl" style="--i:${mx}">${mx}</span>`:""}</button>`;
@@ -1054,7 +1068,7 @@ function render(){
     const m=mday[ml.id]||{}, counts=countFoods(m.foods), ids=[...counts.keys()].filter(id=>byId(state.foods,id));
     const place=m.place&&byId(state.places,m.place), mt=mealTime(m);
     html+=`<div class="box meal ${ml.l}">
-      <div class="lid">${ml.label}${mt?`<span class="mtime">${fmtTime(mt)}</span>`:""}${place?`<span class="place">at ${esc(place.name)}</span>`:""}</div>
+      <div class="lid">${copyName("meal",ml.id,ml.label)}${mt?`<span class="mtime">${fmtTime(mt)}</span>`:""}${place?`<span class="place">at ${esc(place.name)}</span>`:""}</div>
       <div class="chips">${ids.length?ids.map(id=>{const nm=byId(state.foods,id).name,n=counts.get(id),own=foodTime(m,id),shown=own||mt;
         const tb = n>1
           ? `<button class="t${own?"":" inh"}" data-editf="${esc(id)}" data-meal="${ml.id}" aria-label="Times of each ${esc(nm)} serving">${shown?fmtTime(shown):CLOCK}</button>`
@@ -1089,7 +1103,7 @@ function render(){
     /* A mood felt more than once in the same part of the day shows once, with ×N */
     const all=(moday[mt.id]||[]).filter(id=>byId(state.moods,id)), counts=countFoods(all), ids=[...counts.keys()], tt=moodTimes(viewDate,mt.id), mtt=groupTime(tt,ids);
     html+=`<div class="box mood ${mt.l}">
-      <div class="lid">${mt.label}${mtt?`<span class="mtime">${fmtTime(mtt)}</span>`:""}<span class="st">${ids.length?"":"None"}</span></div>
+      <div class="lid">${copyName("mood",mt.id,mt.label)}${mtt?`<span class="mtime">${fmtTime(mtt)}</span>`:""}<span class="st">${ids.length?"":"None"}</span></div>
       <div class="chips">${ids.length?ids.map(id=>{const nm=byId(state.moods,id).name,own=realTime(tt[id])?tt[id]:0,shown=own||mtt;
         const tb=`<button class="t${own?"":" inh"}" data-editmood="${esc(id)}" data-mt="${mt.id}" aria-label="${shown?`Change time of ${esc(nm)}, now ${fmtTime(shown)}`:`Add a time for ${esc(nm)}`}">${shown?fmtTime(shown):CLOCK}</button>`;
         const n=counts.get(id);
@@ -1813,6 +1827,8 @@ todayCol.addEventListener("click",e=>{
   const fold=e.target.closest("[data-fold]");
   if(fold){ flushText(); const id=fold.dataset.fold; if(state.folded[id]) delete state.folded[id]; else state.folded[id]=true; commit();
     document.querySelector(`[data-fold="${id}"]`)?.focus(); return; }
+  const cpn=e.target.closest("[data-copy]");
+  if(cpn){ openCopyMenu(cpn); return; }
   const med=e.target.closest(".med"), all=e.target.closest("[data-all]"), add=e.target.closest("[data-add]");
   const rm=e.target.closest("[data-rm]"), rmsym=e.target.closest("[data-rmsym]"), rmx=e.target.closest("[data-rmx]");
   const editmood=e.target.closest("[data-editmood]");
@@ -1883,6 +1899,7 @@ function symText(name,list){
 const xdlg=document.getElementById("xdlg"); let xedit=null;
 function openTimeDialog(title,label,removeText,t,allDay){
   const d=new Date(realTime(t)?t:Date.now());
+  document.getElementById("xnote").hidden=true;
   document.getElementById("xalldayRow").style.display = allDay===undefined ? "none" : "";
   document.getElementById("xallday").checked = !!allDay;
   syncAllDay();
@@ -2033,6 +2050,13 @@ document.getElementById("xallday").addEventListener("change",syncAllDay);
 document.getElementById("xform").addEventListener("submit",ev=>{
   ev.preventDefault();
   const v=document.getElementById("xtime").value;
+  if(xedit.kind==="copy"){
+    let t=xedit.t;
+    if(COPY[xedit.ck].allDay&&document.getElementById("xallday").checked) t=ALLDAY;
+    else if(/^\d\d:\d\d/.test(v)){ const d=parseKey(xedit.date); d.setHours(+v.slice(0,2),+v.slice(3,5),0); t=d.getTime(); }
+    copyRestore(xedit); COPY[xedit.ck].put(xedit.p,xedit.date,xedit.k,t);
+    xdlg.close(); commit(); return;
+  }
   const se=xedit.kind==="sym"&&symList(xedit.date,xedit.id)[xedit.si];
   if(se&&document.getElementById("xallday").checked){ se.t=ALLDAY; sortSym(symList(xedit.date,xedit.id)); }
   else if(/^\d\d:\d\d/.test(v)){
@@ -2047,13 +2071,108 @@ document.getElementById("xform").addEventListener("submit",ev=>{
 });
 document.getElementById("xcancel").onclick=()=>xdlg.close();
 document.getElementById("xremove").onclick=()=>{
-  if(xedit.kind==="sym"){ symList(xedit.date,xedit.id).splice(xedit.si,1); tidySyms(xedit.date); }
+  if(xedit.kind==="copy") copyRestore(xedit);
+  else if(xedit.kind==="sym"){ symList(xedit.date,xedit.id).splice(xedit.si,1); tidySyms(xedit.date); }
   else if(xedit.kind==="med"){ const day=state.log[xedit.date]||{}; delete day[xedit.k]; if(!Object.keys(day).length) delete state.log[xedit.date]; }
   else if(xedit.kind==="mood"){ delete moodTimes(xedit.date,xedit.mt)[xedit.id]; tidyMoods(xedit.date); }
   else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&m.ft){ delete m.ft[xedit.id]; tidyMeals(xedit.date); } }
   else { const log=xedit.kind==="ev"?state[EVLOGS[xedit.ev].log]:state.xlog, list=log[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete log[xedit.date]; }
   xdlg.close(); commit();
 };
+
+/* ---------- copy yesterday ----------
+   Tap a box's name on Today (a meal, a part of the day's mood, Symptoms, Smells, Other, Appointments) for a menu
+   that copies that box from the day before. The copy takes the box's place (after asking, if it has anything),
+   keeping counts (×2), ingredients, the restaurant and intensity, but not times: every copied entry gets one time,
+   asked for straight after. Undo copy in that pop-up puts the box back. Medications and supplements don't have it.
+   Each COPY entry: what = the menu's word, q = the time pop-up's question; pick(from,to,k) = what can be copied (items still in Settings, not archived on `to`);
+   size/preview describe it; has(to,k) = the box already has something; put(p,to,k,t) writes it, returning how many
+   entries got the time; logs = the parts of state it touches, saved before and put back by Undo. */
+function liveOn(list,id,k){const x=list.find(q=>q.id===id);return !!x&&activeOn(x,k)}
+function namesOf(ids,list){return [...countFoods(ids)].map(([id,n])=>{const x=list.find(q=>q.id===id);return x?x.name+(n>1?" ×"+n:""):""}).filter(Boolean).join(", ")}
+function evCopier(kind,what,q){
+  const E=EVLOGS[kind];
+  return {what, q, time:E.time, logs:[E.log], box:()=>E.title,
+    pick(from,to){ return {e:(state[E.log][from]||[]).filter(e=>liveOn(state[E.items],e.id,to))}; },
+    size:p=>p.e.length, preview:p=>namesOf(p.e.map(e=>e.id),state[E.items]),
+    has:to=>evHits(kind,to).length>0,
+    put(p,to,k,t){ const L=state[E.log]; if(p.e.length) L[to]=p.e.map(e=>({id:e.id,t})); else delete L[to]; return p.e.length; }};
+}
+const COPY={
+  meal:{what:"Meal", q:"When did you eat?", time:"Time eaten", logs:["meals"], box:k=>MEALS.find(x=>x.id===k).label,
+    pick(from,to,k){ const y=(state.meals[from]||{})[k]||{};
+      return {foods:(y.foods||[]).filter(id=>liveOn(state.foods,id,to)), place:y.place&&liveOn(state.places,y.place,to)?y.place:null, fi:y.fi||{}}; },
+    size:p=>p.foods.length+(p.place?1:0),
+    preview(p){ const pl=p.place&&state.places.find(x=>x.id===p.place); return [namesOf(p.foods,state.foods),pl?"at "+pl.name:""].filter(Boolean).join(" · "); },
+    has(to,k){ const m=(state.meals[to]||{})[k]; return !!m&&(!!m.place||(m.foods||[]).some(id=>state.foods.some(f=>f.id===id))); },
+    put(p,to,k,t){
+      const d=state.meals[to]||(state.meals[to]={}), m={foods:[...p.foods]};
+      if(p.place) m.place=p.place;
+      if(p.foods.length) m.ft=Object.fromEntries(p.foods.map(id=>[id,t]));
+      const fi={}; for(const id of new Set(p.foods)) if(p.fi[id]) fi[id]=JSON.parse(JSON.stringify(p.fi[id]));
+      if(Object.keys(fi).length) m.fi=fi;
+      d[k]=m; tidyMeals(to); return p.foods.length; }},
+  mood:{what:"Moods", q:"When did you feel this way?", time:"Time felt", logs:["mlog","mtlog","mxlog"], box:k=>MOODTIMES.find(x=>x.id===k).label,
+    pick(from,to,k){ return {ids:(((state.mlog[from]||{})[k])||[]).filter(id=>liveOn(state.moods,id,to))}; },
+    size:p=>p.ids.length, preview:p=>namesOf(p.ids,state.moods),
+    has:(to,k)=>(((state.mlog[to]||{})[k])||[]).some(id=>state.moods.some(x=>x.id===id)),
+    put(p,to,k,t){
+      for(const n of this.logs) if(state[n][to]) delete state[n][to][k];
+      if(p.ids.length){ (state.mlog[to]||(state.mlog[to]={}))[k]=[...p.ids]; (state.mtlog[to]||(state.mtlog[to]={}))[k]=Object.fromEntries(p.ids.map(id=>[id,t])); }
+      tidyMoods(to); return p.ids.length; }},
+  syms:{what:"Symptoms", q:"When did they start?", time:"Time noticed", allDay:true, logs:["slog"], box:()=>"Symptoms",
+    pick(from,to){ return {s:Object.entries(state.slog[from]||{}).filter(([id,L])=>L.length&&liveOn(state.symptoms,id,to))
+      .sort((a,b)=>state.symptoms.find(x=>x.id===a[0]).name.localeCompare(state.symptoms.find(x=>x.id===b[0]).name))}; },
+    size:p=>p.s.length,
+    preview:p=>p.s.map(([id,L])=>state.symptoms.find(x=>x.id===id).name+(L.length>1?" ×"+L.length:"")).join(", "),
+    has:to=>state.symptoms.some(x=>((state.slog[to]||{})[x.id]||[]).length),
+    put(p,to,k,t){ if(p.s.length) state.slog[to]=Object.fromEntries(p.s.map(([id,L])=>[id,L.map(e=>e.i?{t,i:e.i}:{t})])); else delete state.slog[to]; return p.s.length; }},
+  smell:evCopier("smell","Smells","When did you notice them?"),
+  other:evCopier("other","Entries","When was it?"),
+  appt: evCopier("appt","Appointments","When was it?")
+};
+function copyName(ck,k,label){return `<button type="button" class="cpn" data-copy="${ck}" data-key="${esc(k)}" aria-haspopup="menu">${esc(label)}</button>`}
+const clone=v=>v===undefined?undefined:JSON.parse(JSON.stringify(v));
+function copyRestore(x){ for(const n of COPY[x.ck].logs){ if(x.snap[n]===undefined) delete state[n][x.date]; else state[n][x.date]=clone(x.snap[n]); } }
+/* "yesterday" when looking at today; "the previous day" when looking back at another day */
+const prevWord=date=>date===todayKey()?"yesterday":"the previous day";
+
+const cmenu=document.getElementById("cmenu"); let cpick=null;
+function openCopyMenu(btn){
+  const ck=btn.dataset.copy, k=btn.dataset.key, C=COPY[ck]; if(!C) return;
+  const date=viewDate, from=shiftKey(date,-1), p=C.pick(from,date,k), n=C.size(p);
+  cpick={ck,k,date,from};
+  document.getElementById("cmText").textContent=`Copy ${date===todayKey()?"Yesterday's":"Previous Day's"} ${C.what}`;
+  document.getElementById("cmSub").textContent=n?C.preview(p):"Nothing logged "+prevWord(date);
+  document.getElementById("cmCopy").disabled=!n;
+  /* Hangs from the box's title bar, edge to edge with the box; opens upward if there's no room below */
+  const r=btn.closest(".lid").getBoundingClientRect(), bx=btn.closest(".box").getBoundingClientRect();
+  cmenu.style.width=bx.width+"px";
+  cmenu._y=scrollY; cmenu.showModal();
+  const h=cmenu.offsetHeight;
+  let y=r.bottom-3; if(y+h>innerHeight-8) y=Math.max(8,r.top-h+3);
+  cmenu.style.left=bx.left+"px"; cmenu.style.top=y+"px";
+}
+cmenu.addEventListener("click",e=>{ if(e.target===cmenu) cmenu.close(); });
+cmenu.addEventListener("close",()=>{cpick=null});
+/* The menu sits by its box, so it closes if the page actually scrolls (not on a stray scroll event as it opens) */
+addEventListener("scroll",()=>{ if(cmenu.open&&Math.abs(scrollY-cmenu._y)>8) cmenu.close(); },{passive:true});
+document.getElementById("cmCopy").onclick=()=>{ const c=cpick; cmenu.close(); if(c) copyBox(c); };
+async function copyBox({ck,k,date,from}){
+  const C=COPY[ck], p=C.pick(from,date,k), prev=prevWord(date);
+  if(!C.size(p)) return;
+  if(C.has(date,k)&&!await ask(`${C.box(k)} already has something logged. Replace it with ${prev}'s ${C.what.toLowerCase()}?`,{ok:"Replace"})) return;
+  flushText();
+  const snap=Object.fromEntries(C.logs.map(n=>[n,clone(state[n][date])])), t=stampFor(date);
+  const timed=C.put(p,date,k,t);
+  commit();
+  if(!timed) return;   // a meal copied with only its restaurant has nothing to time
+  xedit={kind:"copy",ck,k,date,p,snap,t};
+  openTimeDialog(C.box(k),C.time,"Undo copy",t,C.allDay?false:undefined);
+  const note=document.getElementById("xnote");
+  note.textContent=`Copied ${prev}'s ${C.what.toLowerCase()}. ${C.q}`; note.hidden=false;
+}
+
 /* Moods and foods get the current time when added, like doses; tap the time to change it */
 /* A mood can be logged more than once in the same part of the day: mlog keeps one id per time it was felt,
    mtlog the first time, mxlog the times after that (like foods' m.fx) */

@@ -577,6 +577,108 @@ await test("adding a med with an archived med's name brings that med back", asyn
   eq([meds[0].id, meds[0].archived, meds[0].slots], ["m1", undefined, ["evening"]], "same med, new time, unarchived");
 }, { ...base, meds: [{ id: "m1", name: "Lisinopril", slots: ["morning"], archived: shift(today, -1) }] });
 
+/* ---------- Copy yesterday: tap a box's name on Today ---------- */
+const yday = shift(today, -1);
+const copyFoods = { ...base, foods: [{ id: "f1", name: "Coffee" }, { id: "f2", name: "Oatmeal" }, { id: "f3", name: "Toast", archived: yday }],
+  places: [{ id: "p1", name: "Snooze" }] };
+async function copyFrom(page, sel) {
+  await page.click(sel);
+  await page.waitForSelector("#cmenu[open]");
+  const out = { text: await page.textContent("#cmText"), sub: await page.textContent("#cmSub"), disabled: await page.isDisabled("#cmCopy") };
+  if (!out.disabled) await page.click("#cmCopy");
+  return out;
+}
+await test("tap Breakfast → Copy Yesterday's Meal copies foods, servings, ingredients and restaurant, then asks the time", async page => {
+  const m = await copyFrom(page, '[data-copy="meal"][data-key="breakfast"]');
+  eq(m.text, "Copy Yesterday's Meal", "menu text");
+  eq(m.sub, "Coffee ×2, Oatmeal · at Snooze", "preview skips the archived food");
+  await page.waitForSelector("#xdlg[open]");
+  eq(await page.textContent("#xdlgTitle"), "Breakfast", "time pop-up title");
+  eq(await page.textContent("#xnote"), "Copied yesterday's meal. When did you eat?", "time pop-up question");
+  eq(await page.isVisible("#xalldayRow"), false, "no All day for meals");
+  await page.fill("#xtime", "08:15");
+  await page.click('#xform [type="submit"]');
+  const s = await page.state(), t = at(today, 8, 15);
+  eq(s.meals[today].breakfast, { foods: ["f1", "f1", "f2"], place: "p1", ft: { f1: t, f2: t }, fi: { f2: { ings: ["oats", "banana"] } } }, "today's breakfast");
+  eq(s.meals[yday].breakfast.fx, { f1: [at(yday, 9)] }, "yesterday untouched");
+  assert(await page.evaluate(() => state.meals[todayKey()].breakfast.fi.f2 !== state.meals[shiftKey(todayKey(), -1)].breakfast.fi.f2), "ingredients are a copy, not shared");
+  eq(await page.isVisible("#cmenu"), false, "menu closed");
+}, { ...copyFoods, meals: { [yday]: { breakfast: { foods: ["f1", "f1", "f2", "f3"], place: "p1", ft: { f1: at(yday, 8, 5), f2: at(yday, 8, 10) },
+  fx: { f1: [at(yday, 9)] }, fi: { f2: { ings: ["oats", "banana"] } } } } } });
+
+await test("copying over a meal asks first; Undo copy puts it back; Cancel keeps the copy at the current time", async page => {
+  const before = (await page.state()).meals[today].breakfast;
+  await copyFrom(page, '[data-copy="meal"][data-key="breakfast"]');
+  eq(await askText(page), "Breakfast already has something logged. Replace it with yesterday's meal?", "asks before replacing");
+  await page.click("#askNo");
+  eq((await page.state()).meals[today].breakfast, before, "No leaves it alone");
+  eq(await page.isVisible("#xdlg"), false, "no time pop-up");
+  await copyFrom(page, '[data-copy="meal"][data-key="breakfast"]');
+  await page.click("#askYes");
+  await page.waitForSelector("#xdlg[open]");
+  eq((await page.state()).meals[today].breakfast.foods, ["f1"], "replaced while the time pop-up is open");
+  eq(await page.textContent("#xremove"), "Undo copy", "undo button");
+  await page.click("#xremove");
+  eq((await page.state()).meals[today].breakfast, before, "Undo copy restores it");
+  eq((await page.saved()).meals[today].breakfast, before, "and that's saved");
+  await copyFrom(page, '[data-copy="meal"][data-key="breakfast"]');
+  await page.click("#askYes");
+  await page.click("#xcancel");
+  const b = (await page.state()).meals[today].breakfast;
+  eq(b.foods, ["f1"], "Cancel keeps the copy");
+  assert(Math.abs(b.ft.f1 - Date.now()) < 120000, "with the current time");
+  eq(b.place, undefined, "the old restaurant went with the old meal");
+}, { ...copyFoods, meals: { [today]: { breakfast: { foods: ["f2"], place: "p1", ft: { f2: at(today, 7) } } }, [yday]: { breakfast: { foods: ["f1"] } } } });
+
+await test("Copy Yesterday's Moods and Symptoms (with All day) keep counts and intensity", async page => {
+  const m = await copyFrom(page, '[data-copy="mood"][data-key="morning"]');
+  eq([m.text, m.sub], ["Copy Yesterday's Moods", "Anxious ×2, Calm"], "mood menu");
+  eq(await page.textContent("#xdlgTitle"), "Morning", "mood time title");
+  await page.fill("#xtime", "09:30");
+  await page.click('#xform [type="submit"]');
+  let s = await page.state(); const t = at(today, 9, 30);
+  eq([s.mlog[today], s.mtlog[today], s.mxlog[today]], [{ morning: ["md1", "md1", "md2"] }, { morning: { md1: t, md2: t } }, undefined], "moods copied with one time");
+  const y = await copyFrom(page, '[data-copy="syms"]');
+  eq([y.text, y.sub], ["Copy Yesterday's Symptoms", "Headache ×2, Nausea"], "symptom menu");
+  eq(await page.isVisible("#xalldayRow"), true, "All day offered for symptoms");
+  await page.check("#xallday");
+  await page.click('#xform [type="submit"]');
+  s = await page.state();
+  eq(s.slog[today], { s1: [{ t: "all", i: 7 }, { t: "all" }], s2: [{ t: "all" }] }, "symptoms copied all day, intensity kept");
+  eq(s.slog[yday].s1[0].t, at(yday, 9), "yesterday's symptoms untouched");
+}, { ...base, moods: [{ id: "md1", name: "Anxious" }, { id: "md2", name: "Calm" }],
+  mlog: { [yday]: { morning: ["md1", "md1", "md2"] } }, mtlog: { [yday]: { morning: { md1: at(yday, 9) } } }, mxlog: { [yday]: { morning: { md1: [at(yday, 11)] } } },
+  slog: { [yday]: { s2: [{ t: "all" }], s1: [{ t: at(yday, 9), i: 7 }, { t: at(yday, 15) }] } } });
+
+await test("Smells, Other and Appointments copy too; Medications has no copy menu; an empty or past day says so", async page => {
+  const sm = await copyFrom(page, '[data-copy="smell"]');
+  eq([sm.text, sm.sub], ["Copy Yesterday's Smells", "Smoke"], "smells menu");
+  await page.fill("#xtime", "10:00"); await page.click('#xform [type="submit"]');
+  const ot = await copyFrom(page, '[data-copy="other"]');
+  eq([ot.text, ot.sub], ["Copy Yesterday's Entries", "Hot tub ×2"], "other menu");
+  await page.fill("#xtime", "20:00"); await page.click('#xform [type="submit"]');
+  const ap = await copyFrom(page, '[data-copy="appt"]');
+  eq([ap.text, ap.sub], ["Copy Yesterday's Appointments", "Dr. Lee"], "appointments menu");
+  await page.fill("#xtime", "14:00"); await page.click('#xform [type="submit"]');
+  const s = await page.state();
+  eq(s.smlog[today], [{ id: "sm1", t: at(today, 10) }], "smell copied");
+  eq(s.olog[today], [{ id: "o1", t: at(today, 20) }, { id: "o1", t: at(today, 20) }], "other copied ×2");
+  eq(s.alog[today], [{ id: "a1", t: at(today, 14) }], "appointment copied");
+  eq(await page.locator('.tsec[data-sec="meds"] [data-copy]').count(), 0, "no copy menu on medications or supplements");
+  const lunch = await copyFrom(page, '[data-copy="meal"][data-key="lunch"]');
+  eq([lunch.sub, lunch.disabled], ["Nothing logged yesterday", true], "nothing to copy");
+  await page.keyboard.press("Escape");
+  eq(await page.isVisible("#cmenu"), false, "Escape closes the menu");
+  await page.click("#prevDay");
+  const past = await copyFrom(page, '[data-copy="mood"][data-key="evening"]');
+  eq([past.text, past.sub], ["Copy Previous Day's Moods", "Nothing logged the previous day"], "wording on a past day");
+  await page.mouse.click(5, 5);
+  eq(await page.isVisible("#cmenu"), false, "tapping outside closes the menu");
+}, { ...base, smells: [{ id: "sm1", name: "Smoke" }], trackSmells: true, others: [{ id: "o1", name: "Hot tub" }],
+  appts: [{ id: "a1", name: "Dr. Lee", dose: "Clinic" }],
+  smlog: { [yday]: [{ id: "sm1", t: at(yday, 10) }] }, olog: { [yday]: [{ id: "o1", t: at(yday, 20) }, { id: "o1", t: at(yday, 21) }] },
+  alog: { [yday]: [{ id: "a1", t: at(yday, 14) }] } });
+
 /* ---------- Time boxes open the picker when tapped anywhere ---------- */
 await test("tapping the time in a pop-up opens the time picker, not just the clock icon", async page => {
   await page.evaluate(() => { window.__picked = []; HTMLInputElement.prototype.showPicker = function () { window.__picked.push(this.id || this.dataset.otime || this.dataset.ptime || "?"); }; });
