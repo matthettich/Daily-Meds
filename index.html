@@ -48,7 +48,7 @@ body[data-page="food"]{--dh:22} body[data-page="syms"]{--dh:44} body[data-page="
 .pg-color .lid{background:var(--white)}
 /* Box bodies get a little deeper through the day; still pastel at the darkest */
 .l-page{--l:96%} .l-waking{--l:93%} .l-morning{--l:90%} .l-afternoon{--l:87%}
-.l-evening{--l:84%} .l-bedtime{--l:81%} .l-extra{--l:78%} .l-supp{--l:75%} .l-sym{--l:85%} .l-list{--l:90%} .l-notes{--l:88%}
+.l-evening{--l:84%} .l-bedtime{--l:81%} .l-snack{--l:88.5%} .l-extra{--l:78%} .l-supp{--l:75%} .l-sym{--l:85%} .l-list{--l:90%} .l-notes{--l:88%}
 
 *,*::before,*::after{box-sizing:inherit;border-radius:0}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -261,6 +261,7 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 /* On/off switch rows in Settings (e.g. Track smells) */
 .toggle{display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 10px;font-size:15px;font-weight:500;cursor:pointer}
 .toggle input{width:22px;height:22px;margin:0;accent-color:var(--ink);flex:none}
+.toggle + .toggle{border-top:1px solid var(--hair)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 10px 0}
 .chip{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--rule);background:var(--white);padding:0 0 0 10px;font-size:14px;min-height:32px}
 .chip button{border:0;border-left:1px solid var(--rule);background:transparent;width:30px;align-self:stretch;font-size:16px;line-height:1;margin-left:6px}
@@ -479,6 +480,10 @@ body{display:flex;flex-direction:column}
 
     <section class="view pg-color pg-food sset band" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Food</div>
+      <div class="box l-list">
+        <label class="toggle"><input type="checkbox" id="showSnacks"><span>Show snacks</span></label>
+        <label class="toggle"><input type="checkbox" id="showAfter"><span>Show after dinner</span></label>
+      </div>
       <div class="box l-list">
         <div class="lid"><h2>Foods</h2><button class="act add" id="addFood">Add</button></div>
         <div id="foodList"></div>
@@ -707,9 +712,11 @@ body{display:flex;flex-direction:column}
 <script>
 const MEALS = [
   {id:"breakfast",label:"Breakfast",l:"l-waking"},{id:"lunch",label:"Lunch",l:"l-morning"},
-  {id:"dinner",label:"Dinner",l:"l-afternoon"},{id:"after",label:"After dinner",l:"l-evening"},
-  {id:"snacks",label:"Snacks & Other Meals",l:"l-bedtime",what:"Snacks"}   // anything between meals; `what` names it in the copy menu
+  {id:"snacks",label:"Snacks & Other Meals",l:"l-snack",what:"Snacks",opt:"showSnacks"},   // anything between meals; `what` names it in the copy menu
+  {id:"dinner",label:"Dinner",l:"l-afternoon"},{id:"after",label:"After dinner",l:"l-evening",opt:"showAfter"}
 ];
+/* A meal with `opt` can be hidden on Today from Settings → Food (state[opt]); what's logged in it is kept */
+function mealShown(ml){return !ml.opt||state[ml.opt]!==false}
 const MOODTIMES = [
   {id:"morning",label:"Morning",l:"l-mmorning"},{id:"afternoon",label:"Afternoon",l:"l-mafternoon"},{id:"evening",label:"Evening",l:"l-mevening"}
 ];
@@ -738,6 +745,7 @@ const KEEP_MED_DAYS = 400;   // medication check-offs; symptom history is kept f
    smells: smell list. smlog: {date:[{id,t}]} — each smell noticed. trackSmells: show the Smells box on Today
    weather: {date:{hi,lo,rain,code,hum,press,aqi,pm25,pollen:{tree,grass,weed},final}} (°C, mm, %, hPa). wxloc: {lat,lon,label}
    trackLoc: check where you are once a day. geo: {date:{lat,lon,el}} — that day's rough position (about 1 km) and elevation in meters
+   showSnacks / showAfter: show the Snacks & Other Meals / After dinner boxes on Today (both on unless turned off)
    name: who this tracking is for — shown on Recap and in exported files */
 /* ---------- Today page sections ----------
    Default order tells the day's story: what you took, ate and were around, then how you felt. */
@@ -761,7 +769,7 @@ function normLayout(saved,hidden){
 }
 function secShown(id){ const e=state.layout.find(x=>x.id===id); return !e||e.show; }
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{},
-  moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:[], olog:{}, trackOther:true,
+  moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:[], olog:{}, trackOther:true, showSnacks:true, showAfter:true,
   appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, trackLoc:false, geo:{}, pollenKey:"", name:"", updated:0};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
@@ -809,6 +817,7 @@ function normalize(s){
           moods:Array.isArray(s.moods)?s.moods:defaultMoods(), mlog:obj(s.mlog), mtlog:obj(s.mtlog), mxlog:obj(s.mxlog),
           smells:Array.isArray(s.smells)?s.smells:[], smlog:obj(s.smlog), trackSmells:s.trackSmells===true,
           others:Array.isArray(s.others)?s.others:[], olog:obj(s.olog), trackOther:s.trackOther!==false,
+          showSnacks:s.showSnacks!==false, showAfter:s.showAfter!==false,
           appts:Array.isArray(s.appts)?s.appts:[], alog:obj(s.alog),
           layout:normLayout(s.layout,s.trackAppts===false?["appts"]:[]), folded:obj(s.folded),
           showYearCal:s.showYearCal!==false,
@@ -1066,6 +1075,7 @@ function render(){
   const foodsSorted=[...state.foods].sort((a,b)=>a.name.localeCompare(b.name));
   const placesSorted=[...state.places].sort((a,b)=>a.name.localeCompare(b.name));
   for(const ml of MEALS){
+    if(!mealShown(ml)) continue;
     const m=mday[ml.id]||{}, counts=countFoods(m.foods), ids=[...counts.keys()].filter(id=>byId(state.foods,id));
     const place=m.place&&byId(state.places,m.place), mt=mealTime(m);
     html+=`<div class="box meal ${ml.l}">
@@ -1094,7 +1104,7 @@ function render(){
   }
 
   html+=noteBox("food","meal","Food notes","How did food sit today?");
-  S.food=html; SUM.food=MEALS.reduce((n,ml)=>n+((mday[ml.id]||{}).foods||[]).filter(id=>byId(state.foods,id)).length,0)||"";
+  S.food=html; SUM.food=MEALS.filter(mealShown).reduce((n,ml)=>n+((mday[ml.id]||{}).foods||[]).filter(id=>byId(state.foods,id)).length,0)||"";
 
   /* Mood & emotions, morning / afternoon / evening */
   html="";
@@ -1177,6 +1187,8 @@ function render(){
         <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,a)}</span>
         <span class="side">${times(inMonth(state.suplog,m.id),"time","times")}</span></button>`,
     "Vitamins, minerals and the like. Tap Add.","Every supplement is archived.");
+  document.getElementById("showSnacks").checked=state.showSnacks;
+  document.getElementById("showAfter").checked=state.showAfter;
   document.getElementById("trackSmells").checked=state.trackSmells;
   document.getElementById("smellBox").hidden=!state.trackSmells;
   put("smellList","smell",state.smells,(m,a)=>`<button class="row" data-edit-smell="${esc(m.id)}">
@@ -2393,6 +2405,7 @@ document.getElementById("addMood").onclick=()=>openEditor("mood",null);
 document.getElementById("addSmell").onclick=()=>openEditor("smell",null);
 document.getElementById("smellList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-smell]");if(b)openEditor("smell",b.dataset.editSmell)});
 document.getElementById("trackSmells").addEventListener("change",e=>{state.trackSmells=e.target.checked;commit()});
+for(const id of ["showSnacks","showAfter"]) document.getElementById(id).addEventListener("change",e=>{state[id]=e.target.checked;commit()});
 document.getElementById("showYearCal").addEventListener("change",e=>{state.showYearCal=e.target.checked;commit()});
 document.getElementById("addOther").onclick=()=>openEditor("other",null);
 document.getElementById("otherList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-other]");if(b)openEditor("other",b.dataset.editOther)});

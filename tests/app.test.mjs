@@ -679,9 +679,9 @@ await test("Smells, Other and Appointments copy too; Medications has no copy men
   smlog: { [yday]: [{ id: "sm1", t: at(yday, 10) }] }, olog: { [yday]: [{ id: "o1", t: at(yday, 20) }, { id: "o1", t: at(yday, 21) }] },
   alog: { [yday]: [{ id: "a1", t: at(yday, 14) }] } });
 
-await test("Snacks & Other Meals sits after After dinner, above Food notes; logs foods, copies and exports", async page => {
+await test("Snacks & Other Meals sits between Lunch and Dinner; logs foods, copies and exports", async page => {
   const order = await page.$$eval('.tsec[data-sec="food"] .box .lid', els => els.map(e => e.querySelector(".cpn,label").textContent));
-  eq(order, ["Breakfast", "Lunch", "Dinner", "After dinner", "Snacks & Other Meals", "Food notes"], "box order");
+  eq(order, ["Breakfast", "Lunch", "Snacks & Other Meals", "Dinner", "After dinner", "Food notes"], "box order");
   await page.selectOption('select[data-pick="food"][data-meal="snacks"]', "f1");
   eq((await page.state()).meals[today].snacks.foods, ["f1"], "food logged to snacks");
   const m = await copyFrom(page, '[data-copy="meal"][data-key="snacks"]');
@@ -696,6 +696,25 @@ await test("Snacks & Other Meals sits after After dinner, above Food notes; logs
   eq(["snacks_other_meals_time", "snacks_other_meals_foods", "snacks_other_meals_restaurant"].map(n => head.includes(n)), [true, true, true], "snack columns");
   assert(row[head.indexOf("snacks_other_meals_foods")].includes("Oatmeal"), "snack foods exported");
 }, { ...copyFoods, meals: { [yday]: { snacks: { foods: ["f2"] } } } });
+
+await test("Show snacks and Show after dinner (Settings → Food) hide and show those boxes, on by default, keeping their foods", async page => {
+  const boxes = () => page.$$eval('.tsec[data-sec="food"] .box .lid .cpn', els => els.map(e => e.textContent));
+  eq(await boxes(), ["Breakfast", "Lunch", "Snacks & Other Meals", "Dinner", "After dinner"], "both on for an older save");
+  await page.click('[data-tab="set"][role="tab"]');
+  eq([await page.isChecked("#showSnacks"), await page.isChecked("#showAfter")], [true, true], "checkboxes on by default");
+  await page.uncheck("#showSnacks");
+  await page.uncheck("#showAfter");
+  await page.click('[role="tab"][data-tab="today"]');
+  eq(await boxes(), ["Breakfast", "Lunch", "Dinner"], "both hidden");
+  const saved = await page.saved();
+  eq([saved.showSnacks, saved.showAfter], [false, false], "saved");
+  eq(saved.meals[today].snacks.foods, ["f1"], "hidden snack foods are kept");
+  await page.click('[data-tab="set"][role="tab"]');
+  await page.check("#showSnacks");
+  await page.click('[role="tab"][data-tab="today"]');
+  eq(await boxes(), ["Breakfast", "Lunch", "Snacks & Other Meals", "Dinner"], "snacks back, after dinner still hidden");
+  assert(await page.isVisible('.chip:has-text("Coffee")'), "with its food");
+}, { ...copyFoods, meals: { [today]: { snacks: { foods: ["f1"] } } } });
 
 /* ---------- Time boxes open the picker when tapped anywhere ---------- */
 await test("tapping the time in a pop-up opens the time picker, not just the clock icon", async page => {
