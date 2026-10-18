@@ -707,7 +707,8 @@ body{display:flex;flex-direction:column}
 <script>
 const MEALS = [
   {id:"breakfast",label:"Breakfast",l:"l-waking"},{id:"lunch",label:"Lunch",l:"l-morning"},
-  {id:"dinner",label:"Dinner",l:"l-afternoon"},{id:"after",label:"After dinner",l:"l-evening"}
+  {id:"dinner",label:"Dinner",l:"l-afternoon"},{id:"after",label:"After dinner",l:"l-evening"},
+  {id:"snacks",label:"Snacks & Other Meals",l:"l-bedtime",what:"Snacks"}   // anything between meals; `what` names it in the copy menu
 ];
 const MOODTIMES = [
   {id:"morning",label:"Morning",l:"l-mmorning"},{id:"afternoon",label:"Afternoon",l:"l-mafternoon"},{id:"evening",label:"Evening",l:"l-mevening"}
@@ -1078,12 +1079,12 @@ function render(){
         return `<span class="chip">${nb}${n>1?`<span class="qty">×${n}</span>`:""}${tb}<button data-rm="${esc(id)}" data-meal="${ml.id}" aria-label="Remove one ${esc(nm)}">×</button></span>`}).join(""):`<span class="none">Nothing added</span>`}</div>
       ${legacy[ml.id]?`<p class="legacy">${esc(legacy[ml.id])}</p>`:""}
       <div class="pickers">
-        <select data-pick="food" data-meal="${ml.id}" aria-label="Add food to ${ml.label}">
+        <select data-pick="food" data-meal="${ml.id}" aria-label="Add food to ${esc(ml.label)}">
           <option value="">Add food…</option>
           ${foodsSorted.filter(f=>activeOn(f,viewDate)).map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`+(f.versions||[]).map(v=>`<option value="${esc(f.id)}|${esc(v.id)}">${esc(f.name)} · ${esc(v.name)}</option>`).join("")).join("")}
           <option value="__new">+ New food…</option>
         </select>
-        <select data-pick="place" data-meal="${ml.id}" aria-label="Restaurant for ${ml.label}">
+        <select data-pick="place" data-meal="${ml.id}" aria-label="Restaurant for ${esc(ml.label)}">
           <option value="">${place?"Not eating out":"Restaurant…"}</option>
           ${placesSorted.filter(p=>activeOn(p,viewDate)||(place&&place.id===p.id)).map(p=>`<option value="${esc(p.id)}" ${place&&place.id===p.id?"selected":""}>${esc(p.name)}</option>`).join("")}
           <option value="__new">+ New restaurant…</option>
@@ -2099,7 +2100,7 @@ function evCopier(kind,what,q){
     put(p,to,k,t){ const L=state[E.log]; if(p.e.length) L[to]=p.e.map(e=>({id:e.id,t})); else delete L[to]; return p.e.length; }};
 }
 const COPY={
-  meal:{what:"Meal", q:"When did you eat?", time:"Time eaten", logs:["meals"], box:k=>MEALS.find(x=>x.id===k).label,
+  meal:{what:"Meal", word:k=>MEALS.find(x=>x.id===k).what, q:"When did you eat?", time:"Time eaten", logs:["meals"], box:k=>MEALS.find(x=>x.id===k).label,
     pick(from,to,k){ const y=(state.meals[from]||{})[k]||{};
       return {foods:(y.foods||[]).filter(id=>liveOn(state.foods,id,to)), place:y.place&&liveOn(state.places,y.place,to)?y.place:null, fi:y.fi||{}}; },
     size:p=>p.foods.length+(p.place?1:0),
@@ -2131,6 +2132,7 @@ const COPY={
   other:evCopier("other","Entries","When was it?"),
   appt: evCopier("appt","Appointments","When was it?")
 };
+const copyWord=(C,k)=>(C.word&&C.word(k))||C.what;
 function copyName(ck,k,label){return `<button type="button" class="cpn" data-copy="${ck}" data-key="${esc(k)}" aria-haspopup="menu">${esc(label)}</button>`}
 const clone=v=>v===undefined?undefined:JSON.parse(JSON.stringify(v));
 function copyRestore(x){ for(const n of COPY[x.ck].logs){ if(x.snap[n]===undefined) delete state[n][x.date]; else state[n][x.date]=clone(x.snap[n]); } }
@@ -2142,7 +2144,7 @@ function openCopyMenu(btn){
   const ck=btn.dataset.copy, k=btn.dataset.key, C=COPY[ck]; if(!C) return;
   const date=viewDate, from=shiftKey(date,-1), p=C.pick(from,date,k), n=C.size(p);
   cpick={ck,k,date,from};
-  document.getElementById("cmText").textContent=`Copy ${date===todayKey()?"Yesterday's":"Previous Day's"} ${C.what}`;
+  document.getElementById("cmText").textContent=`Copy ${date===todayKey()?"Yesterday's":"Previous Day's"} ${copyWord(C,k)}`;
   document.getElementById("cmSub").textContent=n?C.preview(p):"Nothing logged "+prevWord(date);
   document.getElementById("cmCopy").disabled=!n;
   /* Hangs from the box's title bar, edge to edge with the box; opens upward if there's no room below */
@@ -2159,9 +2161,9 @@ cmenu.addEventListener("close",()=>{cpick=null});
 addEventListener("scroll",()=>{ if(cmenu.open&&Math.abs(scrollY-cmenu._y)>8) cmenu.close(); },{passive:true});
 document.getElementById("cmCopy").onclick=()=>{ const c=cpick; cmenu.close(); if(c) copyBox(c); };
 async function copyBox({ck,k,date,from}){
-  const C=COPY[ck], p=C.pick(from,date,k), prev=prevWord(date);
+  const C=COPY[ck], p=C.pick(from,date,k), prev=prevWord(date), what=copyWord(C,k).toLowerCase();
   if(!C.size(p)) return;
-  if(C.has(date,k)&&!await ask(`${C.box(k)} already has something logged. Replace it with ${prev}'s ${C.what.toLowerCase()}?`,{ok:"Replace"})) return;
+  if(C.has(date,k)&&!await ask(`${C.box(k)} already has something logged. Replace it with ${prev}'s ${what}?`,{ok:"Replace"})) return;
   flushText();
   const snap=Object.fromEntries(C.logs.map(n=>[n,clone(state[n][date])])), t=stampFor(date);
   const timed=C.put(p,date,k,t);
@@ -2170,7 +2172,7 @@ async function copyBox({ck,k,date,from}){
   xedit={kind:"copy",ck,k,date,p,snap,t};
   openTimeDialog(C.box(k),C.time,"Undo copy",t,C.allDay?false:undefined);
   const note=document.getElementById("xnote");
-  note.textContent=`Copied ${prev}'s ${C.what.toLowerCase()}. ${C.q}`; note.hidden=false;
+  note.textContent=`Copied ${prev}'s ${what}. ${C.q}`; note.hidden=false;
 }
 
 /* Moods and foods get the current time when added, like doses; tap the time to change it */
@@ -2582,7 +2584,7 @@ function buildCSV(start,end){
   const tk=todayKey();
   const head=["date","weekday","doses_taken","doses_scheduled","doses_taken_list","missed_doses","doses_not_yet_taken","additional_meds","additional_med_count","supplements","supplement_count","symptoms","symptom_count",
     ...syms.map(x=>"symptom: "+x.name),...syms.map(x=>"intensity: "+x.name),
-    ...MEALS.flatMap(m=>{const b=m.label.toLowerCase().replace(/ /g,"_");return [b+"_time",b+"_foods",b+"_restaurant"]}),
+    ...MEALS.flatMap(m=>{const b=m.label.toLowerCase().replace(/[^a-z0-9]+/g,"_");return [b+"_time",b+"_foods",b+"_restaurant"]}),
     "restaurants_today",...places.map(x=>"ate at: "+x.name),
     ...MOODTIMES.flatMap(m=>["mood_"+m.id+"_time","mood_"+m.id]),
     "smells","smell_count","other","other_count","appointments","appointment_count",

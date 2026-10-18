@@ -679,6 +679,24 @@ await test("Smells, Other and Appointments copy too; Medications has no copy men
   smlog: { [yday]: [{ id: "sm1", t: at(yday, 10) }] }, olog: { [yday]: [{ id: "o1", t: at(yday, 20) }, { id: "o1", t: at(yday, 21) }] },
   alog: { [yday]: [{ id: "a1", t: at(yday, 14) }] } });
 
+await test("Snacks & Other Meals sits after After dinner, above Food notes; logs foods, copies and exports", async page => {
+  const order = await page.$$eval('.tsec[data-sec="food"] .box .lid', els => els.map(e => e.querySelector(".cpn,label").textContent));
+  eq(order, ["Breakfast", "Lunch", "Dinner", "After dinner", "Snacks & Other Meals", "Food notes"], "box order");
+  await page.selectOption('select[data-pick="food"][data-meal="snacks"]', "f1");
+  eq((await page.state()).meals[today].snacks.foods, ["f1"], "food logged to snacks");
+  const m = await copyFrom(page, '[data-copy="meal"][data-key="snacks"]');
+  eq([m.text, m.sub], ["Copy Yesterday's Snacks", "Oatmeal"], "copy menu names it");
+  await page.click("#askYes");
+  eq(await page.textContent("#xnote"), "Copied yesterday's snacks. When did you eat?", "time question");
+  await page.fill("#xtime", "15:30"); await page.click('#xform [type="submit"]');
+  eq((await page.state()).meals[today].snacks.ft, { f2: at(today, 15, 30) }, "copied with the time");
+  const csv = await page.evaluate(([a, b]) => buildCSV(a, b), [yday, today]);
+  const lines = csv.replace(/^﻿/, "").split("\r\n"), head = parseCSVLine(lines[0]), row = parseCSVLine(lines.find(l => l.startsWith(today)));
+  assert(head.includes("after_dinner_foods"), "existing column names unchanged");
+  eq(["snacks_other_meals_time", "snacks_other_meals_foods", "snacks_other_meals_restaurant"].map(n => head.includes(n)), [true, true, true], "snack columns");
+  assert(row[head.indexOf("snacks_other_meals_foods")].includes("Oatmeal"), "snack foods exported");
+}, { ...copyFoods, meals: { [yday]: { snacks: { foods: ["f2"] } } } });
+
 /* ---------- Time boxes open the picker when tapped anywhere ---------- */
 await test("tapping the time in a pop-up opens the time picker, not just the clock icon", async page => {
   await page.evaluate(() => { window.__picked = []; HTMLInputElement.prototype.showPicker = function () { window.__picked.push(this.id || this.dataset.otime || this.dataset.ptime || "?"); }; });
