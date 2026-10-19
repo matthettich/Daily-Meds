@@ -774,6 +774,25 @@ await test("Today's sections alternate inverted / regular, and keep alternating 
   eq(await looks(), ["meds:inv", "food:reg", "mood:inv", "syms:reg", "appts:inv", "notes:reg"], "re-alternates without Smells");
 }, { ...base, trackSmells: true });
 
+await test("Recap and Settings alternate like Today, and one switch in Personalize brings the old look back", async page => {
+  const WHITE = "rgb(255, 255, 255)", bg = (sel, i) => page.$$eval(sel, (l, i) => getComputedStyle(l[i]).backgroundColor, i);
+  assert(await page.evaluate(() => document.body.classList.contains("alt-look")), "on by default for an older save");
+  await page.click('[role="tab"][data-tab="sum"]');
+  eq([await bg("#sumBody > .box", 0), await bg("#sumBody > .box .lid", 0)].map(c => c === WHITE), [true, false], "Recap box 1 inverted");
+  eq([await bg("#sumBody > .box", 1), await bg("#sumBody > .box .lid", 1)].map(c => c === WHITE), [false, true], "Recap box 2 regular");
+  await page.click('[data-tab="set"][role="tab"]');
+  eq(await page.$$eval(".sset", l => l.map(x => x.classList.contains("lk-inv") ? "inv" : "reg")), ["inv", "reg", "inv", "reg", "inv", "reg", "inv", "reg", "inv", "reg"], "Settings sections alternate");
+  const smellBox = () => page.$eval(".pg-smo .box:has(#smellList)", e => getComputedStyle(e).backgroundColor);
+  assert(await smellBox() !== WHITE, "Smells in Settings is regular in the new look");
+  assert(await page.isChecked("#altLook"), "switch on");
+  await page.uncheck("#altLook");
+  eq((await page.saved()).altLook, false, "saved");
+  assert(!(await page.evaluate(() => document.body.classList.contains("alt-look"))), "class removed");
+  eq(await smellBox(), WHITE, "old look: Smells inverted again");
+  await page.click('[role="tab"][data-tab="sum"]');
+  eq(await bg("#sumBody > .box", 1), WHITE, "old look: every Recap box white");
+}, { ...base, trackSmells: true, smells: [{ id: "sm1", name: "Smoke" }] });
+
 /* ---------- Time boxes open the picker when tapped anywhere ---------- */
 await test("tapping the time in a pop-up opens the time picker, not just the clock icon", async page => {
   await page.evaluate(() => { window.__picked = []; HTMLInputElement.prototype.showPicker = function () { window.__picked.push(this.id || this.dataset.otime || this.dataset.ptime || "?"); }; });

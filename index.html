@@ -49,6 +49,13 @@ body[data-page="food"]{--dh:22} body[data-page="syms"]{--dh:44} body[data-page="
 /* Smells & Other in Settings: Food's color, inside out (white boxes, colored title bars) */
 .pg-smo .box{background:var(--white)}
 .pg-smo .lid{background:hsl(var(--H) var(--s) var(--l))}
+/* Recap and Settings in Today's alternating look: Settings → Personalize → "Alternate colors on Recap and Settings"
+   (state.altLook) puts .alt-look on <body>. Untick it for the old look; to drop it for good, delete this block,
+   the switch and altLook. Settings sections carry .lk-inv / .lk-reg in turn; Recap's boxes alternate in order. */
+.alt-look .lk-inv .box,.alt-look #sumBody > .box:nth-child(odd of .box){background:var(--white)}
+.alt-look .lk-inv .lid,.alt-look #sumBody > .box:nth-child(odd of .box) .lid{background:hsl(var(--H) var(--s) var(--l))}
+.alt-look .lk-reg .box,.alt-look #sumBody > .box:nth-child(even of .box){background:hsl(var(--H) var(--s) var(--l))}
+.alt-look .lk-reg .lid,.alt-look #sumBody > .box:nth-child(even of .box) .lid{background:var(--white)}
 /* Box bodies get a little deeper through the day; still pastel at the darkest */
 .l-page{--l:96%} .l-waking{--l:93%} .l-morning{--l:90%} .l-afternoon{--l:87%}
 .l-evening{--l:84%} .l-bedtime{--l:81%} .l-snack{--l:88.5%} .l-extra{--l:78%} .l-supp{--l:75%} .l-sym{--l:85%} .l-list{--l:90%} .l-notes{--l:88%}
@@ -452,7 +459,7 @@ body{display:flex;flex-direction:column}
 
     <!-- Settings: one long page, a band per section in that section's color -->
     <!-- Today page: which sections show, and in what order -->
-    <section class="view pg-white sset" data-tab="set" style="display:none">
+    <section class="view pg-white sset lk-inv" data-tab="set" style="display:none">
       <div class="sect first" role="heading" aria-level="2">Today page</div>
       <div class="box l-list">
         <div class="lid"><h2>Sections</h2></div>
@@ -466,7 +473,7 @@ body{display:flex;flex-direction:column}
       </div>
     </section>
 
-    <section class="view pg-white pg-meds sset" data-tab="set" style="display:none">
+    <section class="view pg-white pg-meds sset lk-reg" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Medications and Supplements</div>
       <div class="box l-list">
         <div class="lid"><h2>Medications</h2><button class="act add" id="addMed">Add</button></div>
@@ -482,7 +489,7 @@ body{display:flex;flex-direction:column}
       </div>
     </section>
 
-    <section class="view pg-color pg-syms sset band" data-tab="set" style="display:none">
+    <section class="view pg-color pg-syms sset lk-inv band" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Symptoms</div>
       <div class="box l-list">
         <div class="lid"><h2>Symptoms</h2><button class="act add" id="addSym">Add</button></div>
@@ -490,7 +497,7 @@ body{display:flex;flex-direction:column}
       </div>
     </section>
 
-    <section class="view pg-color pg-food sset band" data-tab="set" style="display:none">
+    <section class="view pg-color pg-food sset lk-reg band" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Food</div>
       <div class="box l-list">
         <label class="toggle"><input type="checkbox" id="showSnacks"><span>Show snacks</span></label>
@@ -506,7 +513,7 @@ body{display:flex;flex-direction:column}
       </div>
     </section>
 
-    <section class="view pg-color pg-mood sset band" data-tab="set" style="display:none">
+    <section class="view pg-color pg-mood sset lk-inv band" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Mood &amp; emotions</div>
       <div class="box l-list">
         <div class="lid"><h2>Moods &amp; emotions</h2><button class="act add" id="addMood">Add</button></div>
@@ -514,7 +521,7 @@ body{display:flex;flex-direction:column}
       </div>
     </section>
 
-    <section class="view pg-color pg-smo sset band" data-tab="set" style="display:none">
+    <section class="view pg-color pg-smo sset lk-reg band" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Smells &amp; Other</div>
       <div class="box l-list">
         <label class="toggle"><input type="checkbox" id="trackSmells"><span>Track smells</span></label>
@@ -532,7 +539,7 @@ body{display:flex;flex-direction:column}
       </div>
     </section>
 
-    <section class="view pg-color pg-appt sset band" data-tab="set" style="display:none">
+    <section class="view pg-color pg-appt sset lk-inv band" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Appointments</div>
       <div class="box l-list" id="apptBox">
         <div class="lid"><h2>Appointments</h2><button class="act add" id="addAppt">Add</button></div>
@@ -540,7 +547,7 @@ body{display:flex;flex-direction:column}
       </div>
     </section>
 
-    <section class="view pg-white sset" data-tab="set" style="display:none">
+    <section class="view pg-white sset lk-reg" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Your data</div>
       <div class="box l-list">
         <div class="lid"><h2>Backup</h2></div>
@@ -554,7 +561,7 @@ body{display:flex;flex-direction:column}
       </div>
     </section>
 
-    <section class="view pg-white sset" data-tab="set" style="display:none">
+    <section class="view pg-white sset lk-inv" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Recap</div>
       <div class="box l-list">
         <label class="toggle"><input type="checkbox" id="showYearCal"><span>Show year calendar on Recap</span></label>
@@ -575,8 +582,12 @@ body{display:flex;flex-direction:column}
       </div>
     </section>
 
-    <section class="view pg-white sset" data-tab="set" style="display:none">
+    <section class="view pg-white sset lk-reg" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Personalize</div>
+      <div class="box l-list">
+        <label class="toggle"><input type="checkbox" id="altLook"><span>Alternate colors on Recap and Settings</span></label>
+        <p class="hint">Like Today: boxes go white with a colored title bar, then colored with a white title bar, all the way down. Untick for the old look.</p>
+      </div>
       <div class="box l-list">
         <div class="lid"><h2>Name</h2></div>
         <p class="hint">Who this tracking is for. It's shown on the Recap page and added to spreadsheets and backups, which helps when you track for more than one person.</p>
@@ -761,6 +772,7 @@ const KEEP_MED_DAYS = 400;   // medication check-offs; symptom history is kept f
    showSnacks / showAfter: show the Snacks & Other Meals / After dinner boxes on Today (both on unless turned off)
    trig: {date:{boxKey:true}} — boxes marked as a suspected trigger that day (keys from trigKey: "breakfast", "mood-morning",
    "syms", "smell", "other", "appt"). trackTrig: show the Suspected trigger checkbox and tags (on unless turned off)
+   altLook: Recap and Settings boxes alternate like Today's (on unless turned off)
    name: who this tracking is for — shown on Recap and in exported files */
 /* ---------- Today page sections ----------
    Default order tells the day's story: what you took, ate and were around, then how you felt. */
@@ -784,7 +796,7 @@ function normLayout(saved,hidden){
 }
 function secShown(id){ const e=state.layout.find(x=>x.id===id); return !e||e.show; }
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{},
-  moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:[], olog:{}, trackOther:true, showSnacks:true, showAfter:true, trig:{}, trackTrig:true,
+  moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:[], olog:{}, trackOther:true, showSnacks:true, showAfter:true, trig:{}, trackTrig:true, altLook:true,
   appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, trackLoc:false, geo:{}, pollenKey:"", name:"", updated:0};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
@@ -833,7 +845,7 @@ function normalize(s){
           smells:Array.isArray(s.smells)?s.smells:[], smlog:obj(s.smlog), trackSmells:s.trackSmells===true,
           others:Array.isArray(s.others)?s.others:[], olog:obj(s.olog), trackOther:s.trackOther!==false,
           showSnacks:s.showSnacks!==false, showAfter:s.showAfter!==false,
-          trig:obj(s.trig), trackTrig:s.trackTrig!==false,
+          trig:obj(s.trig), trackTrig:s.trackTrig!==false, altLook:s.altLook!==false,
           appts:Array.isArray(s.appts)?s.appts:[], alog:obj(s.alog),
           layout:normLayout(s.layout,s.trackAppts===false?["appts"]:[]), folded:obj(s.folded),
           showYearCal:s.showYearCal!==false,
@@ -994,6 +1006,7 @@ function render(){
   if(viewDate>tk) viewDate=tk;
   const d=parseKey(viewDate);
   document.body.dataset.day=d.getDay();
+  document.body.classList.toggle("alt-look",state.altLook);
   updateChrome(); showName();
   const rel = viewDate===tk ? "Today" : viewDate===shiftKey(tk,-1) ? "Yesterday" : d.toLocaleDateString([], {year:"numeric"});
   const away = viewDate!==tk, dayBtn=document.getElementById("dayTitle");
@@ -1206,6 +1219,7 @@ function render(){
     "Vitamins, minerals and the like. Tap Add.","Every supplement is archived.");
   document.getElementById("showSnacks").checked=state.showSnacks;
   document.getElementById("trackTrig").checked=state.trackTrig;
+  document.getElementById("altLook").checked=state.altLook;
   document.getElementById("showAfter").checked=state.showAfter;
   document.getElementById("trackSmells").checked=state.trackSmells;
   document.getElementById("smellBox").hidden=!state.trackSmells;
@@ -2452,7 +2466,7 @@ document.getElementById("addMood").onclick=()=>openEditor("mood",null);
 document.getElementById("addSmell").onclick=()=>openEditor("smell",null);
 document.getElementById("smellList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-smell]");if(b)openEditor("smell",b.dataset.editSmell)});
 document.getElementById("trackSmells").addEventListener("change",e=>{state.trackSmells=e.target.checked;commit()});
-for(const id of ["showSnacks","showAfter","trackTrig"]) document.getElementById(id).addEventListener("change",e=>{state[id]=e.target.checked;commit()});
+for(const id of ["showSnacks","showAfter","trackTrig","altLook"]) document.getElementById(id).addEventListener("change",e=>{state[id]=e.target.checked;commit()});
 document.getElementById("showYearCal").addEventListener("change",e=>{state.showYearCal=e.target.checked;commit()});
 document.getElementById("addOther").onclick=()=>openEditor("other",null);
 document.getElementById("otherList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-other]");if(b)openEditor("other",b.dataset.editOther)});
