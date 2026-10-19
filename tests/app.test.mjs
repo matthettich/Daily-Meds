@@ -361,7 +361,7 @@ await test("backup restore keeps new data and uses the in-app pop-up", async pag
 
 /* ---------- Today page sections: order, fold, reorder, hide ---------- */
 await test("Today sections default to the day's story order", async page => {
-  eq(await page.$$eval("[data-sec]", l => l.map(x => x.dataset.sec)), ["meds", "food", "smells", "mood", "syms", "appts", "notes"], "order");
+  eq(await page.$$eval("[data-sec]", l => l.map(x => x.dataset.sec)), ["meds", "food", "smells", "activity", "mood", "syms", "appts", "notes"], "order");
   eq(await page.textContent('[data-fold="syms"] .sl'), "Symptoms", "heading");
 }, base);
 await test("tap a heading to fold a section; it stays folded and shows a count", async page => {
@@ -377,21 +377,21 @@ await test("tap a heading to fold a section; it stays folded and shows a count",
 }, base);
 await test("Settings reorders and hides Today sections", async page => {
   await page.click('[data-tab="set"][role="tab"]');
-  eq(await page.locator("#layoutList .lrow").count(), 7, "one row per section");
+  eq(await page.locator("#layoutList .lrow").count(), 8, "one row per section");
   assert(await page.isDisabled('[data-move="meds"][data-dir="-1"]'), "first can't move up");
   await page.click('[data-move="syms"][data-dir="-1"]');
   await page.click('[data-move="syms"][data-dir="-1"]');
-  eq((await page.state()).layout.map(e => e.id), ["meds", "food", "syms", "smells", "mood", "appts", "notes"], "moved up twice");
+  eq((await page.state()).layout.map(e => e.id), ["meds", "food", "smells", "syms", "activity", "mood", "appts", "notes"], "moved up twice");
   await page.uncheck('[data-show="food"]');
-  eq(await page.$$eval("[data-sec]", l => l.map(x => x.dataset.sec)), ["meds", "syms", "smells", "mood", "appts", "notes"], "Today follows");
+  eq(await page.$$eval("[data-sec]", l => l.map(x => x.dataset.sec)), ["meds", "smells", "syms", "activity", "mood", "appts", "notes"], "Today follows");
   await page.click("#layoutReset");
   const L = (await page.state()).layout;
-  eq(L.map(e => e.id), ["meds", "food", "smells", "mood", "syms", "appts", "notes"], "reset order");
+  eq(L.map(e => e.id), ["meds", "food", "smells", "activity", "mood", "syms", "appts", "notes"], "reset order");
   eq(L.find(e => e.id === "food").show, false, "reset keeps what's hidden");
 }, base);
 await test("older saved data gets the new layout; hidden appointments stay hidden", async page => {
   const L = (await page.state()).layout;
-  eq(L.length, 7, "all sections"); eq(L.find(e => e.id === "appts").show, false, "carried over");
+  eq(L.length, 8, "all sections"); eq(L.find(e => e.id === "appts").show, false, "carried over");
   eq(await page.locator('[data-sec="appts"]').count(), 0, "not on Today");
 }, { ...base, trackAppts: false });
 
@@ -763,7 +763,7 @@ await test("Suspected triggers setting (Settings → Today page): off hides the 
 
 await test("Today's sections alternate inverted / regular, and keep alternating when one is hidden", async page => {
   const looks = () => page.$$eval(".tsec", l => l.map(x => x.dataset.sec + ":" + (x.classList.contains("inv") ? "inv" : x.classList.contains("reg") ? "reg" : "?")));
-  eq(await looks(), ["meds:inv", "food:reg", "smells:inv", "mood:reg", "syms:inv", "appts:reg", "notes:inv"], "default order");
+  eq(await looks(), ["meds:inv", "food:reg", "smells:inv", "activity:reg", "mood:inv", "syms:reg", "appts:inv", "notes:reg"], "default order");
   const bg = sel => page.$eval(sel, e => getComputedStyle(e).backgroundColor);
   eq(await bg('.tsec[data-sec="food"] .box .lid'), "rgb(255, 255, 255)", "regular: white title bar");
   assert(await bg('.tsec[data-sec="food"] .box') !== "rgb(255, 255, 255)", "regular: colored box");
@@ -772,7 +772,7 @@ await test("Today's sections alternate inverted / regular, and keep alternating 
   await page.click('[data-tab="set"][role="tab"]');
   await page.uncheck('#layoutList [data-show="smells"]');
   await page.click('[role="tab"][data-tab="today"]');
-  eq(await looks(), ["meds:inv", "food:reg", "mood:inv", "syms:reg", "appts:inv", "notes:reg"], "re-alternates without Smells");
+  eq(await looks(), ["meds:inv", "food:reg", "activity:inv", "mood:reg", "syms:inv", "appts:reg", "notes:inv"], "re-alternates without Smells");
 }, { ...base, trackSmells: true });
 
 await test("Recap and Settings alternate like Today, and one switch in Personalize brings the old look back", async page => {
@@ -782,7 +782,7 @@ await test("Recap and Settings alternate like Today, and one switch in Personali
   eq([await bg("#sumBody > .box", 0), await bg("#sumBody > .box .lid", 0)].map(c => c === WHITE), [true, false], "Recap box 1 inverted");
   eq([await bg("#sumBody > .box", 1), await bg("#sumBody > .box .lid", 1)].map(c => c === WHITE), [false, true], "Recap box 2 regular");
   await page.click('[data-tab="set"][role="tab"]');
-  eq(await page.$$eval(".sset", l => l.map(x => x.classList.contains("lk-inv") ? "inv" : "reg")), ["inv", "reg", "inv", "reg", "inv", "reg", "inv", "reg", "inv", "reg"], "Settings sections alternate");
+  eq(await page.$$eval(".sset", l => l.map(x => x.classList.contains("lk-inv") ? "inv" : "reg")), ["inv", "reg", "inv", "reg", "inv", "reg", "inv", "reg", "inv", "reg", "inv"], "Settings sections alternate");
   const smellBox = () => page.$eval(".pg-smo .box:has(#smellList)", e => getComputedStyle(e).backgroundColor);
   assert(await smellBox() !== WHITE, "Smells in Settings is regular in the new look");
   assert(await page.isChecked("#altLook"), "switch on");
@@ -869,6 +869,70 @@ await test("End of day setting: bedtime Cromolyn by default, At midnight turns i
   eq(await page.evaluate(() => [todayKey(), viewDate]), [NEXT, NEXT], "midnight ends the day again");
   eq((await page.saved()).dayEnd, "", "choice saved");
 }, lateSeed, { clock: new Date(2026, 9, 20, 0, 30) });
+
+/* ---------- Activity and exertion ---------- */
+const csvCols = csv => { const lines = csv.replace(/^\ufeff/, "").split("\r\n"), head = parseCSVLine(lines[0]), row = parseCSVLine(lines[1]); return n => row[head.indexOf(n)]; };
+await test("Activity: log one, tap its name to set minutes and exertion; the chip, Recap and export show them", async page => {
+  await page.selectOption('select[data-pick="ev"][data-ev="act"]', "a1");
+  await page.click('button[data-actd="a1"]');
+  await page.waitForSelector("#sdlg[open]");
+  eq(await page.textContent("#sdlg .scalelab"), "EasyAll-out", "exertion scale");
+  eq(await page.locator("#sdlg [data-oall]").count(), 0, "no All day for activities");
+  await page.fill('#sdlg [data-omin="0"]', "45");
+  await page.click('#sdlg [data-lv="7"]');
+  eq(await page.inputValue('#sdlg [data-omin="0"]'), "45", "minutes kept when tapping the scale");
+  await page.click('#sform button[type="submit"]');
+  const e = (await page.state()).aclog[today][0];
+  eq([e.id, e.x, e.min], ["a1", 7, 45], "saved with exertion and minutes");
+  const chip = await page.textContent('[data-evbox="act"] .chip');
+  assert(/^Walk745m/.test(chip), "chip shows exertion and minutes: " + chip);
+  const col = csvCols(await page.evaluate(k => buildCSV(k, k), today));
+  assert(/^Walk at \d+:\d\d [AP]M \(45 min, exertion 7\/10\)$/.test(col("activities")), "activities: " + col("activities"));
+  eq([col("activity_count"), col("activity_minutes"), col("max_exertion"), col("activity: Walk"), col("exertion: Walk")], ["1", "45", "7", "1", "7"], "columns");
+  await page.click('[data-tab="sum"][role="tab"]');
+  const sum = await page.textContent("#sumBody");
+  assert(sum.includes("Exertion & symptoms") && /Walk\s*1 day/.test(sum), "Recap shows the activity and the exertion box");
+}, { ...base, acts: [{ id: "a1", name: "Walk" }] });
+
+await test("Activity is its own Settings list; + New activity… adds and logs it", async page => {
+  await page.selectOption('select[data-pick="ev"][data-ev="act"]', "__new");
+  await page.fill('#itemForm [name="name"]', "Yoga");
+  await page.click("#saveItem");
+  const s = await page.state();
+  eq([s.acts.map(x => x.name), s.aclog[today].length], [["Yoga"], 1], "added and logged");
+  await page.click('[data-tab="set"][role="tab"]');
+  assert((await page.textContent("#actList")).includes("Yoga"), "listed in Settings");
+}, base);
+
+await test("Got overheated starts in Other, is added once to an older list, and deleting it sticks", async page => {
+  eq((await page.state()).others.map(x => x.name), ["Hot tub", "Got overheated"], "added to an older list");
+  await page.selectOption('select[data-pick="ev"][data-ev="other"]', { label: "Got overheated" });
+  eq((await page.state()).olog[today].length, 1, "logged");
+  await page.evaluate(() => { state.others = state.others.filter(x => !/overheat/i.test(x.name)); persist(); });
+  await page.reload();
+  eq((await page.state()).others.map(x => x.name), ["Hot tub"], "deleting it sticks");
+}, { ...base, others: [{ id: "o1", name: "Hot tub" }] });
+
+await test("Recap Exertion & symptoms: harder vs easier activities, symptoms within 6 hours, unrated ones left out", async page => {
+  const vals = h => [...h.matchAll(/class="v[^"]*">([^<]+)</g)].map(m => m[1]);
+  const box = await page.evaluate(([a, b]) => exertionSummary(a, b), [shift(today, -6), today]);
+  assert(/3 rated/.test(box), "three rated; the unrated one is left out");
+  assert(/Exertion 6–10 \(2\)/.test(box) && /1–5 \(1\)/.test(box), "split by exertion");
+  eq(vals(box), ["50%", "0%"], "the hard walk followed by nausea at 1 PM counts");
+  eq(vals(await page.evaluate(([a, b]) => { exSym = "s1"; return exertionSummary(a, b); }, [shift(today, -6), today])), ["0%", "0%"], "a headache at 8 PM is past the 6 hours");
+}, { ...base, acts: [{ id: "a1", name: "Walk" }],
+  aclog: { [shift(today, -4)]: [{ id: "a1", t: at(shift(today, -4), 10) }], [shift(today, -3)]: [{ id: "a1", t: at(shift(today, -3), 10), x: 8, min: 30 }],
+           [shift(today, -2)]: [{ id: "a1", t: at(shift(today, -2), 10), x: 3 }], [shift(today, -1)]: [{ id: "a1", t: at(shift(today, -1), 10), x: 7 }] },
+  slog: { [shift(today, -3)]: { s2: [{ t: at(shift(today, -3), 13) }] }, [shift(today, -1)]: { s1: [{ t: at(shift(today, -1), 20) }] } } });
+
+await test("Copy Yesterday's Activities keeps minutes and exertion, then asks the start time", async page => {
+  const m = await copyFrom(page, '[data-copy="act"]');
+  eq([m.text, m.sub], ["Copy Yesterday's Activities", "Yoga"], "menu");
+  await page.waitForSelector("#xdlg[open]");
+  await page.fill("#xtime", "07:30"); await page.click('#xform [type="submit"]');
+  const e = (await page.state()).aclog[today][0];
+  eq([e.x, e.min, new Date(e.t).getHours()], [6, 20, 7], "copied with its details at 7:30");
+}, { ...base, acts: [{ id: "a1", name: "Yoga" }], aclog: { [shift(today, -1)]: [{ id: "a1", t: at(shift(today, -1), 8), x: 6, min: 20 }] } });
 
 /* ---------- Existing features still work ---------- */
 await test("checking off a med and adding a food still work", async page => {

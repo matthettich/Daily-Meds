@@ -35,7 +35,7 @@ body[data-day="5"]{--h:152;--s:50%;--tx:#7A1E5E}
 body[data-day="6"]{--h:208;--s:75%;--tx:#8A3412}
 /* Phone (folded): pages alternate white and colored — Today white, Food colored, Meds white, Symptoms colored */
 /* Each page is its own version of the day's color (a small hue shift) */
-.pg-today{--dh:0} .pg-food{--dh:22} .pg-smo{--dh:22} .pg-meds{--dh:-22} .pg-syms{--dh:44} .pg-sum{--dh:-44} .pg-mood{--dh:-55} .pg-appt{--dh:110}
+.pg-today{--dh:0} .pg-food{--dh:22} .pg-smo{--dh:22} .pg-meds{--dh:-22} .pg-syms{--dh:44} .pg-sum{--dh:-44} .pg-mood{--dh:-55} .pg-actv{--dh:78} .pg-appt{--dh:110}
 .view{--H:calc(var(--h) + var(--dh,0))}
 body[data-page="food"]{--dh:22} body[data-page="syms"]{--dh:44} body[data-page="mood"]{--dh:-55}
 @media (max-width:719px){
@@ -267,6 +267,7 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .l-mmorning{--l:90%} .l-mafternoon{--l:86%} .l-mevening{--l:82%}
 .pg-white .box.l-sym{--H:calc(var(--h) + 44);--l:86%}        /* Symptoms */
 .l-smell{--l:88%} .l-other{--l:84%}
+.pg-white .box.actv{--H:calc(var(--h) + 78);--l:86%}         /* Activity */
 .pg-white .box.appt{--H:calc(var(--h) + 110)}                /* Appointments */
 .l-appt{--l:84%}
 .tsec.inv .box{background:var(--white)}
@@ -327,6 +328,9 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .occhead input[type=time]:disabled{opacity:.4}
 input[type=time]:not(:disabled){cursor:pointer}
 .occhead .allday{margin:0;min-height:40px}
+/* Activity: how many minutes, next to the time */
+.occhead .dur{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted)}
+.occhead .dur input{width:64px;min-height:40px;padding:6px 8px;border:1px solid var(--rule);background:var(--white);font:inherit;color:var(--ink)}
 .occn{display:inline-grid;place-items:center;width:24px;height:24px;border:1px solid var(--rule);font-size:13px}
 .occx{margin-left:auto;width:40px;height:40px;border:1px solid var(--rule);background:var(--white);font-size:18px;line-height:1}
 .scale{display:grid;grid-template-columns:repeat(10,1fr);border:1px solid var(--rule)}
@@ -546,7 +550,15 @@ body{display:flex;flex-direction:column}
       </div>
     </section>
 
-    <section class="view pg-color pg-appt sset lk-inv band" data-tab="set" style="display:none">
+    <section class="view pg-color pg-actv sset lk-inv band" data-tab="set" style="display:none">
+      <div class="sect" role="heading" aria-level="2">Activity</div>
+      <div class="box l-list">
+        <div class="lid"><h2>Activities</h2><button class="act add" id="addAct">Add</button></div>
+        <div id="actList"></div>
+      </div>
+    </section>
+
+    <section class="view pg-color pg-appt sset lk-reg band" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Appointments</div>
       <div class="box l-list" id="apptBox">
         <div class="lid"><h2>Appointments</h2><button class="act add" id="addAppt">Add</button></div>
@@ -554,7 +566,7 @@ body{display:flex;flex-direction:column}
       </div>
     </section>
 
-    <section class="view pg-white sset lk-reg" data-tab="set" style="display:none">
+    <section class="view pg-white sset lk-inv" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Your data</div>
       <div class="box l-list">
         <div class="lid"><h2>Backup</h2></div>
@@ -568,7 +580,7 @@ body{display:flex;flex-direction:column}
       </div>
     </section>
 
-    <section class="view pg-white sset lk-inv" data-tab="set" style="display:none">
+    <section class="view pg-white sset lk-reg" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Recap</div>
       <div class="box l-list">
         <label class="toggle"><input type="checkbox" id="showYearCal"><span>Show year calendar on Recap</span></label>
@@ -589,7 +601,7 @@ body{display:flex;flex-direction:column}
       </div>
     </section>
 
-    <section class="view pg-white sset lk-reg" data-tab="set" style="display:none">
+    <section class="view pg-white sset lk-inv" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Personalize</div>
       <div class="box l-list">
         <label class="toggle"><input type="checkbox" id="altLook"><span>Alternate colors on Recap and Settings</span></label>
@@ -754,6 +766,12 @@ const MOODTIMES = [
 /* A starter list of moods; edit or delete any of them on the Mood page */
 const DEFAULT_MOODS = ["Happy","Calm","Content","Energetic","Tired","Anxious","Stressed","Irritable","Sad","Low","Overwhelmed","Hopeful"];
 function defaultMoods(){return DEFAULT_MOODS.map(name=>({id:uid(),name}))}
+/* "Got overheated" starts in the Other list, so heat that isn't an activity (a warm office, a hot shower) can be logged.
+   Added once to older lists that don't have it; deleting it afterwards sticks. */
+function defaultOthers(list){
+  const L=Array.isArray(list)?list:[];
+  return L.some(x=>x&&/overheat/i.test(x.name||""))?L:[...L,{id:uid(),name:"Got overheated"}];
+}
 const SLOTS = [
   {id:"waking",label:"Waking"},{id:"morning",label:"Morning"},{id:"afternoon",label:"Afternoon"},
   {id:"evening",label:"Evening"},{id:"bedtime",label:"Bedtime"}
@@ -771,6 +789,9 @@ const LATE_CUTOFF = 3;       // 3 AM: the latest a day can run past midnight whi
    mxlog: {date:{morning:{id:[t,…]}}} — times of the 2nd, 3rd… time a mood was felt in that part of the day
    slog: {date:{symId:[{t,i},…]}} — each time a symptom was noticed: t is a timestamp or "all" (all day), i is intensity 1–10 (optional)
    others: "Other" list (air travel, hot tub…). olog: {date:[{id,t}]}. trackOther: show the Other box on Today
+   hotAdded: "Got overheated" was added to the Other list once (so deleting it sticks)
+   acts: activity list (walk, yoga, cleaning…). aclog: {date:[{id,t,x,min}]} — each activity: start time t, exertion x 1–10
+   (optional), minutes min (optional)
    appts: appointment list ({id,name,dose} — dose holds who/where). alog: {date:[{id,t}]}
    layout: [{id,show}] — the Today page's sections in order, and whether each shows. folded: {id:true} — sections folded on Today
    showYearCal: show the year calendar on Recap
@@ -789,6 +810,7 @@ const SECTIONS=[
   {id:"meds",  label:"Medications & supplements"},
   {id:"food",  label:"Food"},
   {id:"smells",label:"Smells & other"},
+  {id:"activity",label:"Activity"},
   {id:"mood",  label:"Mood & emotions"},
   {id:"syms",  label:"Symptoms"},
   {id:"appts", label:"Appointments"},
@@ -805,7 +827,7 @@ function normLayout(saved,hidden){
 }
 function secShown(id){ const e=state.layout.find(x=>x.id===id); return !e||e.show; }
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{},
-  moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:[], olog:{}, trackOther:true, showSnacks:true, showAfter:true, trig:{}, trackTrig:true, altLook:true,
+  moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:defaultOthers(), olog:{}, trackOther:true, hotAdded:true, acts:[], aclog:{}, showSnacks:true, showAfter:true, trig:{}, trackTrig:true, altLook:true,
   appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, trackLoc:false, geo:{}, pollenKey:"", name:"", updated:0};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
@@ -886,7 +908,8 @@ function normalize(s){
           supps:Array.isArray(s.supps)?s.supps:[], suplog:obj(s.suplog),
           moods:Array.isArray(s.moods)?s.moods:defaultMoods(), mlog:obj(s.mlog), mtlog:obj(s.mtlog), mxlog:obj(s.mxlog),
           smells:Array.isArray(s.smells)?s.smells:[], smlog:obj(s.smlog), trackSmells:s.trackSmells===true,
-          others:Array.isArray(s.others)?s.others:[], olog:obj(s.olog), trackOther:s.trackOther!==false,
+          others:s.hotAdded===true?(Array.isArray(s.others)?s.others:[]):defaultOthers(s.others), olog:obj(s.olog), trackOther:s.trackOther!==false, hotAdded:true,
+          acts:Array.isArray(s.acts)?s.acts:[], aclog:obj(s.aclog),
           showSnacks:s.showSnacks!==false, showAfter:s.showAfter!==false,
           trig:obj(s.trig), trackTrig:s.trackTrig!==false, altLook:s.altLook!==false,
           appts:Array.isArray(s.appts)?s.appts:[], alog:obj(s.alog),
@@ -1018,7 +1041,8 @@ const EVLOGS={
   supp: {items:"supps", log:"suplog",title:"Supplements", cls:"l-supp",     count:n=>n+" taken",   none:"No supplements taken",   add:"Add supplement…",  add2:"+ New supplement…",  time:"Time taken",   word:"supplement"},
   smell:{items:"smells",log:"smlog", title:"Smells",      cls:"smo l-smell",count:n=>n+" noticed", none:"No smells noticed",      add:"Add smell…",       add2:"+ New smell…",       time:"Time noticed", word:"smell"},
   other:{items:"others",log:"olog",  title:"Other",       cls:"smo l-other",count:n=>n+" logged",  none:"Nothing else logged",    add:"Log something…",   add2:"+ New…",             time:"Time",         word:"thing"},
-  appt: {items:"appts", log:"alog",  title:"Appointments",cls:"appt l-appt", count:n=>n===1?"1 visit":n+" visits", none:"No appointments today", add:"Add appointment…", add2:"+ New appointment…", time:"Time", word:"appointment"}
+  appt: {items:"appts", log:"alog",  title:"Appointments",cls:"appt l-appt", count:n=>n===1?"1 visit":n+" visits", none:"No appointments today", add:"Add appointment…", add2:"+ New appointment…", time:"Time", word:"appointment"},
+  act:  {items:"acts",  log:"aclog", title:"Activity",    cls:"actv",        count:n=>n+" logged",  none:"No activity logged",     add:"Log activity…",    add2:"+ New activity…",    time:"Time started", word:"activity"}
 };
 function evOf(kind,id){return state[EVLOGS[kind].items].find(x=>x.id===id)}
 function evHits(kind,date){return (state[EVLOGS[kind].log][date]||[]).map((e,i)=>({...e,i})).filter(e=>evOf(kind,e.id))}
@@ -1034,6 +1058,29 @@ function evBox(kind){
         <select data-pick="ev" data-ev="${kind}" aria-label="${E.add.replace("…","")}">
           <option value="">${E.add}</option>
           ${items.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}${m.dose?" · "+esc(m.dose):""}</option>`).join("")}
+          <option value="__new">${E.add2}</option>
+        </select>
+      </div>
+    </div>`;
+}
+/* Activity: like the other logs, plus each time can have an exertion (x, 1 easy – 10 all-out) and minutes (min).
+   One chip per activity: tap the name for every time, its minutes and exertion; the time and × act on the latest one. */
+function actMins(L){return L.reduce((n,e)=>n+(+e.min||0),0)}
+function fmtMins(n){return n>=60?Math.floor(n/60)+"h"+(n%60?" "+n%60+"m":""):n+"m"}
+function actBox(){
+  const E=EVLOGS.act, hits=evHits("act",viewDate), groups=new Map();
+  for(const e of hits){ const g=groups.get(e.id); if(g) g.push(e); else groups.set(e.id,[e]); }
+  const items=state.acts.filter(m=>activeOn(m,viewDate)).sort((a,b)=>a.name.localeCompare(b.name));
+  return `<div class="box ${E.cls}" data-evbox="act">
+      <div class="lid">${copyName("act","act",E.title)}<span class="st">${hits.length?E.count(hits.length):"None"}</span></div>
+      <div class="chips">${groups.size?[...groups].map(([id,L])=>{
+        const m=evOf("act",id), last=L[L.length-1], mx=Math.max(0,...L.map(e=>+e.x||0)), mins=actMins(L);
+        const nb=`<button class="nm" data-actd="${esc(id)}" aria-label="${esc(m.name)}${mx?", exertion "+mx+" of 10":""}${mins?", "+mins+" minutes":""}. Tap to set exertion, minutes and times">${esc(m.name)}${mx?`<span class="lvl" style="--i:${mx}">${mx}</span>`:""}</button>`;
+        return `<span class="chip">${nb}${L.length>1?`<span class="qty">×${L.length}</span>`:""}${mins?`<span class="qty">${fmtMins(mins)}</span>`:""}<button class="t" data-evt="act" data-i="${last.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(last.t)}">${fmtTime(last.t)}</button><button data-evrm="act" data-i="${last.i}" aria-label="Remove ${L.length>1?"one ":""}${esc(m.name)}">×</button></span>`}).join(""):`<span class="none">${E.none}</span>`}</div>
+      <div class="pickers one">
+        <select data-pick="ev" data-ev="act" aria-label="${E.add.replace("…","")}">
+          <option value="">${E.add}</option>
+          ${items.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}</option>`).join("")}
           <option value="__new">${E.add2}</option>
         </select>
       </div>
@@ -1214,6 +1261,10 @@ function render(){
     SUM.smells=(state.trackSmells?evHits("smell",viewDate).length:0)+(state.trackOther?evHits("other",viewDate).length:0)||"";
   }
 
+  /* Activity: what you did, how long and how hard */
+  S.activity=actBox()+noteBox("act","actv","Activity notes","Where, indoors or out, how hot it was…");
+  SUM.activity=evHits("act",viewDate).length||"";
+
   /* Appointments */
   S.appts=evBox("appt")+noteBox("appt","appt","Appointment notes","What the doctor said, changes, next visit…");
   SUM.appts=evHits("appt",viewDate).length||"";
@@ -1285,6 +1336,10 @@ function render(){
         <span><span class="nm">${esc(m.name)}</span>${ds(a)}</span>
         <span class="side">${times(evMonth("other",m.id),"time","times")}</span></button>`,
     "Anything else worth tracking: air travel, a hot tub, a late night… Tap Add.","Everything here is archived.");
+  put("actList","act",state.acts,(m,a)=>`<button class="row" data-edit-act="${esc(m.id)}">
+        <span><span class="nm">${esc(m.name)}</span>${ds(a)}</span>
+        <span class="side">${times(evMonth("act",m.id),"time","times")}</span></button>`,
+    "Walks, yoga, cleaning, errands… anything that takes effort. Tap Add.","Every activity is archived.");
   renderLayout();
   put("apptList","appt",state.appts,(m,a)=>`<button class="row" data-edit-appt="${esc(m.id)}">
         <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,a)}</span>
@@ -1331,7 +1386,7 @@ function daysBetween(a,b){return Math.round((parseKey(b)-parseKey(a))/86400000)+
 function firstUse(){
   let first=todayKey();
   const scan=o=>{for(const k of Object.keys(o||{})) if(k<first) first=k};
-  scan(state.log);scan(state.slog);scan(state.food);scan(state.notes);scan(state.xlog);scan(state.suplog);scan(state.smlog);scan(state.olog);scan(state.alog);scan(state.meals);scan(state.mlog);
+  scan(state.log);scan(state.slog);scan(state.food);scan(state.notes);scan(state.xlog);scan(state.suplog);scan(state.smlog);scan(state.olog);scan(state.alog);scan(state.aclog);scan(state.meals);scan(state.mlog);
   for(const v of Object.values(state.pnotes)) scan(v);
   return first;
 }
@@ -1486,7 +1541,7 @@ function renderSummary(){
   }
 
   /* Smells, other and appointments: days and times in this period */
-  for(const [kind,on,title,empty] of [["smell",state.trackSmells,"Smells","No smells logged"],["other",state.trackOther,"Other","Nothing else logged"],["appt",secShown("appts"),"Appointments","No appointments logged"]]){
+  for(const [kind,on,title,empty] of [["smell",state.trackSmells,"Smells","No smells logged"],["other",state.trackOther,"Other","Nothing else logged"],["act",secShown("activity"),"Activity","No activity logged"],["appt",secShown("appts"),"Appointments","No appointments logged"]]){
     const E=EVLOGS[kind], tally={};
     for(const [k,v] of Object.entries(state[E.log])){ if(k<from||k>upto) continue;
       const seen=new Set();
@@ -1502,12 +1557,13 @@ function renderSummary(){
   /* Weather vs symptoms */
   html+=wxSummary(from,upto);
   html+=travelSummary(from,upto);
+  html+=exertionSummary(from,upto);
 
   /* Export for AI */
   const yr=P.start.slice(0,4);
   html+=`<div class="box l-list"><div class="lid">Export for AI</div>
-    <p class="hint">A spreadsheet with one row per day: each dose taken (with its time), doses missed, additional medication, supplements, symptoms (how many times and how strong), each meal's foods and restaurant, mood, smells and other things, appointments, weather, air quality, pollen, and your notes. Upload it to AI or another AI and ask something like:</p>
-    <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses, moods, pressure changes, air quality or pollen line up with symptoms? The suspected_triggers column is what I thought set off my symptoms; does the data back that up?"</p>
+    <p class="hint">A spreadsheet with one row per day: each dose taken (with its time), doses missed, additional medication, supplements, symptoms (how many times and how strong), each meal's foods and restaurant, mood, smells and other things, activities (minutes and exertion), appointments, weather, air quality, pollen, and your notes. Upload it to AI or another AI and ask something like:</p>
+    <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses, moods, harder activities, pressure changes, air quality or pollen line up with symptoms? The suspected_triggers column is what I thought set off my symptoms; does the data back that up?"</p>
     <div class="backup-btns"><button class="ghost" data-export="year">Download ${esc(yr)}</button><button class="ghost" data-export="all">Download everything</button></div>
     <p class="hint" id="exportMsg" role="status"></p></div>`;
   body.innerHTML=html;
@@ -1901,6 +1957,37 @@ function travelSummary(from,upto){
 }
 document.getElementById("sumBody").addEventListener("change",e=>{const s=e.target.closest("[data-trsym]");if(s){trSym=s.value;renderSummary()}});
 
+/* Exertion & symptoms on Recap: of the activities given an exertion rating, how many had a symptom logged during
+   them or within EX_HOURS after, harder ones (6–10) next to easier ones (1–5). Activities still inside that window
+   are left out until it's over. */
+const EX_HOURS=6;
+let exSym="any";
+function exertionSummary(from,upto){
+  if(!state.acts.length) return "";
+  const now=Date.now(), rated=[];
+  for(let k=from;k<=upto;k=shiftKey(k,1)) for(const e of evHits("act",k)) if(e.x) rated.push({k,...e});
+  const symTimes=k=>{const v=state.slog[k]||{}, out=[];
+    for(const x of state.symptoms) if(exSym==="any"||exSym===x.id) for(const e of v[x.id]||[]) if(realTime(e.t)) out.push(e.t);
+    return out;};
+  let hN=0,hS=0,eN=0,eS=0,wait=0;
+  for(const a of rated){
+    const end=a.t+(+a.min||0)*60000+EX_HOURS*3600000; if(end>now){ wait++; continue; }
+    const hit=[...symTimes(a.k),...symTimes(shiftKey(a.k,1))].some(t=>t>=a.t&&t<=end);
+    if(a.x>=6){hN++; if(hit) hS++;} else {eN++; if(hit) eS++;}
+  }
+  const pc=(s,n)=>n?Math.round(s/n*100)+"%":"–";
+  const a=hN?hS/hN:null, b=eN?eS/eN:null, big=a!=null&&b!=null&&Math.abs(a-b)>=0.1;
+  const opts=`<option value="any" ${exSym==="any"?"selected":""}>any symptom</option>`+[...state.symptoms].sort((p,q)=>p.name.localeCompare(q.name)).map(x=>`<option value="${esc(x.id)}" ${exSym===x.id?"selected":""}>${esc(x.name)}</option>`).join("");
+  return `<div class="box l-list"><div class="lid">Exertion &amp; symptoms<span class="st">${hN+eN} rated</span></div>
+    <label class="wxpick">Followed by<select data-exsym>${opts}</select></label>
+    ${hN+eN?`<div class="wxt"><span class="k h"></span><span class="h">Exertion 6–10 (${hN})</span><span class="h">1–5 (${eN})</span>
+      <span class="k">Symptoms within ${EX_HOURS} h</span><span class="v ${big&&a>b?"hi":""}">${pc(hS,hN)}</span><span class="v ${big&&b>a?"hi":""}">${pc(eS,eN)}</span></div>`
+      :`<div class="empty-row">No activities with an exertion rating this period.</div>`}
+    <p class="hint">Of the activities you rated for exertion, how many had a symptom logged during them or in the ${EX_HOURS} hours after. ${wait?` ${wait===1?"One":wait} from the last few hours ${wait===1?"is":"are"} counted once ${EX_HOURS} hours have passed.`:""} On Today, tap an activity's name to give it an exertion and minutes.</p>
+  </div>`;
+}
+document.getElementById("sumBody").addEventListener("change",e=>{const s=e.target.closest("[data-exsym]");if(s){exSym=s.value;renderSummary()}});
+
 /* ---------- check-off sweep ---------- */
 let sweepAnim=null;
 function sweep(){
@@ -1941,6 +2028,8 @@ todayCol.addEventListener("click",e=>{
   if(editsym){ openSymTime(viewDate,editsym.dataset.editsym,+editsym.dataset.si); return; }
   const symd=e.target.closest("[data-symd]");
   if(symd){ openSymDetail(viewDate,symd.dataset.symd); return; }
+  const actd=e.target.closest("[data-actd]");
+  if(actd){ openActDetail(viewDate,actd.dataset.actd); return; }
   const editx=e.target.closest("[data-editx]");
   if(editx){ openDoseTime(viewDate,+editx.dataset.editx); return; }
   if(rmx){ const list=state.xlog[viewDate]||[]; list.splice(+rmx.dataset.rmx,1); if(!list.length) delete state.xlog[viewDate]; commit(); return; }
@@ -2103,22 +2192,36 @@ function openSymDetail(date,id){
   document.getElementById("sdlgTitle").textContent=x.name;
   renderSymDetail(); sdlg.showModal(); sdlg.querySelector('[type="submit"]').focus();
 }
+/* The same pop-up for an activity: each time it was done gets a start time, minutes and a 1–10 exertion
+   (kept in the pop-up's list as i, saved as x) */
+function openActDetail(date,id){
+  const x=evOf("act",id); if(!x) return;
+  sedit={kind:"act",date,id,list:(state.aclog[date]||[]).filter(e=>e.id===id).map(e=>({t:e.t,i:e.x,min:e.min}))};
+  if(!sedit.list.length) sedit.list.push({t:stampFor(date)});
+  document.getElementById("sdlgTitle").textContent=x.name;
+  renderSymDetail(); sdlg.showModal(); sdlg.querySelector('[type="submit"]').focus();
+}
 function renderSymDetail(){
-  const many=sedit.list.length>1;
+  const many=sedit.list.length>1, act=sedit.kind==="act";
   document.getElementById("sOcc").innerHTML=sedit.list.map((e,i)=>`<div class="occ">
     <div class="occhead">${many?`<span class="occn">${i+1}</span>`:""}
-      <input type="time" data-otime="${i}" value="${hhmm(e.t)}" ${e.t===ALLDAY?"disabled":""} aria-label="Time noticed">
-      <label class="allday"><input type="checkbox" data-oall="${i}" ${e.t===ALLDAY?"checked":""}><span>All day</span></label>
+      <input type="time" data-otime="${i}" value="${hhmm(e.t)}" ${e.t===ALLDAY?"disabled":""} aria-label="${act?"Time started":"Time noticed"}">
+      ${act?`<label class="dur"><input type="number" inputmode="numeric" min="1" max="1440" data-omin="${i}" value="${e.min||""}" aria-label="Minutes"><span>min</span></label>`
+        :`<label class="allday"><input type="checkbox" data-oall="${i}" ${e.t===ALLDAY?"checked":""}><span>All day</span></label>`}
       <button type="button" class="occx" data-orm="${i}" aria-label="Remove this one">×</button></div>
-    <p class="ilabel">Intensity${e.i?": <b>"+e.i+"</b> of 10":""}</p>
-    <div class="scale" role="group" aria-label="Intensity, 1 mild to 10 severe">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button type="button" style="--i:${n}" data-oi="${i}" data-lv="${n}" aria-pressed="${e.i===n}">${n}</button>`).join("")}</div>
-    <div class="scalelab"><span>Mild</span><span>Severe</span></div>
-  </div>`).join("") || `<p class="hint" style="margin:0 0 12px">All removed. Save to clear this symptom from the day.</p>`;
+    <p class="ilabel">${act?"Exertion":"Intensity"}${e.i?": <b>"+e.i+"</b> of 10":""}</p>
+    <div class="scale" role="group" aria-label="${act?"Exertion, 1 easy to 10 all-out":"Intensity, 1 mild to 10 severe"}">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button type="button" style="--i:${n}" data-oi="${i}" data-lv="${n}" aria-pressed="${e.i===n}">${n}</button>`).join("")}</div>
+    <div class="scalelab">${act?"<span>Easy</span><span>All-out</span>":"<span>Mild</span><span>Severe</span>"}</div>
+  </div>`).join("") || `<p class="hint" style="margin:0 0 12px">All removed. Save to clear this ${act?"activity":"symptom"} from the day.</p>`;
 }
 function readSymTimes(){
   for(const inp of sdlg.querySelectorAll("[data-otime]")){
     const e=sedit.list[+inp.dataset.otime]; if(!e||e.t===ALLDAY||!/^\d\d:\d\d/.test(inp.value)) continue;
     e.t=timeOn(sedit.date,inp.value,e.t);
+  }
+  for(const inp of sdlg.querySelectorAll("[data-omin]")){
+    const e=sedit.list[+inp.dataset.omin], n=Math.round(+inp.value); if(!e) continue;
+    if(n>=1&&n<=1440) e.min=n; else delete e.min;
   }
 }
 sdlg.addEventListener("click",e=>{
@@ -2139,6 +2242,12 @@ sdlg.addEventListener("close",()=>{sedit=null});
 document.getElementById("sform").addEventListener("submit",ev=>{
   ev.preventDefault(); if(!sedit) return;
   readSymTimes();
+  if(sedit.kind==="act"){
+    const {date,id}=sedit, rest=(state.aclog[date]||[]).filter(e=>e.id!==id);
+    const L=[...rest,...sedit.list.map(e=>({id,t:e.t,...(e.i?{x:e.i}:{}),...(e.min?{min:e.min}:{})}))].sort((a,b)=>a.t-b.t);
+    if(L.length) state.aclog[date]=L; else delete state.aclog[date];
+    sdlg.close(); commit(); return;
+  }
   const d=state.slog[sedit.date]||(state.slog[sedit.date]={});
   d[sedit.id]=sortSym(sedit.list.map(e=>e.i?{t:e.t,i:e.i}:{t:e.t}));
   tidySyms(sedit.date); sdlg.close(); commit();
@@ -2197,7 +2306,7 @@ function evCopier(kind,what,q){
     pick(from,to){ return {e:(state[E.log][from]||[]).filter(e=>liveOn(state[E.items],e.id,to))}; },
     size:p=>p.e.length, preview:p=>namesOf(p.e.map(e=>e.id),state[E.items]),
     has:to=>evHits(kind,to).length>0,
-    put(p,to,k,t){ const L=state[E.log]; if(p.e.length) L[to]=p.e.map(e=>({id:e.id,t})); else delete L[to]; return p.e.length; }};
+    put(p,to,k,t){ const L=state[E.log]; if(p.e.length) L[to]=p.e.map(e=>({id:e.id,t,...(e.x?{x:e.x}:{}),...(e.min?{min:e.min}:{})})); else delete L[to]; return p.e.length; }};   // an activity keeps its exertion and minutes
 }
 const COPY={
   meal:{what:"Meal", word:k=>MEALS.find(x=>x.id===k).what, q:"When did you eat?", time:"Time eaten", logs:["meals"], box:k=>MEALS.find(x=>x.id===k).label,
@@ -2230,6 +2339,7 @@ const COPY={
     put(p,to,k,t){ if(p.s.length) state.slog[to]=Object.fromEntries(p.s.map(([id,L])=>[id,L.map(e=>e.i?{t,i:e.i}:{t})])); else delete state.slog[to]; return p.s.length; }},
   smell:evCopier("smell","Smells","When did you notice them?"),
   other:evCopier("other","Entries","When was it?"),
+  act:  evCopier("act","Activities","When did you start?"),
   appt: evCopier("appt","Appointments","When was it?")
 };
 const copyWord=(C,k)=>(C.word&&C.word(k))||C.what;
@@ -2250,7 +2360,7 @@ function setTrig(date,key,on){
 /* Every box that can be marked, in Today's order, with a label for the export */
 function trigBoxes(){
   return [...MEALS.map(m=>({ck:"meal",k:m.id,label:m.label})),...MOODTIMES.map(m=>({ck:"mood",k:m.id,label:m.label+" mood"})),
-    {ck:"smell",k:"smell",label:"Smells"},{ck:"other",k:"other",label:"Other"},{ck:"syms",k:"syms",label:"Symptoms"},{ck:"appt",k:"appt",label:"Appointments"}];
+    {ck:"smell",k:"smell",label:"Smells"},{ck:"other",k:"other",label:"Other"},{ck:"act",k:"act",label:"Activity"},{ck:"syms",k:"syms",label:"Symptoms"},{ck:"appt",k:"appt",label:"Appointments"}];
 }
 /* "Breakfast: Coffee x2, Oatmeal · at Snooze | Smells: Smoke" — what was in each marked box that day */
 function trigText(date){
@@ -2526,6 +2636,8 @@ for(const id of ["showSnacks","showAfter","trackTrig","altLook"]) document.getEl
 document.getElementById("showYearCal").addEventListener("change",e=>{state.showYearCal=e.target.checked;commit()});
 document.getElementById("dayEnd").addEventListener("change",e=>{state.dayEnd=e.target.value;commit();checkRollover()});
 document.getElementById("addOther").onclick=()=>openEditor("other",null);
+document.getElementById("addAct").onclick=()=>openEditor("act",null);
+document.getElementById("actList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-act]");if(b)openEditor("act",b.dataset.editAct)});
 document.getElementById("otherList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-other]");if(b)openEditor("other",b.dataset.editOther)});
 document.getElementById("trackOther").addEventListener("change",e=>{state.trackOther=e.target.checked;commit()});
 document.getElementById("addAppt").onclick=()=>openEditor("appt",null);
@@ -2589,6 +2701,7 @@ const KINDS={
   supp: {list:()=>state.supps,    set:v=>state.supps=v,    word:"supplement", ph:"e.g. vitamin D, magnesium"},
   smell:{list:()=>state.smells,   set:v=>state.smells=v,   word:"smell",      ph:"e.g. perfume, smoke, bleach"},
   other:{list:()=>state.others,   set:v=>state.others=v,   word:"thing to log", ph:"e.g. air travel, hot tub, late night"},
+  act:  {list:()=>state.acts,     set:v=>state.acts=v,     word:"activity",   ph:"e.g. walk, yoga, cleaning"},
   appt: {list:()=>state.appts,    set:v=>state.appts=v,    word:"appointment", ph:"e.g. GI follow-up, physical therapy"}
 };
 function openEditor(kind,id,pending){
@@ -2657,7 +2770,7 @@ form.addEventListener("submit",e=>{
 document.getElementById("delItem").onclick=async()=>{
   const K=KINDS[editing.kind], item=K.list().find(x=>x.id===editing.id);
   if(!item) return;
-  const note={med:"",extra:" Its logged doses will no longer be shown.",supp:" Its logged doses will no longer be shown.",sym:" Its history will no longer be counted.",food:" It will be removed from past meals.",mood:" It will be removed from past days.",smell:" Its logged times will no longer be shown.",other:" Its logged times will no longer be shown.",appt:" Its logged visits will no longer be shown.",place:" It will be removed from past meals."}[editing.kind];
+  const note={med:"",extra:" Its logged doses will no longer be shown.",supp:" Its logged doses will no longer be shown.",sym:" Its history will no longer be counted.",food:" It will be removed from past meals.",mood:" It will be removed from past days.",smell:" Its logged times will no longer be shown.",other:" Its logged times will no longer be shown.",act:" Its logged times will no longer be shown.",appt:" Its logged visits will no longer be shown.",place:" It will be removed from past meals."}[editing.kind];
   if(!await ask(`Delete ${item.name}?`+note,{ok:"Delete"})) return;
   K.set(K.list().filter(x=>x.id!==editing.id));
   dlg.close(); commit();
@@ -2705,11 +2818,18 @@ async function saveFile(name,text,mime){
 }
 
 /* ---------- CSV export: one row per day, every day in range (empty days included so delays are easy to spot) ---------- */
+/* Columns for the simple logs (smells, other, appointments): "Smoke x2 at 9:00 AM, 1:10 PM", and how many */
+function evCols(kinds,k){
+  return kinds.flatMap(kind=>{const sm=evHits(kind,k);return [[...new Set(sm.map(e=>e.id))].map(id=>{const m=evOf(kind,id), ts=sm.filter(e=>e.id===id).map(e=>fmtTime(e.t));return m.name+(kind==="appt"&&m.dose?" ("+m.dose+")":"")+(ts.length>1?" x"+ts.length:"")+" at "+ts.join(", ")}).join("; "),sm.length]});
+}
 function buildCSV(start,end){
   const q=v=>{v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   const nameOf=(list,id)=>(list.find(x=>x.id===id)||{}).name;
   const syms=[...state.symptoms].sort((a,b)=>a.name.localeCompare(b.name));
   const places=[...state.places].sort((a,b)=>a.name.localeCompare(b.name));
+  const acts=[...state.acts].sort((a,b)=>a.name.localeCompare(b.name));
+  /* "Walk x2 at 2:00 PM (30 min, exertion 6/10), 6:15 PM" */
+  const actText=(m,L)=>m.name+(L.length>1?" x"+L.length:"")+" at "+L.map(e=>{const d=[e.min?e.min+" min":"",e.x?"exertion "+e.x+"/10":""].filter(Boolean).join(", ");return fmtTime(e.t)+(d?" ("+d+")":"")}).join(", ");
   const schedAll=state.meds.flatMap(m=>m.slots.map(sl=>({m,sl,key:m.id+"|"+sl,label:m.name+" ("+(SLOTS.find(x=>x.id===sl)||{}).label+")"})));
   const slotLabel=sl=>(SLOTS.find(x=>x.id===sl)||{}).label||sl;
   const tk=todayKey();
@@ -2718,10 +2838,12 @@ function buildCSV(start,end){
     ...MEALS.flatMap(m=>{const b=m.label.toLowerCase().replace(/[^a-z0-9]+/g,"_");return [b+"_time",b+"_foods",b+"_restaurant"]}),
     "restaurants_today",...places.map(x=>"ate at: "+x.name),
     ...MOODTIMES.flatMap(m=>["mood_"+m.id+"_time","mood_"+m.id]),
-    "smells","smell_count","other","other_count","appointments","appointment_count",
+    "smells","smell_count","other","other_count",
+    "activities","activity_count","activity_minutes","max_exertion",...acts.map(x=>"activity: "+x.name),...acts.map(x=>"exertion: "+x.name),
+    "appointments","appointment_count",
     "weather","high_"+(US_UNITS?"F":"C"),"low_"+(US_UNITS?"F":"C"),"precip_"+(US_UNITS?"in":"mm"),"humidity_pct","pressure_hpa","pressure_change_hpa","us_aqi","pm2_5","pollen_tree","pollen_grass","pollen_weed","latitude","longitude","elevation_"+(US_UNITS?"ft":"m"),"distance_from_last_"+(US_UNITS?"mi":"km"),"elevation_change_"+(US_UNITS?"ft":"m"),"big_move",
     "suspected_triggers (what the user marked as possibly triggering their condition that day)",
-    "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells_other","notes_appointments"];
+    "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells_other","notes_activity","notes_appointments"];
   if(state.name) head.unshift("name");
   const rows=[head.map(q).join(",")];
   for(let k=start;k<=end;k=shiftKey(k,1)){
@@ -2752,7 +2874,11 @@ function buildCSV(start,end){
         return [gt?fmtTime(gt):"",ids.map(id=>{const nm=nameOf(state.moods,id); if(!nm) return "";
           const ts=[realTime(tt[id])?tt[id]:0,...moodExtra(k,m.id,id)].filter(Boolean).sort((a,b)=>a-b), n=c.get(id);
           return nm+(n>1?" x"+n:"")+(ts.length>1||(ts.length&&ts[0]!==gt)?" at "+ts.map(fmtTime).join(", "):"")}).filter(Boolean).join("; ")]}),
-      ...["smell","other","appt"].flatMap(kind=>{const sm=evHits(kind,k);return [[...new Set(sm.map(e=>e.id))].map(id=>{const m=evOf(kind,id), ts=sm.filter(e=>e.id===id).map(e=>fmtTime(e.t));return m.name+(kind==="appt"&&m.dose?" ("+m.dose+")":"")+(ts.length>1?" x"+ts.length:"")+" at "+ts.join(", ")}).join("; "),sm.length]}),
+      ...evCols(["smell","other"],k),
+      ...(()=>{const L=evHits("act",k), by=id=>L.filter(e=>e.id===id), mx=l=>Math.max(0,...l.map(e=>+e.x||0))||"";
+        return [[...new Set(L.map(e=>e.id))].map(id=>actText(evOf("act",id),by(id))).join("; "),L.length,actMins(L)||"",mx(L),
+          ...acts.map(x=>by(x.id).length),...acts.map(x=>mx(by(x.id)))]})(),
+      ...evCols(["appt"],k),
       ...(()=>{const w=state.weather[k], pw=state.weather[shiftKey(k,-1)];
         if(!w||w.hi==null) return ["","","","","","","","","","","",""];
         const T=c=>c==null?"":Math.round(US_UNITS?c*9/5+32:c), P=w.pollen||{};
@@ -2763,7 +2889,7 @@ function buildCSV(start,end){
         return [g.lat,g.lon,el(g.el),m?(US_UNITS?m.mi:m.mi*1.609344).toFixed(0):"",m&&m.de!=null?el(m.de):"",m&&(m.far||m.high)?1:0]})(),
       trigText(k),
       MEALS.filter(m=>typed[m.id]).map(m=>m.label+": "+typed[m.id]).join(" | "),
-      state.notes[k]||"",...["food","meds","syms","mood","smell","appt"].map(n=>(state.pnotes[n]||{})[k]||"")];
+      state.notes[k]||"",...["food","meds","syms","mood","smell","act","appt"].map(n=>(state.pnotes[n]||{})[k]||"")];
     if(state.name) row.unshift(state.name);
     rows.push(row.map(q).join(","));
   }
