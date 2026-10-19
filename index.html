@@ -399,6 +399,8 @@ input[type=time]:not(:disabled){cursor:pointer}
 .wxt span.v.hi{color:var(--ink);font-weight:500;text-decoration:underline;text-decoration-color:hsl(var(--H) var(--s) 62%);text-decoration-thickness:4px;text-underline-offset:2px}
 .wxpick{display:flex;align-items:center;gap:8px;padding:10px 10px 0;font-size:13px;color:var(--muted)}
 .wxpick select{flex:1;min-height:36px;border:1px solid var(--rule);background:var(--white);font:inherit;font-size:14px;color:var(--ink);padding:4px 8px}
+.wxpick.wide{white-space:nowrap}
+.wxpick.wide select{min-width:0;width:100%;text-overflow:ellipsis}
 .wxnow{padding:10px 10px 0;font-size:14px}
 #sumTitle .who{display:block;font-size:13px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--muted);margin-top:2px}
 .wxcover:empty,.pstat:empty{display:none}
@@ -478,6 +480,11 @@ body{display:flex;flex-direction:column}
       <div class="box l-list">
         <div class="lid"><h2>Medications</h2><button class="act add" id="addMed">Add</button></div>
         <div id="medList"></div>
+      </div>
+      <div class="box l-list">
+        <div class="lid"><h2>End of day</h2></div>
+        <label class="wxpick wide">Day ends<select id="dayEnd"></select></label>
+        <p class="hint">Pick a bedtime dose and the day keeps going past midnight until you check it off, so late doses, food and symptoms stay on the day they belong to, with their real times. If it's still unchecked at 3 AM, the new day starts.</p>
       </div>
       <div class="box l-list">
         <div class="lid"><h2>Additional medications</h2><button class="act add" id="addExtra">Add</button></div>
@@ -755,6 +762,7 @@ const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 const CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
 const LS_KEY = "daily-meds-v1";
 const KEEP_MED_DAYS = 400;   // medication check-offs; symptom history is kept for monthly records
+const LATE_CUTOFF = 3;       // 3 AM: the latest a day can run past midnight while its day-ending dose isn't checked (see "end of day")
 
 /* extras: as-needed medications (Tylenol, aspirin…). xlog: {date:[{id,t}]} — each dose taken, from extras or the regular list */
 /* supps: supplements (vitamin D, magnesium…). suplog: {date:[{id,t}]} — each supplement taken */
@@ -773,7 +781,8 @@ const KEEP_MED_DAYS = 400;   // medication check-offs; symptom history is kept f
    trig: {date:{boxKey:true}} — boxes marked as a suspected trigger that day (keys from trigKey: "breakfast", "mood-morning",
    "syms", "smell", "other", "appt"). trackTrig: show the Suspected trigger checkbox and tags (on unless turned off)
    altLook: Recap and Settings boxes alternate like Today's (on unless turned off)
-   name: who this tracking is for — shown on Recap and in exported files */
+   name: who this tracking is for — shown on Recap and in exported files
+   dayEnd: the id of the bedtime med whose check-off ends the day (see "end of day"); "" = midnight; unset = a bedtime Cromolyn */
 /* ---------- Today page sections ----------
    Default order tells the day's story: what you took, ate and were around, then how you felt. */
 const SECTIONS=[
@@ -803,9 +812,43 @@ let editing = null;          // {kind:"med"|"sym", id|null}
 
 /* ---------- dates ---------- */
 function keyOf(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
-function todayKey(){return keyOf(new Date())}
 function parseKey(k){const [y,m,d]=k.split("-").map(Number);return new Date(y,m-1,d)}
 function shiftKey(k,n){const d=parseKey(k);d.setDate(d.getDate()+n);return keyOf(d)}
+
+/* ---------- end of day ----------
+   A day ends at midnight, or later that night when its day-ending bedtime dose is checked off after midnight
+   (Settings → End of day; unless changed, a bedtime Cromolyn). Until that dose is checked, the app stays on that
+   day so late doses, food and symptoms land on it with their real times. If it's still unchecked at LATE_CUTOFF,
+   the new day starts. Times typed for a day that ran past midnight can fall in that night (the next calendar date). */
+function dayEnder(){
+  const bed=state.meds.filter(m=>Array.isArray(m.slots)&&m.slots.includes("bedtime"));
+  if(typeof state.dayEnd==="string") return bed.find(m=>m.id===state.dayEnd)||null;
+  return bed.find(m=>!m.archived&&/cromolyn/i.test(m.name))||null;
+}
+/* Day k is still running in the small hours of the next calendar day */
+function stillOpen(k,now=new Date()){
+  const m=dayEnder();
+  return !!m&&keyOf(now)===shiftKey(k,1)&&now.getHours()<LATE_CUTOFF&&activeOn(m,k)&&!(state.log[k]||{})[m.id+"|bedtime"];
+}
+function todayKey(){const now=new Date(), cal=keyOf(now), prev=shiftKey(cal,-1); return stillOpen(prev,now)?prev:cal}
+/* How far into the next calendar day day k ran: its day-ending dose checked after midnight, or the cutoff while it's open */
+function lateEnd(k){
+  const next=parseKey(shiftKey(k,1));
+  if(stillOpen(k)){ next.setHours(LATE_CUTOFF,0,0); return next.getTime(); }
+  const m=dayEnder(), t=m&&(state.log[k]||{})[m.id+"|bedtime"];
+  return realTime(t)&&keyOf(new Date(t))===keyOf(next)&&new Date(t).getHours()<LATE_CUTOFF?t:0;
+}
+/* The timestamp for "HH:MM" typed for an entry on day k. A small-hours time means that night (the next calendar date)
+   when the entry already sits in that night, or when the day ran past midnight at least that far; otherwise day k. */
+function timeOn(k,v,old){
+  const h=+v.slice(0,2), mi=+v.slice(3,5), d=parseKey(k); d.setHours(h,mi,0);
+  if(h<LATE_CUTOFF){
+    const n=parseKey(shiftKey(k,1)); n.setHours(h,mi,0);
+    if(realTime(old)&&keyOf(new Date(old))===keyOf(n)) return n.getTime();
+    const end=lateEnd(k); if(end&&n.getTime()<=end) return n.getTime();
+  }
+  return d.getTime();
+}
 function fmtTime(ts){return new Date(ts).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function uid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4)}
@@ -853,6 +896,7 @@ function normalize(s){
           pollenKey:typeof s.pollenKey==="string"?s.pollenKey:"",
           trackLoc:s.trackLoc===true, geo:obj(s.geo),
           name:typeof s.name==="string"?s.name.trim().slice(0,60):"",
+          dayEnd:typeof s.dayEnd==="string"?s.dayEnd:undefined,
           updated:Number(s.updated)||0};
 }
 /* Symptoms used to hold one value per day (a timestamp or "all"); now each is a list of times, so the same
@@ -1008,12 +1052,14 @@ function render(){
   document.body.dataset.day=d.getDay();
   document.body.classList.toggle("alt-look",state.altLook);
   updateChrome(); showName();
-  const rel = viewDate===tk ? "Today" : viewDate===shiftKey(tk,-1) ? "Yesterday" : d.toLocaleDateString([], {year:"numeric"});
+  const late = viewDate===tk && tk!==keyOf(new Date());   // still today after midnight, until the day-ending dose
+  const rel = late ? "Today · past midnight" : viewDate===tk ? "Today" : viewDate===shiftKey(tk,-1) ? "Yesterday" : d.toLocaleDateString([], {year:"numeric"});
   const away = viewDate!==tk, dayBtn=document.getElementById("dayTitle");
   dayBtn.innerHTML =
     `<small>${esc(rel)}${away?`<span class="back">↩ Back to today</span>`:""}</small><span class="wd">${esc(d.toLocaleDateString([], {weekday:"long"}))}</span>, <span class="mo">${esc(d.toLocaleDateString([], {month:"short"}))}</span> <span class="dn">${d.getDate()}</span>`;
   dayBtn.classList.toggle("away",away);
-  dayBtn.setAttribute("aria-label", away ? "Showing "+d.toLocaleDateString([], {weekday:"long", month:"long", day:"numeric"})+". Tap to go back to today" : "Today");
+  dayBtn.setAttribute("aria-label", away ? "Showing "+d.toLocaleDateString([], {weekday:"long", month:"long", day:"numeric"})+". Tap to go back to today"
+    : late ? "Today, past midnight. The day ends when you check "+((dayEnder()||{}).name||"your bedtime dose") : "Today");
   document.getElementById("nextDay").disabled = viewDate>=tk;
 
   /* Today: each section is built on its own, then laid out in the order chosen in Settings */
@@ -1217,6 +1263,10 @@ function render(){
         <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,a)}</span>
         <span class="side">${times(inMonth(state.suplog,m.id),"time","times")}</span></button>`,
     "Vitamins, minerals and the like. Tap Add.","Every supplement is archived.");
+  { const en=dayEnder(), bed=state.meds.filter(m=>Array.isArray(m.slots)&&m.slots.includes("bedtime")&&(!m.archived||m===en)).sort((a,b)=>a.name.localeCompare(b.name));
+    const sel=document.getElementById("dayEnd");
+    sel.innerHTML=`<option value="">At midnight</option>`+bed.map(m=>`<option value="${esc(m.id)}">When I check ${esc(m.name)}</option>`).join("");
+    sel.value=en?en.id:""; }
   document.getElementById("showSnacks").checked=state.showSnacks;
   document.getElementById("trackTrig").checked=state.trackTrig;
   document.getElementById("altLook").checked=state.altLook;
@@ -1914,9 +1964,15 @@ todayCol.addEventListener("click",e=>{
   }
   if(!Object.keys(day).length) delete state.log[viewDate];
   commit();
+  checkRollover();   // checking the day-ending dose after midnight starts the new day
 });
-/* Log a dose on `date` at the current clock time (so past days get the right date), kept in time order */
-function stampFor(date){ const now=new Date(), d=parseKey(date); d.setHours(now.getHours(),now.getMinutes(),now.getSeconds()); return d.getTime(); }
+/* Log on `date` at the current time. Today, and yesterday in the small hours (a late dose or symptom from that night),
+   get the real time; an older day gets its own date at the current clock time. Kept in time order by the callers. */
+function stampFor(date){
+  const now=new Date(), cal=keyOf(now);
+  if(date===cal||date===todayKey()||(date===shiftKey(cal,-1)&&now.getHours()<LATE_CUTOFF)) return now.getTime();
+  const d=parseKey(date); d.setHours(now.getHours(),now.getMinutes(),now.getSeconds()); return d.getTime();
+}
 function realTime(t){ return typeof t==="number" && t>1e11; }
 function logExtra(date,id){
   const list=state.xlog[date]||(state.xlog[date]=[]); list.push({id,t:stampFor(date)}); list.sort((a,b)=>a.t-b.t);
@@ -2001,7 +2057,7 @@ function renderServings(){
 function readServings(){
   for(const inp of pdlg.querySelectorAll("[data-ptime]")){
     const i=+inp.dataset.ptime;
-    if(/^\d\d:\d\d/.test(inp.value)){ const d=parseKey(pedit.date); d.setHours(+inp.value.slice(0,2),+inp.value.slice(3,5),0); pedit.times[i]=d.getTime(); }
+    if(/^\d\d:\d\d/.test(inp.value)) pedit.times[i]=timeOn(pedit.date,inp.value,pedit.times[i]);
     else pedit.times[i]=0;
   }
 }
@@ -2062,7 +2118,7 @@ function renderSymDetail(){
 function readSymTimes(){
   for(const inp of sdlg.querySelectorAll("[data-otime]")){
     const e=sedit.list[+inp.dataset.otime]; if(!e||e.t===ALLDAY||!/^\d\d:\d\d/.test(inp.value)) continue;
-    const d=parseKey(sedit.date); d.setHours(+inp.value.slice(0,2),+inp.value.slice(3,5),0); e.t=d.getTime();
+    e.t=timeOn(sedit.date,inp.value,e.t);
   }
 }
 sdlg.addEventListener("click",e=>{
@@ -2098,19 +2154,19 @@ document.getElementById("xform").addEventListener("submit",ev=>{
   if(xedit.kind==="copy"){
     let t=xedit.t;
     if(COPY[xedit.ck].allDay&&document.getElementById("xallday").checked) t=ALLDAY;
-    else if(/^\d\d:\d\d/.test(v)){ const d=parseKey(xedit.date); d.setHours(+v.slice(0,2),+v.slice(3,5),0); t=d.getTime(); }
+    else if(/^\d\d:\d\d/.test(v)) t=timeOn(xedit.date,v,xedit.t);
     copyRestore(xedit); COPY[xedit.ck].put(xedit.p,xedit.date,xedit.k,t);
     xdlg.close(); commit(); return;
   }
   const se=xedit.kind==="sym"&&symList(xedit.date,xedit.id)[xedit.si];
   if(se&&document.getElementById("xallday").checked){ se.t=ALLDAY; sortSym(symList(xedit.date,xedit.id)); }
   else if(/^\d\d:\d\d/.test(v)){
-    const d=parseKey(xedit.date); d.setHours(+v.slice(0,2),+v.slice(3,5),0);
-    if(xedit.kind==="sym"){ if(se){ se.t=d.getTime(); sortSym(symList(xedit.date,xedit.id)); } }
-    else if(xedit.kind==="med"){ const day=state.log[xedit.date]; if(day&&day[xedit.k]) day[xedit.k]=d.getTime(); }
-    else if(xedit.kind==="mood"){ if((((state.mlog[xedit.date]||{})[xedit.mt])||[]).includes(xedit.id)){ const day=state.mtlog[xedit.date]||(state.mtlog[xedit.date]={}); (day[xedit.mt]||(day[xedit.mt]={}))[xedit.id]=d.getTime(); } }
-    else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&(m.foods||[]).includes(xedit.id)) (m.ft||(m.ft={}))[xedit.id]=d.getTime(); }
-    else { const list=(xedit.kind==="ev"?state[EVLOGS[xedit.ev].log]:state.xlog)[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=d.getTime(); list.sort((a,b)=>a.t-b.t); } }
+    const at=old=>timeOn(xedit.date,v,old);   // a small-hours time can belong to that night (see "end of day")
+    if(xedit.kind==="sym"){ if(se){ se.t=at(se.t); sortSym(symList(xedit.date,xedit.id)); } }
+    else if(xedit.kind==="med"){ const day=state.log[xedit.date]; if(day&&day[xedit.k]) day[xedit.k]=at(day[xedit.k]); }
+    else if(xedit.kind==="mood"){ if((((state.mlog[xedit.date]||{})[xedit.mt])||[]).includes(xedit.id)){ const day=state.mtlog[xedit.date]||(state.mtlog[xedit.date]={}), o=day[xedit.mt]||(day[xedit.mt]={}); o[xedit.id]=at(o[xedit.id]); } }
+    else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&(m.foods||[]).includes(xedit.id)){ const ft=m.ft||(m.ft={}); ft[xedit.id]=at(ft[xedit.id]); } }
+    else { const list=(xedit.kind==="ev"?state[EVLOGS[xedit.ev].log]:state.xlog)[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=at(e.t); list.sort((a,b)=>a.t-b.t); } }
   }
   xdlg.close(); commit();
 });
@@ -2468,6 +2524,7 @@ document.getElementById("smellList").addEventListener("click",e=>{const b=e.targ
 document.getElementById("trackSmells").addEventListener("change",e=>{state.trackSmells=e.target.checked;commit()});
 for(const id of ["showSnacks","showAfter","trackTrig","altLook"]) document.getElementById(id).addEventListener("change",e=>{state[id]=e.target.checked;commit()});
 document.getElementById("showYearCal").addEventListener("change",e=>{state.showYearCal=e.target.checked;commit()});
+document.getElementById("dayEnd").addEventListener("change",e=>{state.dayEnd=e.target.value;commit();checkRollover()});
 document.getElementById("addOther").onclick=()=>openEditor("other",null);
 document.getElementById("otherList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-other]");if(b)openEditor("other",b.dataset.editOther)});
 document.getElementById("trackOther").addEventListener("change",e=>{state.trackOther=e.target.checked;commit()});
@@ -2804,6 +2861,7 @@ document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpd
 setTimeout(checkUpdate,3000);
 
 loadLocal();
+lastToday=viewDate=todayKey();   // the saved day-ending dose decides whether yesterday is still running
 render();
 /* Welcome: shown once, only to someone who hasn't used the app yet */
 {

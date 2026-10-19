@@ -54,7 +54,7 @@ function weatherJSON(u) {
 
 const browser = await chromium.launch();
 let elevation = 1600;
-async function open(seed, { width = 412, height = 900, geo = null } = {}) {
+async function open(seed, { width = 412, height = 900, geo = null, clock = null } = {}) {
   const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: true, isMobile: true, timezoneId: "America/Denver", locale: "en-US", serviceWorkers: "block",
     ...(geo ? { geolocation: geo, permissions: ["geolocation"] } : {}) });
   await ctx.route(/fonts\.(googleapis|gstatic)\.com/, r => r.fulfill({ status: 200, body: "" }));
@@ -73,6 +73,7 @@ async function open(seed, { width = 412, height = 900, geo = null } = {}) {
   page.on("console", m => { if (m.type() === "error" && !/favicon|Failed to load resource/.test(m.text())) errors.push(m.text()); });
   // Any browser confirm()/alert() would show the website address; the app must never use them.
   page.on("dialog", d => { errors.push("native browser dialog: " + d.message()); d.dismiss(); });
+  if (clock) await page.clock.install({ time: clock });   // a set time of day, e.g. just after midnight
   await page.addInitScript(s => { if (!sessionStorage.getItem("seeded")) { localStorage.clear(); localStorage.setItem("daily-meds-welcomed", "1"); if (s) localStorage.setItem("daily-meds-v1", JSON.stringify(s)); sessionStorage.setItem("seeded", "1"); } }, seed || null);
   await page.goto(URL0);
   page.state = () => page.evaluate(() => JSON.parse(JSON.stringify(state)));
@@ -812,6 +813,62 @@ await test("real time picker: tapping a time box raises no errors", async page =
   await page.click("#xtime", { position: { x: 12, y: 10 } });
   await page.keyboard.press("Escape");
 }, base);
+
+/* ---------- End of day: a bedtime dose ends the day, even after midnight ---------- */
+const NIGHT = "2026-10-19", NEXT = "2026-10-20";   // Monday, and the small hours of Tuesday
+const lateSeed = { ...base, meds: [{ id: "c1", name: "Cromolyn Sodium Ampule", slots: ["waking", "bedtime"] }, { id: "z1", name: "Zyrtec", slots: ["bedtime"] }],
+  log: { [NIGHT]: { "c1|waking": at(NIGHT, 7) } } };
+await test("after midnight the day stays open until bedtime Cromolyn; late doses get their real time, then the new day starts", async page => {
+  eq(await page.evaluate(() => [viewDate, todayKey()]), [NIGHT, NIGHT], "still Monday at 12:30 AM");
+  assert(/past midnight/.test(await page.textContent("#dayTitle")), "header says past midnight");
+  await page.click('.row.med[data-k="z1|bedtime"]');
+  const z = new Date((await page.state()).log[NIGHT]["z1|bedtime"]);
+  eq([keyOf(z), z.getHours()], [NEXT, 0], "Zyrtec on Monday's list, stamped Tuesday 12:30 AM");
+  await page.click('.row.med[data-k="c1|bedtime"]');
+  eq(await page.evaluate(() => [todayKey(), viewDate]), [NEXT, NEXT], "checking Cromolyn ends Monday and opens Tuesday");
+  const s = await page.state();
+  eq(keyOf(new Date(s.log[NIGHT]["c1|bedtime"])), NEXT, "Cromolyn kept on Monday with its real time");
+  eq(s.log[NEXT], undefined, "Tuesday's checklist starts empty");
+  const csv = await page.evaluate(k => buildCSV(k, k), NIGHT);
+  assert(/Zyrtec \(Bedtime\) at 12:30 AM/.test(csv), "export lists the late dose on Monday");
+}, lateSeed, { clock: new Date(2026, 9, 20, 0, 30) });
+
+await test("bedtime Cromolyn forgotten: at 3 AM the new day starts", async page => {
+  eq(await page.evaluate(() => todayKey()), NEXT, "Tuesday");
+  assert(!/past midnight/.test(await page.textContent("#dayTitle")), "plain Today");
+}, lateSeed, { clock: new Date(2026, 9, 20, 3, 5) });
+
+await test("bedtime Cromolyn checked before midnight: Tuesday starts at midnight; a dose checked on Monday after midnight keeps its real time", async page => {
+  eq(await page.evaluate(() => todayKey()), NEXT, "Tuesday after midnight");
+  await page.click("#prevDay");
+  await page.click('.row.med[data-k="z1|bedtime"]');
+  eq(keyOf(new Date((await page.state()).log[NIGHT]["z1|bedtime"])), NEXT, "Tuesday 12:40 AM, not Monday 12:40 AM");
+}, { ...lateSeed, log: { [NIGHT]: { "c1|waking": at(NIGHT, 7), "c1|bedtime": at(NIGHT, 23) } } }, { clock: new Date(2026, 9, 20, 0, 40) });
+
+await test("editing times on a day that ran past midnight: 12:15 AM is that night, 3:30 PM is the day itself", async page => {
+  await page.evaluate(k => { viewDate = k; render(); }, NIGHT);
+  await page.click('button[data-editsym="s2"]');
+  await page.fill("#xtime", "00:15"); await page.click('#xform button[type="submit"]');
+  let t = new Date((await page.state()).slog[NIGHT].s2[0].t);
+  eq([keyOf(t), t.getHours(), t.getMinutes()], [NEXT, 0, 15], "before the 12:33 AM Cromolyn: Tuesday 12:15 AM");
+  await page.click('button[data-editsym="s2"]');
+  await page.fill("#xtime", "15:30"); await page.click('#xform button[type="submit"]');
+  t = new Date((await page.state()).slog[NIGHT].s2[0].t);
+  eq([keyOf(t), t.getHours()], [NIGHT, 15], "an afternoon time stays on Monday");
+  await page.click('button[data-editk="c1|bedtime"]');
+  await page.fill("#xtime", "00:50"); await page.click('#xform button[type="submit"]');
+  t = new Date((await page.state()).log[NIGHT]["c1|bedtime"]);
+  eq([keyOf(t), t.getMinutes()], [NEXT, 50], "moving the Cromolyn itself later keeps it in that night");
+}, { ...lateSeed, log: { [NIGHT]: { "c1|waking": at(NIGHT, 7), "c1|bedtime": at(NEXT, 0, 33) } }, slog: { [NIGHT]: { s2: [{ t: at(NIGHT, 16) }] } } },
+   { clock: new Date(2026, 9, 20, 10, 0) });
+
+await test("End of day setting: bedtime Cromolyn by default, At midnight turns it off", async page => {
+  await page.click('[data-tab="set"][role="tab"]');
+  eq(await page.inputValue("#dayEnd"), "c1", "Cromolyn picked");
+  await page.selectOption("#dayEnd", "");
+  eq(await page.evaluate(() => [todayKey(), viewDate]), [NEXT, NEXT], "midnight ends the day again");
+  eq((await page.saved()).dayEnd, "", "choice saved");
+}, lateSeed, { clock: new Date(2026, 9, 20, 0, 30) });
 
 /* ---------- Existing features still work ---------- */
 await test("checking off a med and adding a food still work", async page => {
