@@ -35,7 +35,7 @@ body[data-day="5"]{--h:152;--s:50%;--tx:#7A1E5E}
 body[data-day="6"]{--h:208;--s:75%;--tx:#8A3412}
 /* Phone (folded): pages alternate white and colored — Today white, Food colored, Meds white, Symptoms colored */
 /* Each page is its own version of the day's color (a small hue shift) */
-.pg-today{--dh:0} .pg-food{--dh:22} .pg-meds{--dh:-22} .pg-syms{--dh:44} .pg-sum{--dh:-44} .pg-mood{--dh:-55} .pg-appt{--dh:110}
+.pg-today{--dh:0} .pg-food{--dh:22} .pg-smo{--dh:22} .pg-meds{--dh:-22} .pg-syms{--dh:44} .pg-sum{--dh:-44} .pg-mood{--dh:-55} .pg-appt{--dh:110}
 .view{--H:calc(var(--h) + var(--dh,0))}
 body[data-page="food"]{--dh:22} body[data-page="syms"]{--dh:44} body[data-page="mood"]{--dh:-55}
 @media (max-width:719px){
@@ -46,6 +46,9 @@ body[data-page="food"]{--dh:22} body[data-page="syms"]{--dh:44} body[data-page="
 .pg-white .lid{background:hsl(var(--H) var(--s) var(--l))}
 .pg-color .box{background:hsl(var(--H) var(--s) var(--l))}
 .pg-color .lid{background:var(--white)}
+/* Smells & Other in Settings: Food's color, inside out (white boxes, colored title bars) */
+.pg-smo .box{background:var(--white)}
+.pg-smo .lid{background:hsl(var(--H) var(--s) var(--l))}
 /* Box bodies get a little deeper through the day; still pastel at the darkest */
 .l-page{--l:96%} .l-waking{--l:93%} .l-morning{--l:90%} .l-afternoon{--l:87%}
 .l-evening{--l:84%} .l-bedtime{--l:81%} .l-snack{--l:88.5%} .l-extra{--l:78%} .l-supp{--l:75%} .l-sym{--l:85%} .l-list{--l:90%} .l-notes{--l:88%}
@@ -258,7 +261,9 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
    deepening through the day */
 .pg-white .box.mood{--H:calc(var(--h) - 55)}
 .l-mmorning{--l:90%} .l-mafternoon{--l:86%} .l-mevening{--l:82%}
-/* Smells and Other on Today: the Food section's colors (colored box, white title bar) */
+/* Smells and Other on Today: the Food section's color turned inside out (white box, colored title bar),
+   so they don't read as more meals */
+.pg-white .box.smo{--H:calc(var(--h) + 22)}
 .l-smell{--l:88%} .l-other{--l:84%}
 /* Appointments on Today: like the supplements box (white body, colored title bar), in their own color */
 .pg-white .box.appt{--H:calc(var(--h) + 110)}
@@ -511,7 +516,7 @@ body{display:flex;flex-direction:column}
       </div>
     </section>
 
-    <section class="view pg-color pg-food sset band" data-tab="set" style="display:none">
+    <section class="view pg-color pg-smo sset band" data-tab="set" style="display:none">
       <div class="sect" role="heading" aria-level="2">Smells &amp; Other</div>
       <div class="box l-list">
         <label class="toggle"><input type="checkbox" id="trackSmells"><span>Track smells</span></label>
@@ -957,8 +962,8 @@ function smdoses(date){return (state.smlog[date]||[]).filter(e=>smellOf(e.id))}
    one chip per item, ×N when logged more than once; the time and × act on the latest one. */
 const EVLOGS={
   supp: {items:"supps", log:"suplog",title:"Supplements", cls:"l-supp",     count:n=>n+" taken",   none:"No supplements taken",   add:"Add supplement…",  add2:"+ New supplement…",  time:"Time taken",   word:"supplement"},
-  smell:{items:"smells",log:"smlog", title:"Smells",      cls:"meal l-smell",count:n=>n+" noticed", none:"No smells noticed",      add:"Add smell…",       add2:"+ New smell…",       time:"Time noticed", word:"smell"},
-  other:{items:"others",log:"olog",  title:"Other",       cls:"meal l-other",count:n=>n+" logged",  none:"Nothing else logged",    add:"Log something…",   add2:"+ New…",             time:"Time",         word:"thing"},
+  smell:{items:"smells",log:"smlog", title:"Smells",      cls:"smo l-smell",count:n=>n+" noticed", none:"No smells noticed",      add:"Add smell…",       add2:"+ New smell…",       time:"Time noticed", word:"smell"},
+  other:{items:"others",log:"olog",  title:"Other",       cls:"smo l-other",count:n=>n+" logged",  none:"Nothing else logged",    add:"Log something…",   add2:"+ New…",             time:"Time",         word:"thing"},
   appt: {items:"appts", log:"alog",  title:"Appointments",cls:"appt l-appt", count:n=>n===1?"1 visit":n+" visits", none:"No appointments today", add:"Add appointment…", add2:"+ New appointment…", time:"Time", word:"appointment"}
 };
 function evOf(kind,id){return state[EVLOGS[kind].items].find(x=>x.id===id)}
@@ -1148,7 +1153,7 @@ function render(){
   /* Smells & other (each box only when switched on in Settings) */
   if(state.trackSmells||state.trackOther){
     S.smells=(state.trackSmells?evBox("smell"):"")+(state.trackOther?evBox("other"):"")
-      +noteBox("smell","meal","Smells &amp; other notes","Where were you, how strong was it…");
+      +noteBox("smell","smo","Smells &amp; other notes","Where were you, how strong was it…");
     SUM.smells=(state.trackSmells?evHits("smell",viewDate).length:0)+(state.trackOther?evHits("other",viewDate).length:0)||"";
   }
 
