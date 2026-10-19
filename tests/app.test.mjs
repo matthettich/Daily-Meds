@@ -760,6 +760,20 @@ await test("Suspected triggers setting (Settings → Today page): off hides the 
   assert(await page.isVisible(".lid .trig"), "back when turned on");
 }, { ...copyFoods, meals: { [today]: { breakfast: { foods: ["f2"] } } }, trig: { [today]: { breakfast: true } } });
 
+await test("Today's sections alternate inverted / regular, and keep alternating when one is hidden", async page => {
+  const looks = () => page.$$eval(".tsec", l => l.map(x => x.dataset.sec + ":" + (x.classList.contains("inv") ? "inv" : x.classList.contains("reg") ? "reg" : "?")));
+  eq(await looks(), ["meds:inv", "food:reg", "smells:inv", "mood:reg", "syms:inv", "appts:reg", "notes:inv"], "default order");
+  const bg = sel => page.$eval(sel, e => getComputedStyle(e).backgroundColor);
+  eq(await bg('.tsec[data-sec="food"] .box .lid'), "rgb(255, 255, 255)", "regular: white title bar");
+  assert(await bg('.tsec[data-sec="food"] .box') !== "rgb(255, 255, 255)", "regular: colored box");
+  eq(await bg('.tsec[data-sec="smells"] .box'), "rgb(255, 255, 255)", "inverted: white box");
+  assert(await bg('.tsec[data-sec="smells"] .box .lid') !== "rgb(255, 255, 255)", "inverted: colored title bar");
+  await page.click('[data-tab="set"][role="tab"]');
+  await page.uncheck('#layoutList [data-show="smells"]');
+  await page.click('[role="tab"][data-tab="today"]');
+  eq(await looks(), ["meds:inv", "food:reg", "mood:inv", "syms:reg", "appts:inv", "notes:reg"], "re-alternates without Smells");
+}, { ...base, trackSmells: true });
+
 /* ---------- Time boxes open the picker when tapped anywhere ---------- */
 await test("tapping the time in a pop-up opens the time picker, not just the clock icon", async page => {
   await page.evaluate(() => { window.__picked = []; HTMLInputElement.prototype.showPicker = function () { window.__picked.push(this.id || this.dataset.otime || this.dataset.ptime || "?"); }; });

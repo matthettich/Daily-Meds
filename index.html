@@ -249,25 +249,23 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 /* Check-off sweep: a white wave down the screen */
 #sweep{position:fixed;left:0;right:0;top:0;height:100vh;z-index:50;pointer-events:none;visibility:hidden;
   background:linear-gradient(to bottom,rgba(255,255,255,0) 0%,rgba(255,255,255,.92) 18%,rgba(255,255,255,.92) 82%,rgba(255,255,255,0) 100%)}
-/* ---------- Meals on Today ---------- */
-/* Meals keep the Food page's look: its version of the day color, colored boxes, white title bars */
-.pg-white .box.meal{--H:calc(var(--h) + 22);background:hsl(var(--H) var(--s) var(--l))}
-.pg-white .box.meal .lid{background:var(--white)}
-/* Symptoms on Today match the Symptoms page: its version of the day color, colored box, white title bar */
-.pg-white .box.l-sym{--H:calc(var(--h) + 44);--l:90%;background:hsl(var(--H) var(--s) var(--l))}
-/* ...but its title bar is filled with a deeper shade so it stands apart from the meals */
-.pg-white .box.l-sym .lid{background:hsl(var(--H) var(--s) 70%);color:var(--ink)}
-/* Mood on Today: styled like the medication boxes (white body, colored title bar), in the Mood page's version of the day color,
-   deepening through the day */
-.pg-white .box.mood{--H:calc(var(--h) - 55)}
+/* ---------- Today's sections ----------
+   Each section keeps its own version of the day color (its Settings page's hue); medications and notes use the day color.
+   The look alternates down the page: the first section shown is "inverted" (white boxes, colored title bars), the next
+   "regular" (colored boxes, white title bars), and so on, whatever order the sections are in. render() puts .inv or .reg
+   on each section, counting only the sections that show (folded ones count; hidden ones don't). */
+.pg-white .box.meal{--H:calc(var(--h) + 22)}                 /* Food */
+.pg-white .box.smo{--H:calc(var(--h) + 22)}                  /* Smells & other: Food's color */
+.pg-white .box.mood{--H:calc(var(--h) - 55)}                 /* Mood, deepening through the day */
 .l-mmorning{--l:90%} .l-mafternoon{--l:86%} .l-mevening{--l:82%}
-/* Smells and Other on Today: the Food section's color turned inside out (white box, colored title bar),
-   so they don't read as more meals */
-.pg-white .box.smo{--H:calc(var(--h) + 22)}
+.pg-white .box.l-sym{--H:calc(var(--h) + 44);--l:86%}        /* Symptoms */
 .l-smell{--l:88%} .l-other{--l:84%}
-/* Appointments on Today: like the supplements box (white body, colored title bar), in their own color */
-.pg-white .box.appt{--H:calc(var(--h) + 110)}
+.pg-white .box.appt{--H:calc(var(--h) + 110)}                /* Appointments */
 .l-appt{--l:84%}
+.tsec.inv .box{background:var(--white)}
+.tsec.inv .box .lid{background:hsl(var(--H) var(--s) var(--l))}
+.tsec.reg .box{background:hsl(var(--H) var(--s) var(--l))}
+.tsec.reg .box .lid{background:var(--white)}
 /* On/off switch rows in Settings (e.g. Track smells) */
 .toggle{display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 10px;font-size:15px;font-weight:500;cursor:pointer}
 .toggle input{width:22px;height:22px;margin:0;accent-color:var(--ink);flex:none}
@@ -927,9 +925,9 @@ function noteBox(key,cls,label,ph){
 }
 /* A Today section: its heading folds it away (remembered); folded, the heading shows a quick count */
 const CHEV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
-function todaySect(id,body,sum){
+function todaySect(id,body,sum,look){
   const open=!state.folded[id], label=SECTIONS.find(x=>x.id===id).label;
-  return `<div class="tsec${open?"":" folded"}" data-sec="${id}">
+  return `<div class="tsec ${look}${open?"":" folded"}" data-sec="${id}">
     <h2 class="sect"><button type="button" class="fold" data-fold="${id}" aria-expanded="${open}"><span class="sl">${esc(label)}</span>${!open&&sum!==""&&sum!=null?`<span class="ssum">${esc(String(sum))}</span>`:""}<span class="ln" aria-hidden="true"></span>${CHEV}</button></h2>
     ${open?`<div class="tbody">${body}</div>`:""}</div>`;
 }
@@ -1166,7 +1164,8 @@ function render(){
   SUM.notes=(state.notes[viewDate]||"").trim()?"written":"";
 
   html="";
-  for(const e of state.layout) if(e.show&&S[e.id]) html+=todaySect(e.id,S[e.id],SUM[e.id]);
+  let nth=0;   // sections alternate inverted / regular down the page, starting inverted
+  for(const e of state.layout) if(e.show&&S[e.id]) html+=todaySect(e.id,S[e.id],SUM[e.id],nth++%2?"reg":"inv");
   if(!html) html=`<div class="box l-list"><p class="hint">Every section is hidden. Turn some back on in Settings, under Today page.</p></div>`;
 
   const slotsEl=document.getElementById("slots");
