@@ -175,6 +175,11 @@ dialog.menu::backdrop{background:transparent}
 .mitem .ms{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:2px;font-size:13px;color:var(--muted)}
 .mitem:disabled{cursor:default}
 .mitem:disabled .mt{color:var(--muted)}
+.mtrig{display:flex;align-items:center;gap:10px;border-top:1px solid var(--hair);font-size:15px;font-weight:500;color:var(--ink);cursor:pointer}
+.mtrig input{width:22px;height:22px;margin:0;accent-color:var(--ink);flex:none}
+.mtrig[hidden]{display:none}
+/* A box marked as a suspected trigger shows a small tag by its name */
+.lid .trig{flex:none;margin-left:-4px;padding:0 6px;border:1px solid var(--ink);background:var(--white);color:var(--ink);font-size:12px;font-weight:500;line-height:20px;white-space:nowrap}
 
 .row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;min-height:52px;border-top:1px solid var(--hair)}
 .lid + .row,.lid + .medrow .row{border-top:0}
@@ -452,6 +457,10 @@ body{display:flex;flex-direction:column}
         <div id="layoutList"></div>
         <div class="backup-btns"><button class="ghost" id="layoutReset">Reset order</button></div>
       </div>
+      <div class="box l-list">
+        <label class="toggle"><input type="checkbox" id="trackTrig"><span>Suspected triggers</span></label>
+        <p class="hint">On Today, tap a box's name (Breakfast, Morning, Symptoms, Smells…) and tick <b>Suspected trigger</b> when you think it set off your symptoms. It's marked on the box and listed in the spreadsheet export.</p>
+      </div>
     </section>
 
     <section class="view pg-white pg-meds sset" data-tab="set" style="display:none">
@@ -631,6 +640,7 @@ body{display:flex;flex-direction:column}
 <!-- Tap a box's name on Today (Breakfast, Morning, Symptoms…) for this menu: copy that box from the day before -->
 <dialog id="cmenu" class="menu" aria-label="Copy from yesterday">
   <button type="button" class="mitem" id="cmCopy"><span class="mt" id="cmText">Copy Yesterday's Meal</span><span class="ms" id="cmSub"></span></button>
+  <label class="mitem mtrig" id="cmTrigRow"><input type="checkbox" id="cmTrig"><span>Suspected trigger</span></label>
 </dialog>
 <!-- Symptom details: every time it was logged today, each with its own time and 1–10 intensity -->
 <dialog id="sdlg">
@@ -746,6 +756,8 @@ const KEEP_MED_DAYS = 400;   // medication check-offs; symptom history is kept f
    weather: {date:{hi,lo,rain,code,hum,press,aqi,pm25,pollen:{tree,grass,weed},final}} (°C, mm, %, hPa). wxloc: {lat,lon,label}
    trackLoc: check where you are once a day. geo: {date:{lat,lon,el}} — that day's rough position (about 1 km) and elevation in meters
    showSnacks / showAfter: show the Snacks & Other Meals / After dinner boxes on Today (both on unless turned off)
+   trig: {date:{boxKey:true}} — boxes marked as a suspected trigger that day (keys from trigKey: "breakfast", "mood-morning",
+   "syms", "smell", "other", "appt"). trackTrig: show the Suspected trigger checkbox and tags (on unless turned off)
    name: who this tracking is for — shown on Recap and in exported files */
 /* ---------- Today page sections ----------
    Default order tells the day's story: what you took, ate and were around, then how you felt. */
@@ -769,7 +781,7 @@ function normLayout(saved,hidden){
 }
 function secShown(id){ const e=state.layout.find(x=>x.id===id); return !e||e.show; }
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{},
-  moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:[], olog:{}, trackOther:true, showSnacks:true, showAfter:true,
+  moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:[], olog:{}, trackOther:true, showSnacks:true, showAfter:true, trig:{}, trackTrig:true,
   appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, trackLoc:false, geo:{}, pollenKey:"", name:"", updated:0};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
@@ -818,6 +830,7 @@ function normalize(s){
           smells:Array.isArray(s.smells)?s.smells:[], smlog:obj(s.smlog), trackSmells:s.trackSmells===true,
           others:Array.isArray(s.others)?s.others:[], olog:obj(s.olog), trackOther:s.trackOther!==false,
           showSnacks:s.showSnacks!==false, showAfter:s.showAfter!==false,
+          trig:obj(s.trig), trackTrig:s.trackTrig!==false,
           appts:Array.isArray(s.appts)?s.appts:[], alog:obj(s.alog),
           layout:normLayout(s.layout,s.trackAppts===false?["appts"]:[]), folded:obj(s.folded),
           showYearCal:s.showYearCal!==false,
@@ -1188,6 +1201,7 @@ function render(){
         <span class="side">${times(inMonth(state.suplog,m.id),"time","times")}</span></button>`,
     "Vitamins, minerals and the like. Tap Add.","Every supplement is archived.");
   document.getElementById("showSnacks").checked=state.showSnacks;
+  document.getElementById("trackTrig").checked=state.trackTrig;
   document.getElementById("showAfter").checked=state.showAfter;
   document.getElementById("trackSmells").checked=state.trackSmells;
   document.getElementById("smellBox").hidden=!state.trackSmells;
@@ -1425,7 +1439,7 @@ function renderSummary(){
   const yr=P.start.slice(0,4);
   html+=`<div class="box l-list"><div class="lid">Export for AI</div>
     <p class="hint">A spreadsheet with one row per day: each dose taken (with its time), doses missed, additional medication, supplements, symptoms (how many times and how strong), each meal's foods and restaurant, mood, smells and other things, appointments, weather, air quality, pollen, and your notes. Upload it to AI or another AI and ask something like:</p>
-    <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses, moods, pressure changes, air quality or pollen line up with symptoms?"</p>
+    <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses, moods, pressure changes, air quality or pollen line up with symptoms? The suspected_triggers column is what I thought set off my symptoms; does the data back that up?"</p>
     <div class="backup-btns"><button class="ghost" data-export="year">Download ${esc(yr)}</button><button class="ghost" data-export="all">Download everything</button></div>
     <p class="hint" id="exportMsg" role="status"></p></div>`;
   body.innerHTML=html;
@@ -2101,7 +2115,7 @@ document.getElementById("xremove").onclick=()=>{
    Each COPY entry: what = the menu's word, q = the time pop-up's question; pick(from,to,k) = what can be copied (items still in Settings, not archived on `to`);
    size/preview describe it; has(to,k) = the box already has something; put(p,to,k,t) writes it, returning how many
    entries got the time; logs = the parts of state it touches, saved before and put back by Undo. */
-function liveOn(list,id,k){const x=list.find(q=>q.id===id);return !!x&&activeOn(x,k)}
+function liveOn(list,id,k){const x=list.find(q=>q.id===id);return !!x&&(k==null||activeOn(x,k))}
 function namesOf(ids,list){return [...countFoods(ids)].map(([id,n])=>{const x=list.find(q=>q.id===id);return x?x.name+(n>1?" ×"+n:""):""}).filter(Boolean).join(", ")}
 function evCopier(kind,what,q){
   const E=EVLOGS[kind];
@@ -2145,7 +2159,32 @@ const COPY={
   appt: evCopier("appt","Appointments","When was it?")
 };
 const copyWord=(C,k)=>(C.word&&C.word(k))||C.what;
-function copyName(ck,k,label){return `<button type="button" class="cpn" data-copy="${ck}" data-key="${esc(k)}" aria-haspopup="menu">${esc(label)}</button>`}
+function copyName(ck,k,label){
+  const tr=isTrig(viewDate,trigKey(ck,k))&&state.trackTrig;
+  return `<button type="button" class="cpn" data-copy="${ck}" data-key="${esc(k)}" aria-haspopup="menu">${esc(label)}</button>${tr?`<span class="trig" title="Marked as a suspected trigger">Trigger?</span>`:""}`;
+}
+/* ---------- suspected triggers ----------
+   Any box with the tap menu (meals, mood times, Symptoms, Smells, Other, Appointments) can be marked as a suspected
+   trigger for that day. Turning the setting off hides the checkbox and tags; marks already made are kept and exported. */
+function trigKey(ck,k){return ck==="meal"?k:ck==="mood"?"mood-"+k:ck}
+function isTrig(date,key){return !!(state.trig[date]||{})[key]}
+function setTrig(date,key,on){
+  const d=state.trig[date]||(state.trig[date]={});
+  if(on) d[key]=true; else delete d[key];
+  if(!Object.keys(d).length) delete state.trig[date];
+}
+/* Every box that can be marked, in Today's order, with a label for the export */
+function trigBoxes(){
+  return [...MEALS.map(m=>({ck:"meal",k:m.id,label:m.label})),...MOODTIMES.map(m=>({ck:"mood",k:m.id,label:m.label+" mood"})),
+    {ck:"smell",k:"smell",label:"Smells"},{ck:"other",k:"other",label:"Other"},{ck:"syms",k:"syms",label:"Symptoms"},{ck:"appt",k:"appt",label:"Appointments"}];
+}
+/* "Breakfast: Coffee x2, Oatmeal · at Snooze | Smells: Smoke" — what was in each marked box that day */
+function trigText(date){
+  return trigBoxes().filter(b=>isTrig(date,trigKey(b.ck,b.k))).map(b=>{
+    const C=COPY[b.ck], p=C.pick(date,null,b.k), what=C.size(p)?C.preview(p).replace(/×/g,"x"):"nothing logged";
+    return b.label+": "+what;
+  }).join(" | ");
+}
 const clone=v=>v===undefined?undefined:JSON.parse(JSON.stringify(v));
 function copyRestore(x){ for(const n of COPY[x.ck].logs){ if(x.snap[n]===undefined) delete state[n][x.date]; else state[n][x.date]=clone(x.snap[n]); } }
 /* "yesterday" when looking at today; "the previous day" when looking back at another day */
@@ -2159,6 +2198,8 @@ function openCopyMenu(btn){
   document.getElementById("cmText").textContent=`Copy ${date===todayKey()?"Yesterday's":"Previous Day's"} ${copyWord(C,k)}`;
   document.getElementById("cmSub").textContent=n?C.preview(p):"Nothing logged "+prevWord(date);
   document.getElementById("cmCopy").disabled=!n;
+  document.getElementById("cmTrigRow").hidden=!state.trackTrig;
+  document.getElementById("cmTrig").checked=isTrig(date,trigKey(ck,k));
   /* Hangs from the box's title bar, edge to edge with the box; opens upward if there's no room below */
   const r=btn.closest(".lid").getBoundingClientRect(), bx=btn.closest(".box").getBoundingClientRect();
   cmenu.style.width=bx.width+"px";
@@ -2169,6 +2210,8 @@ function openCopyMenu(btn){
 }
 cmenu.addEventListener("click",e=>{ if(e.target===cmenu) cmenu.close(); });
 cmenu.addEventListener("close",()=>{cpick=null});
+/* Ticking Suspected trigger saves straight away and leaves the menu open */
+document.getElementById("cmTrig").addEventListener("change",e=>{ if(!cpick) return; setTrig(cpick.date,trigKey(cpick.ck,cpick.k),e.target.checked); commit(); });
 /* The menu sits by its box, so it closes if the page actually scrolls (not on a stray scroll event as it opens) */
 addEventListener("scroll",()=>{ if(cmenu.open&&Math.abs(scrollY-cmenu._y)>8) cmenu.close(); },{passive:true});
 document.getElementById("cmCopy").onclick=()=>{ const c=cpick; cmenu.close(); if(c) copyBox(c); };
@@ -2405,7 +2448,7 @@ document.getElementById("addMood").onclick=()=>openEditor("mood",null);
 document.getElementById("addSmell").onclick=()=>openEditor("smell",null);
 document.getElementById("smellList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-smell]");if(b)openEditor("smell",b.dataset.editSmell)});
 document.getElementById("trackSmells").addEventListener("change",e=>{state.trackSmells=e.target.checked;commit()});
-for(const id of ["showSnacks","showAfter"]) document.getElementById(id).addEventListener("change",e=>{state[id]=e.target.checked;commit()});
+for(const id of ["showSnacks","showAfter","trackTrig"]) document.getElementById(id).addEventListener("change",e=>{state[id]=e.target.checked;commit()});
 document.getElementById("showYearCal").addEventListener("change",e=>{state.showYearCal=e.target.checked;commit()});
 document.getElementById("addOther").onclick=()=>openEditor("other",null);
 document.getElementById("otherList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-other]");if(b)openEditor("other",b.dataset.editOther)});
@@ -2602,6 +2645,7 @@ function buildCSV(start,end){
     ...MOODTIMES.flatMap(m=>["mood_"+m.id+"_time","mood_"+m.id]),
     "smells","smell_count","other","other_count","appointments","appointment_count",
     "weather","high_"+(US_UNITS?"F":"C"),"low_"+(US_UNITS?"F":"C"),"precip_"+(US_UNITS?"in":"mm"),"humidity_pct","pressure_hpa","pressure_change_hpa","us_aqi","pm2_5","pollen_tree","pollen_grass","pollen_weed","latitude","longitude","elevation_"+(US_UNITS?"ft":"m"),"distance_from_last_"+(US_UNITS?"mi":"km"),"elevation_change_"+(US_UNITS?"ft":"m"),"big_move",
+    "suspected_triggers (what the user marked as possibly triggering their condition that day)",
     "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells_other","notes_appointments"];
   if(state.name) head.unshift("name");
   const rows=[head.map(q).join(",")];
@@ -2642,6 +2686,7 @@ function buildCSV(start,end){
       ...(()=>{const g=state.geo[k]; if(!g) return ["","","","","",""];
         const m=geoMove(k), el=v=>v==null?"":Math.round(US_UNITS?v*3.28084:v);
         return [g.lat,g.lon,el(g.el),m?(US_UNITS?m.mi:m.mi*1.609344).toFixed(0):"",m&&m.de!=null?el(m.de):"",m&&(m.far||m.high)?1:0]})(),
+      trigText(k),
       MEALS.filter(m=>typed[m.id]).map(m=>m.label+": "+typed[m.id]).join(" | "),
       state.notes[k]||"",...["food","meds","syms","mood","smell","appt"].map(n=>(state.pnotes[n]||{})[k]||"")];
     if(state.name) row.unshift(state.name);

@@ -716,6 +716,50 @@ await test("Show snacks and Show after dinner (Settings → Food) hide and show 
   assert(await page.isVisible('.chip:has-text("Coffee")'), "with its food");
 }, { ...copyFoods, meals: { [today]: { snacks: { foods: ["f1"] } } } });
 
+/* ---------- Suspected triggers ---------- */
+const trigCol = csv => { const lines = csv.replace(/^﻿/, "").split("\r\n"), head = parseCSVLine(lines[0]), i = head.findIndex(h => h.startsWith("suspected_triggers"));
+  return { head: head[i], val: parseCSVLine(lines.find(l => l.startsWith(today)))[i] }; };
+await test("Suspected trigger: tick it in a box's menu; tagged on Today, saved, and listed in the export", async page => {
+  await page.click('[data-copy="meal"][data-key="breakfast"]');
+  await page.waitForSelector("#cmenu[open]");
+  eq([await page.isVisible("#cmTrig"), await page.isChecked("#cmTrig")], [true, false], "checkbox shown, unticked");
+  await page.check("#cmTrig");
+  eq((await page.state()).trig, { [today]: { breakfast: true } }, "marked");
+  eq(await page.isVisible("#cmenu"), true, "menu stays open");
+  await page.keyboard.press("Escape");
+  eq(await page.textContent('.box:has([data-key="breakfast"]) .trig'), "Trigger?", "tag on Breakfast");
+  eq(await page.locator(".lid .trig").count(), 1, "only on Breakfast");
+  for (const sel of ['[data-copy="mood"][data-key="morning"]', '[data-copy="smell"]']) {
+    await page.click(sel); await page.check("#cmTrig"); await page.keyboard.press("Escape");
+  }
+  eq((await page.saved()).trig[today], { breakfast: true, "mood-morning": true, smell: true }, "saved, one key per box");
+  await page.click('[data-copy="smell"]');
+  assert(await page.isChecked("#cmTrig"), "ticked when reopened");
+  await page.uncheck("#cmTrig"); await page.keyboard.press("Escape");
+  eq((await page.state()).trig[today], { breakfast: true, "mood-morning": true }, "unticking clears it");
+  const c = trigCol(await page.evaluate(([a, b]) => buildCSV(a, b), [today, today]));
+  assert(/possibly triggering/.test(c.head), "column header says what it means: " + c.head);
+  eq(c.val, "Breakfast: Coffee x2, Oatmeal · at Snooze | Morning mood: Calm", "export lists each marked box and what was in it");
+}, { ...copyFoods, smells: [{ id: "sm1", name: "Smoke" }], trackSmells: true,
+  meals: { [today]: { breakfast: { foods: ["f1", "f1", "f2"], place: "p1" } } }, mlog: { [today]: { morning: ["md2"] } } });
+
+await test("Suspected triggers setting (Settings → Today page): off hides the checkbox and tags, keeps the marks and export", async page => {
+  assert(await page.isVisible(".lid .trig"), "on by default for an older save");
+  await page.click('[data-tab="set"][role="tab"]');
+  assert(await page.isChecked("#trackTrig"), "setting on");
+  await page.uncheck("#trackTrig");
+  await page.click('[role="tab"][data-tab="today"]');
+  eq(await page.locator(".lid .trig").count(), 0, "no tags");
+  await page.click('[data-copy="meal"][data-key="breakfast"]');
+  eq(await page.isVisible("#cmTrig"), false, "no checkbox in the menu");
+  await page.keyboard.press("Escape");
+  const saved = await page.saved();
+  eq([saved.trackTrig, saved.trig], [false, { [today]: { breakfast: true } }], "setting saved, mark kept");
+  eq(trigCol(await page.evaluate(([a, b]) => buildCSV(a, b), [today, today])).val, "Breakfast: Oatmeal", "still exported");
+  await page.click('[data-tab="set"][role="tab"]'); await page.check("#trackTrig"); await page.click('[role="tab"][data-tab="today"]');
+  assert(await page.isVisible(".lid .trig"), "back when turned on");
+}, { ...copyFoods, meals: { [today]: { breakfast: { foods: ["f2"] } } }, trig: { [today]: { breakfast: true } } });
+
 /* ---------- Time boxes open the picker when tapped anywhere ---------- */
 await test("tapping the time in a pop-up opens the time picker, not just the clock icon", async page => {
   await page.evaluate(() => { window.__picked = []; HTMLInputElement.prototype.showPicker = function () { window.__picked.push(this.id || this.dataset.otime || this.dataset.ptime || "?"); }; });
