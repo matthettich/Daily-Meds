@@ -699,7 +699,7 @@ await test("Snacks & Other Meals sits between Lunch and Dinner; logs foods, copi
 }, { ...copyFoods, meals: { [yday]: { snacks: { foods: ["f2"] } } } });
 
 await test("Show snacks and Show after dinner (Settings → Food) hide and show those boxes, on by default, keeping their foods", async page => {
-  const boxes = () => page.$$eval('.tsec[data-sec="food"] .box .lid .cpn', els => els.map(e => e.textContent));
+  const boxes = () => page.$$eval('.tsec[data-sec="food"] [data-copy="meal"]', els => els.map(e => e.textContent));
   eq(await boxes(), ["Breakfast", "Lunch", "Snacks & Other Meals", "Dinner", "After dinner"], "both on for an older save");
   await page.click('[data-tab="set"][role="tab"]');
   eq([await page.isChecked("#showSnacks"), await page.isChecked("#showAfter")], [true, true], "checkboxes on by default");
@@ -933,6 +933,28 @@ await test("Copy Yesterday's Activities keeps minutes and exertion, then asks th
   const e = (await page.state()).aclog[today][0];
   eq([e.x, e.min, new Date(e.t).getHours()], [6, 20, 7], "copied with its details at 7:30");
 }, { ...base, acts: [{ id: "a1", name: "Yoga" }], aclog: { [shift(today, -1)]: [{ id: "a1", t: at(shift(today, -1), 8), x: 6, min: 20 }] } });
+
+await test("every section's notes box copies yesterday's text (not Medication notes); asks before replacing; no time or trigger", async page => {
+  eq(await page.locator('[data-copy="note"]').count(), 7, "Symptoms, Food, Mood, Smells & other, Activity, Appointments and the day's Notes");
+  eq(await page.locator('[data-copy="note"][data-key="meds"]').count(), 0, "Medication notes has no copy menu");
+  const f = await copyFrom(page, '[data-copy="note"][data-key="food"]');
+  eq([f.text, f.sub], ["Copy Yesterday's Notes", "Oatmeal sat badly."], "food notes menu");
+  eq(await page.isVisible("#xdlg"), false, "no time asked");
+  eq(await page.inputValue("#n-food"), "Oatmeal sat badly.", "text copied into the box");
+  eq((await page.state()).pnotes.food[today], "Oatmeal sat badly.", "and saved");
+  await page.click('[data-copy="note"][data-key="today"]');
+  eq(await page.isVisible("#cmTrigRow"), false, "no Suspected trigger on notes");
+  eq(await page.textContent("#cmSub"), "Long day. Slept well.", "day notes preview");
+  await page.click("#cmCopy");
+  eq(await page.textContent("#askMsg"), "Notes already has something written. Replace it with yesterday's notes?", "asks first");
+  await page.click("#askNo");
+  eq((await page.state()).notes[today], "Already wrote today", "Cancel keeps today's text");
+  await page.click('[data-copy="note"][data-key="today"]'); await page.click("#cmCopy"); await page.click("#askYes");
+  eq(await page.inputValue("#n-today"), "Long day.\nSlept well.", "Replace copies it, line breaks kept");
+  const m = await copyFrom(page, '[data-copy="note"][data-key="mood"]');
+  eq([m.sub, m.disabled], ["Nothing written yesterday", true], "nothing to copy");
+}, { ...base, trackTrig: true, notes: { [yday]: "Long day.\nSlept well.", [today]: "Already wrote today" },
+  pnotes: { food: { [yday]: "Oatmeal sat badly." }, meds: { [yday]: "Dose changed" } } });
 
 /* ---------- Existing features still work ---------- */
 await test("checking off a med and adding a food still work", async page => {

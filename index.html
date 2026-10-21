@@ -998,9 +998,11 @@ function fillTexts(){
 }
 
 /* ---------- render ---------- */
-/* A notes box at the end of each Today section; its text is kept per day (state.pnotes[key][date]) */
+/* A notes box at the end of each Today section; its text is kept per day (state.pnotes[key][date]).
+   Its name is the Copy Yesterday's Notes button, like the other boxes, except Medication notes */
 function noteBox(key,cls,label,ph){
-  return `<div class="box ${cls} l-notes"><div class="lid"><label for="n-${key}">${label}</label><span class="saved" data-saved="note-${key}">Saved</span></div><textarea id="n-${key}" data-note="${key}" rows="2" placeholder="${ph}"></textarea></div>`;
+  const name=COPY.note.keys.includes(key)?copyName("note",key,label):`<label for="n-${key}">${esc(label)}</label>`;
+  return `<div class="box ${cls} l-notes"><div class="lid">${name}<span class="saved" data-saved="note-${key}">Saved</span></div><textarea id="n-${key}" data-note="${key}" rows="2" placeholder="${ph}" aria-label="${esc(label)}"></textarea></div>`;
 }
 /* A Today section: its heading folds it away (remembered); folded, the heading shows a quick count */
 const CHEV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
@@ -1257,7 +1259,7 @@ function render(){
   /* Smells & other (each box only when switched on in Settings) */
   if(state.trackSmells||state.trackOther){
     S.smells=(state.trackSmells?evBox("smell"):"")+(state.trackOther?evBox("other"):"")
-      +noteBox("smell","smo","Smells &amp; other notes","Where were you, how strong was it…");
+      +noteBox("smell","smo","Smells & other notes","Where were you, how strong was it…");
     SUM.smells=(state.trackSmells?evHits("smell",viewDate).length:0)+(state.trackOther?evHits("other",viewDate).length:0)||"";
   }
 
@@ -2291,10 +2293,11 @@ document.getElementById("xremove").onclick=()=>{
 };
 
 /* ---------- copy yesterday ----------
-   Tap a box's name on Today (a meal, a part of the day's mood, Symptoms, Smells, Other, Appointments) for a menu
-   that copies that box from the day before. The copy takes the box's place (after asking, if it has anything),
-   keeping counts (×2), ingredients, the restaurant and intensity, but not times: every copied entry gets one time,
-   asked for straight after. Undo copy in that pop-up puts the box back. Medications and supplements don't have it.
+   Tap a box's name on Today (a meal, a part of the day's mood, Symptoms, Smells, Other, Activity, Appointments, and every
+   section's notes box) for a menu that copies that box from the day before. The copy takes the box's place (after asking,
+   if it has anything), keeping counts (×2), ingredients, the restaurant and intensity, but not times: every copied entry
+   gets one time, asked for straight after. Undo copy in that pop-up puts the box back. Notes copy their text, with no time.
+   Only the Medications & supplements section (its boxes and Medication notes) doesn't have it.
    Each COPY entry: what = the menu's word, q = the time pop-up's question; pick(from,to,k) = what can be copied (items still in Settings, not archived on `to`);
    size/preview describe it; has(to,k) = the box already has something; put(p,to,k,t) writes it, returning how many
    entries got the time; logs = the parts of state it touches, saved before and put back by Undo. */
@@ -2340,11 +2343,20 @@ const COPY={
   smell:evCopier("smell","Smells","When did you notice them?"),
   other:evCopier("other","Entries","When was it?"),
   act:  evCopier("act","Activities","When did you start?"),
-  appt: evCopier("appt","Appointments","When was it?")
+  appt: evCopier("appt","Appointments","When was it?"),
+  /* Every section's notes box (and the day's Notes), but not Medication notes. Notes have no time to ask for and
+     can't be marked as a trigger; the copy replaces the day's text, asking first if something is already written. */
+  note:{what:"Notes", keys:["syms","food","mood","smell","act","appt","today"], noTrig:true, filled:"written", logs:[],
+    names:{syms:"Symptom notes",food:"Food notes",mood:"Mood notes",smell:"Smells & other notes",act:"Activity notes",appt:"Appointment notes",today:"Notes"},
+    box(k){ return this.names[k]; },
+    pick:(from,to,k)=>({text:noteStore(k)[from]||""}),
+    size:p=>p.text.trim()?1:0, preview:p=>p.text.trim().replace(/\s+/g," "),
+    has:(to,k)=>!!(noteStore(k)[to]||"").trim(),
+    put(p,to,k){ noteStore(k)[to]=p.text; return 0; }}
 };
 const copyWord=(C,k)=>(C.word&&C.word(k))||C.what;
 function copyName(ck,k,label){
-  const tr=isTrig(viewDate,trigKey(ck,k))&&state.trackTrig;
+  const tr=!COPY[ck].noTrig&&isTrig(viewDate,trigKey(ck,k))&&state.trackTrig;
   return `<button type="button" class="cpn" data-copy="${ck}" data-key="${esc(k)}" aria-haspopup="menu">${esc(label)}</button>${tr?`<span class="trig" title="Marked as a suspected trigger">Trigger?</span>`:""}`;
 }
 /* ---------- suspected triggers ----------
@@ -2380,9 +2392,9 @@ function openCopyMenu(btn){
   const date=viewDate, from=shiftKey(date,-1), p=C.pick(from,date,k), n=C.size(p);
   cpick={ck,k,date,from};
   document.getElementById("cmText").textContent=`Copy ${date===todayKey()?"Yesterday's":"Previous Day's"} ${copyWord(C,k)}`;
-  document.getElementById("cmSub").textContent=n?C.preview(p):"Nothing logged "+prevWord(date);
+  document.getElementById("cmSub").textContent=n?C.preview(p):`Nothing ${C.filled||"logged"} ${prevWord(date)}`;
   document.getElementById("cmCopy").disabled=!n;
-  document.getElementById("cmTrigRow").hidden=!state.trackTrig;
+  document.getElementById("cmTrigRow").hidden=!state.trackTrig||!!C.noTrig;
   document.getElementById("cmTrig").checked=isTrig(date,trigKey(ck,k));
   /* Hangs from the box's title bar, edge to edge with the box; opens upward if there's no room below */
   const r=btn.closest(".lid").getBoundingClientRect(), bx=btn.closest(".box").getBoundingClientRect();
@@ -2402,12 +2414,13 @@ document.getElementById("cmCopy").onclick=()=>{ const c=cpick; cmenu.close(); if
 async function copyBox({ck,k,date,from}){
   const C=COPY[ck], p=C.pick(from,date,k), prev=prevWord(date), what=copyWord(C,k).toLowerCase();
   if(!C.size(p)) return;
-  if(C.has(date,k)&&!await ask(`${C.box(k)} already has something logged. Replace it with ${prev}'s ${what}?`,{ok:"Replace"})) return;
+  if(C.has(date,k)&&!await ask(`${C.box(k)} already has something ${C.filled||"logged"}. Replace it with ${prev}'s ${what}?`,{ok:"Replace"})) return;
   flushText();
   const snap=Object.fromEntries(C.logs.map(n=>[n,clone(state[n][date])])), t=stampFor(date);
   const timed=C.put(p,date,k,t);
   commit();
-  if(!timed) return;   // a meal copied with only its restaurant has nothing to time
+  if(ck==="note") flashSaved("note-"+k);
+  if(!timed) return;   // notes, or a meal copied with only its restaurant, have nothing to time
   xedit={kind:"copy",ck,k,date,p,snap,t};
   openTimeDialog(C.box(k),C.time,"Undo copy",t,C.allDay?false:undefined);
   const note=document.getElementById("xnote");
