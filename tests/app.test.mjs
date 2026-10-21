@@ -665,7 +665,7 @@ await test("Smells, Other and Appointments copy too; Medications has no copy men
   eq(s.smlog[today], [{ id: "sm1", t: at(today, 10) }], "smell copied");
   eq(s.olog[today], [{ id: "o1", t: at(today, 20) }, { id: "o1", t: at(today, 20) }], "other copied ×2");
   eq(s.alog[today], [{ id: "a1", t: at(today, 14) }], "appointment copied");
-  eq(await page.locator('.tsec[data-sec="meds"] [data-copy]').count(), 0, "no copy menu on medications or supplements");
+  eq(await page.locator('.tsec[data-sec="meds"] [data-copy]').evaluateAll(els => els.map(e => e.dataset.copy)), ["supp"], "in Medications & supplements, only Supplements has the copy menu");
   const lunch = await copyFrom(page, '[data-copy="meal"][data-key="lunch"]');
   eq([lunch.sub, lunch.disabled], ["Nothing logged yesterday", true], "nothing to copy");
   await page.keyboard.press("Escape");
@@ -933,6 +933,18 @@ await test("Copy Yesterday's Activities keeps minutes and exertion, then asks th
   const e = (await page.state()).aclog[today][0];
   eq([e.x, e.min, new Date(e.t).getHours()], [6, 20, 7], "copied with its details at 7:30");
 }, { ...base, acts: [{ id: "a1", name: "Yoga" }], aclog: { [shift(today, -1)]: [{ id: "a1", t: at(shift(today, -1), 8), x: 6, min: 20 }] } });
+
+await test("Copy Yesterday's Supplements copies them with one time and can be a suspected trigger", async page => {
+  const m = await copyFrom(page, '[data-copy="supp"]');
+  eq([m.text, m.sub], ["Copy Yesterday's Supplements", "Magnesium ×2, Vitamin D"], "menu");
+  eq(await page.textContent("#xnote"), "Copied yesterday's supplements. When did you take them?", "time question");
+  await page.fill("#xtime", "08:15"); await page.click('#xform [type="submit"]');
+  eq((await page.state()).suplog[today].map(e => [e.id, e.t]), [["sp1", at(today, 8, 15)], ["sp1", at(today, 8, 15)], ["sp2", at(today, 8, 15)]], "copied at 8:15");
+  await page.click('[data-copy="supp"]'); await page.check("#cmTrig");
+  assert(await page.evaluate(() => trigText(todayKey()).startsWith("Supplements: Magnesium x2, Vitamin D")), "trigger exported with the box");
+  eq(await page.$eval(".lid", el => getComputedStyle(el).userSelect), "none", "titles aren't selectable text");
+}, { ...base, supps: [{ id: "sp1", name: "Magnesium" }, { id: "sp2", name: "Vitamin D" }],
+  suplog: { [yday]: [{ id: "sp1", t: at(yday, 8) }, { id: "sp1", t: at(yday, 20) }, { id: "sp2", t: at(yday, 8) }] } });
 
 await test("every section's notes box copies yesterday's text (not Medication notes); asks before replacing; no time or trigger", async page => {
   eq(await page.locator('[data-copy="note"]').count(), 7, "Symptoms, Food, Mood, Smells & other, Activity, Appointments and the day's Notes");

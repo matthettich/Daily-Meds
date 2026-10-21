@@ -169,14 +169,15 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
   background-image:linear-gradient(to bottom,transparent 25px,rgba(17,17,17,.22) 25px,rgba(17,17,17,.22) 26px,transparent 26px);
   background-size:100% 26px;background-origin:content-box;background-clip:content-box;background-position:0 0;background-attachment:local}
 .box:first-child{margin-top:0}
-.lid{display:flex;align-items:center;gap:8px;min-height:38px;padding:0 0 0 10px;
+.lid{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;display:flex;align-items:center;gap:8px;min-height:38px;padding:0 0 0 10px;
   background:var(--white);color:var(--tx);border-bottom:3px solid var(--rule);font-weight:500;font-size:17px}
 .lid h2{margin:0;font:inherit}
 .lid .st{margin-left:auto;font-size:13px;padding-right:10px;font-variant-numeric:tabular-nums}
 .lid .act{align-self:stretch;border:0;border-left:1px solid var(--rule);background:transparent;color:var(--tx);font-size:13px;padding:0 12px;font-weight:500}
 .lid .act.add{margin-left:auto}
 .lid .st + .act{margin-left:0}
-/* A box's name on Today is a button (except in Medications): tap it for the Copy Yesterday's… menu */
+/* A box's name on Today is a button (except the medication boxes): tap it for the Copy Yesterday's… menu.
+   Titles can't be selected, so a tap on a plain one doesn't start the phone's word lookup */
 .lid .cpn{align-self:stretch;min-height:38px;margin-left:-10px;padding:0 6px 0 10px;border:0;background:transparent;color:inherit;font:inherit;text-align:left}
 dialog.menu{margin:0;inset:auto;width:auto;max-width:none;max-height:none}
 dialog.menu::backdrop{background:transparent}
@@ -800,7 +801,7 @@ const LATE_CUTOFF = 3;       // 3 AM: the latest a day can run past midnight whi
    trackLoc: check where you are once a day. geo: {date:{lat,lon,el}} — that day's rough position (about 1 km) and elevation in meters
    showSnacks / showAfter: show the Snacks & Other Meals / After dinner boxes on Today (both on unless turned off)
    trig: {date:{boxKey:true}} — boxes marked as a suspected trigger that day (keys from trigKey: "breakfast", "mood-morning",
-   "syms", "smell", "other", "appt"). trackTrig: show the Suspected trigger checkbox and tags (on unless turned off)
+   "syms", "supp", "smell", "other", "act", "appt"). trackTrig: show the Suspected trigger checkbox and tags (on unless turned off)
    altLook: Recap and Settings boxes alternate like Today's (on unless turned off)
    name: who this tracking is for — shown on Recap and in exported files
    dayEnd: the id of the bedtime med whose check-off ends the day (see "end of day"); "" = midnight; unset = a bedtime Cromolyn */
@@ -2297,7 +2298,7 @@ document.getElementById("xremove").onclick=()=>{
    section's notes box) for a menu that copies that box from the day before. The copy takes the box's place (after asking,
    if it has anything), keeping counts (×2), ingredients, the restaurant and intensity, but not times: every copied entry
    gets one time, asked for straight after. Undo copy in that pop-up puts the box back. Notes copy their text, with no time.
-   Only the Medications & supplements section (its boxes and Medication notes) doesn't have it.
+   Supplements has it too; the medication boxes (doses, Additional medication, Medication notes) don't.
    Each COPY entry: what = the menu's word, q = the time pop-up's question; pick(from,to,k) = what can be copied (items still in Settings, not archived on `to`);
    size/preview describe it; has(to,k) = the box already has something; put(p,to,k,t) writes it, returning how many
    entries got the time; logs = the parts of state it touches, saved before and put back by Undo. */
@@ -2340,6 +2341,7 @@ const COPY={
     preview:p=>p.s.map(([id,L])=>state.symptoms.find(x=>x.id===id).name+(L.length>1?" ×"+L.length:"")).join(", "),
     has:to=>state.symptoms.some(x=>((state.slog[to]||{})[x.id]||[]).length),
     put(p,to,k,t){ if(p.s.length) state.slog[to]=Object.fromEntries(p.s.map(([id,L])=>[id,L.map(e=>e.i?{t,i:e.i}:{t})])); else delete state.slog[to]; return p.s.length; }},
+  supp: evCopier("supp","Supplements","When did you take them?"),
   smell:evCopier("smell","Smells","When did you notice them?"),
   other:evCopier("other","Entries","When was it?"),
   act:  evCopier("act","Activities","When did you start?"),
@@ -2372,7 +2374,7 @@ function setTrig(date,key,on){
 /* Every box that can be marked, in Today's order, with a label for the export */
 function trigBoxes(){
   return [...MEALS.map(m=>({ck:"meal",k:m.id,label:m.label})),...MOODTIMES.map(m=>({ck:"mood",k:m.id,label:m.label+" mood"})),
-    {ck:"smell",k:"smell",label:"Smells"},{ck:"other",k:"other",label:"Other"},{ck:"act",k:"act",label:"Activity"},{ck:"syms",k:"syms",label:"Symptoms"},{ck:"appt",k:"appt",label:"Appointments"}];
+    {ck:"supp",k:"supp",label:"Supplements"},{ck:"smell",k:"smell",label:"Smells"},{ck:"other",k:"other",label:"Other"},{ck:"act",k:"act",label:"Activity"},{ck:"syms",k:"syms",label:"Symptoms"},{ck:"appt",k:"appt",label:"Appointments"}];
 }
 /* "Breakfast: Coffee x2, Oatmeal · at Snooze | Smells: Smoke" — what was in each marked box that day */
 function trigText(date){
