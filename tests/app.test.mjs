@@ -1005,6 +1005,31 @@ await test("one appointment, two therapists: each visit keeps its own practition
   eq(c.sub, "Nothing logged yesterday", "copy menu still works");
 }, { ...base, appts: [{ id: "a1", name: "Therapy", who: [{ id: "w1", name: "Dr. Lee" }] }] });
 
+await test("+ Add practitioner… in a visit's pop-up opens the appointment's editor; the new one goes on that visit", async page => {
+  await page.click('[data-evbox="appt"] .chip >> nth=0 >> button.t');   // Dr. Lee ×2: acts on the later visit
+  eq(await optVals(page, "#xwho"), ["w1", "__new"], "no Not listed; Add practitioner last");
+  eq(await page.$eval('#xwho option[value="__new"]', o => o.textContent), "+ Add practitioner…", "label");
+  await page.fill("#xtime", "15:45");
+  await page.selectOption("#xwho", "__new");
+  await page.waitForSelector("#dlg[open]");
+  eq(await page.isVisible("#xdlg"), false, "time pop-up closed");
+  eq(await page.textContent("#dlgTitle"), "Edit appointment", "appointment editor");
+  eq(await page.$$eval("#whoRows input", l => l.map(i => i.value)), ["Dr. Lee", ""], "a blank row to type in");
+  eq(await page.evaluate(() => document.activeElement === document.querySelector("#whoRows .whorow:last-child input")), true, "focused");
+  await page.fill("#whoRows .whorow:last-child input", "Dr. Patel");
+  await page.click("#saveItem");
+  const s = await page.state(), patel = s.appts[0].who.find(w => w.name === "Dr. Patel");
+  assert(patel, "added to the list");
+  eq(s.alog[today].map(e => [e.w || "", new Date(e.t).getHours()]), [["w1", 9], [patel.id, 15], ["", 18]], "on that visit only, its time change kept");
+  /* A visit with no practitioner yet starts on Choose… */
+  await page.click('[data-evbox="appt"] .chip >> nth=2 >> button.t');
+  eq([await optVals(page, "#xwho"), await page.inputValue("#xwho")], [["", "w1", patel.id, "__new"], ""], "Choose… first when none");
+  /* Cancelling the editor leaves the visit as it was */
+  await page.selectOption("#xwho", "__new"); await page.waitForSelector("#dlg[open]"); await page.click("#cancel");
+  eq((await page.state()).alog[today][2].w, undefined, "cancel changes nothing");
+}, { ...base, appts: [{ id: "a1", name: "Therapy", who: [{ id: "w1", name: "Dr. Lee" }] }],
+  alog: { [today]: [{ id: "a1", t: at(today, 9), w: "w1" }, { id: "a1", t: at(today, 15), w: "w1" }, { id: "a1", t: at(today, 18) }] } });
+
 await test("an older save's single Who or where becomes the practitioner of every past visit", async page => {
   const s = await page.state(), a = s.appts[0];
   eq([a.dose, a.who.map(w => w.name)], [undefined, ["City Clinic"]], "converted");

@@ -2161,16 +2161,24 @@ function openEvTime(kind,date,i){
   const E=EVLOGS[kind], e=(state[E.log][date]||[])[i], m=e&&evOf(kind,e.id); if(!m) return;
   xedit={kind:"ev",ev:kind,date,i};
   openTimeDialog(kind==="appt"?m.name:m.name+(m.dose?" · "+m.dose:""),E.time,"Remove",e.t);
-  /* An appointment's visit picks its own practitioner here (changing it never touches other visits) */
-  const ws=kind==="appt"?whoLive(m):[], cur=kind==="appt"&&whoOf(m,e.w);
+  /* An appointment's visit picks its own practitioner here (changing it never touches other visits).
+     + Add practitioner… opens the appointment's editor with a new row; the one added there goes on this visit. */
+  if(kind!=="appt") return;
+  const ws=whoLive(m), cur=whoOf(m,e.w);
   if(cur&&cur.gone) ws.push(cur);
-  if(ws.length){
-    const sel=document.getElementById("xwho");
-    sel.innerHTML=`<option value="">Not listed</option>`+ws.map(w=>`<option value="${esc(w.id)}">${esc(w.name)}</option>`).join("");
-    sel.value=cur?cur.id:"";
-    document.getElementById("xwhoRow").style.display="";
-  }
+  const sel=document.getElementById("xwho");
+  sel.innerHTML=(cur?"":`<option value="">Choose…</option>`)+ws.map(w=>`<option value="${esc(w.id)}">${esc(w.name)}</option>`).join("")
+    +`<option value="__new">+ Add practitioner…</option>`;
+  sel.value=cur?cur.id:"";
+  document.getElementById("xwhoRow").style.display="";
 }
+document.getElementById("xwho").addEventListener("change",ev=>{
+  if(ev.target.value!=="__new"||!xedit||xedit.ev!=="appt") return;
+  const date=xedit.date, visit=(state.alog[date]||[])[xedit.i], m=visit&&evOf("appt",visit.id); if(!m) return;
+  ev.target.value=whoOf(m,visit.w)?visit.w:"";   // this visit keeps its practitioner for now; a changed time is saved
+  document.getElementById("xform").requestSubmit();
+  openEditor("appt",m.id,{visit,date,addWho:true});
+});
 function openMoodTime(date,mt,id){
   const ids=((state.mlog[date]||{})[mt])||[], x=state.moods.find(q=>q.id===id), lab=MOODTIMES.find(q=>q.id===mt); if(!x||!ids.includes(id)) return;
   const tt=moodTimes(date,mt), own=realTime(tt[id])?tt[id]:0;
@@ -2790,7 +2798,7 @@ function openEditor(kind,id,pending){
   form.classList.toggle("is-sym",!isMed&&!isExtra);
   form.classList.toggle("is-extra",isExtra);
   form.classList.toggle("is-appt",kind==="appt");
-  if(kind==="appt") whoRowsFill(item?whoLive(item):[]);
+  if(kind==="appt") whoRowsFill(item?whoLive(item):[],pending&&pending.addWho);
   document.getElementById("dlgTitle").textContent=(item?"Edit ":"Add ")+K.word;
   document.getElementById("saveItem").textContent=item?"Save":"Add";
   document.getElementById("delItem").style.visibility=item?"visible":"hidden";
@@ -2802,6 +2810,7 @@ function openEditor(kind,id,pending){
   document.getElementById("formErr").textContent="";
   dlg.showModal();
   if(!item) F("name").focus();
+  else if(pending&&pending.addWho) document.querySelector("#whoRows .whorow:last-child input").focus();
 }
 document.getElementById("cancel").onclick=()=>dlg.close();
 dlg.addEventListener("close",render);
@@ -2858,8 +2867,8 @@ document.getElementById("delItem").onclick=async()=>{
 };
 
 /* Appointment editor: one row per person or place. Existing rows carry their id, so renaming one renames it on every visit. */
-function whoRowsFill(list){
-  const rows=(list.length?list:[{id:"",name:""}]).map(w=>`<div class="whorow"><input data-wid="${esc(w.id)}" value="${esc(w.name)}" placeholder="e.g. Dr. Lee, City Clinic" autocomplete="off" aria-label="Who or where"><button type="button" class="whorm" aria-label="Remove">×</button></div>`);
+function whoRowsFill(list,blank){
+  const rows=(list.length?(blank?[...list,{id:"",name:""}]:list):[{id:"",name:""}]).map(w=>`<div class="whorow"><input data-wid="${esc(w.id)}" value="${esc(w.name)}" placeholder="e.g. Dr. Lee, City Clinic" autocomplete="off" aria-label="Who or where"><button type="button" class="whorm" aria-label="Remove">×</button></div>`);
   document.getElementById("whoRows").innerHTML=rows.join("");
 }
 document.getElementById("addWho").onclick=()=>{
@@ -2884,16 +2893,21 @@ function saveAppt(name){
   delete item.dose;
   if(!editing.id&&item.archived) setArchived(item,false);
   const who=item.who||(item.who=[]), picked=[];
+  let fresh=null;   // the first practitioner typed in a new row
   for(const t of typed){
     let w=(t.id&&who.find(x=>x.id===t.id))||who.find(x=>x.name.toLowerCase()===t.name.toLowerCase());
     if(w){ w.name=t.name; delete w.gone; } else who.push(w={id:uid(),name:t.name});
     if(!picked.includes(w)) picked.push(w);
+    if(!t.id&&!fresh) fresh=w;
   }
   if(editing.id){
     const used=wid=>Object.values(state.alog).some(L=>(L||[]).some(e=>e.id===item.id&&e.w===wid));
     item.who=[...picked,...who.filter(w=>!picked.includes(w)&&used(w.id)).map(w=>(w.gone=true,w))];
   }
   if(editing.pending&&editing.pending.ev) logEv("appt",editing.pending.date,item.id,picked[0]&&picked[0].id);
+  /* Opened from a visit's + Add practitioner…: the new one goes on that visit */
+  const pv=editing.pending&&editing.pending.visit;
+  if(pv&&fresh&&(state.alog[editing.pending.date]||[]).includes(pv)) pv.w=fresh.id;
 }
 
 /* Archive / Unarchive buttons on every Settings list */
