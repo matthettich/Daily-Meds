@@ -210,8 +210,7 @@ await test("appointments: at the bottom of Today, log one, hide from Settings", 
   eq(order.slice(-2), ["appts", "notes"], "appointments near the bottom, above Notes");
   await page.selectOption('select[data-pick="ev"][data-ev="appt"]', "__new");
   await page.fill('#itemForm [name="name"]', "GI follow-up");
-  await page.fill('#itemForm [name="dose"]', "Dr. Lee");
-  eq(await page.textContent("#doseLabel"), "Who or where", "field label");
+  await page.fill("#whoRows input", "Dr. Lee");
   await page.click("#saveItem");
   const s = await page.state();
   eq(s.appts[0].name, "GI follow-up", "saved to list"); eq(s.alog[today].length, 1, "logged today");
@@ -659,12 +658,12 @@ await test("Smells, Other and Appointments copy too; Medications has no copy men
   eq([ot.text, ot.sub], ["Copy Yesterday's Entries", "Hot tub ×2"], "other menu");
   await page.fill("#xtime", "20:00"); await page.click('#xform [type="submit"]');
   const ap = await copyFrom(page, '[data-copy="appt"]');
-  eq([ap.text, ap.sub], ["Copy Yesterday's Appointments", "Dr. Lee"], "appointments menu");
+  eq([ap.text, ap.sub], ["Copy Yesterday's Appointments", "Dr. Lee · Clinic"], "appointments menu (an older save's Who or where became its practitioner)");
   await page.fill("#xtime", "14:00"); await page.click('#xform [type="submit"]');
   const s = await page.state();
   eq(s.smlog[today], [{ id: "sm1", t: at(today, 10) }], "smell copied");
   eq(s.olog[today], [{ id: "o1", t: at(today, 20) }, { id: "o1", t: at(today, 20) }], "other copied ×2");
-  eq(s.alog[today], [{ id: "a1", t: at(today, 14) }], "appointment copied");
+  eq(s.alog[today].map(e => [e.id, e.t, s.appts[0].who.find(w => w.id === e.w).name]), [["a1", at(today, 14), "Clinic"]], "appointment copied with its practitioner");
   eq(await page.locator('.tsec[data-sec="meds"] [data-copy]').evaluateAll(els => els.map(e => e.dataset.copy)), ["supp"], "in Medications & supplements, only Supplements has the copy menu");
   const lunch = await copyFrom(page, '[data-copy="meal"][data-key="lunch"]');
   eq([lunch.sub, lunch.disabled], ["Nothing logged yesterday", true], "nothing to copy");
@@ -967,6 +966,51 @@ await test("every section's notes box copies yesterday's text (not Medication no
   eq([m.sub, m.disabled], ["Nothing written yesterday", true], "nothing to copy");
 }, { ...base, trackTrig: true, notes: { [yday]: "Long day.\nSlept well.", [today]: "Already wrote today" },
   pnotes: { food: { [yday]: "Oatmeal sat badly." }, meds: { [yday]: "Dose changed" } } });
+
+await test("one appointment, two therapists: each visit keeps its own practitioner and time", async page => {
+  /* The bug: + New appointment… with Therapy again replaced the first therapist, and both visits merged into one chip */
+  await page.selectOption('select[data-pick="ev"][data-ev="appt"]', "a1|w1");
+  await page.selectOption('select[data-pick="ev"][data-ev="appt"]', "__new");
+  await page.fill('#itemForm [name="name"]', "therapy");
+  await page.fill("#whoRows input", "Dr. Kim");
+  await page.click("#saveItem");
+  let s = await page.state();
+  eq([s.appts.length, s.appts[0].name], [1, "Therapy"], "same appointment, not a duplicate or a rename");
+  eq(s.appts[0].who.map(w => w.name), ["Dr. Lee", "Dr. Kim"], "Dr. Lee kept, Dr. Kim added");
+  const kim = s.appts[0].who[1].id;
+  eq(s.alog[today].map(e => e.w), ["w1", kim], "each visit has its own");
+  eq(await page.$$eval('[data-evbox="appt"] .chip', c => c.map(x => x.querySelector(".who").textContent)), ["Dr. Lee", "Dr. Kim"], "two chips");
+  eq(await optVals(page, 'select[data-pick="ev"][data-ev="appt"]'), ["", "a1|w1", "a1|" + kim, "__new"], "picker lists each therapist");
+  /* Tap a practitioner to change that visit only, and its time */
+  await page.click('[data-evbox="appt"] .chip >> nth=0 >> button.who');
+  eq(await page.isVisible("#xwhoRow"), true, "Who or where in the pop-up");
+  await page.selectOption("#xwho", kim); await page.fill("#xtime", "09:00"); await page.click('#xform [type="submit"]');
+  s = await page.state();
+  eq(s.alog[today].map(e => e.w), [kim, kim], "first visit changed, second untouched");
+  eq(s.appts[0].who.map(w => w.name), ["Dr. Lee", "Dr. Kim"], "the list itself is unchanged");
+  await page.click('[data-evbox="appt"] .chip >> nth=0 >> button.t');
+  await page.selectOption("#xwho", "w1"); await page.click('#xform [type="submit"]');
+  /* Settings: rename one, remove the other (kept for its past visit, gone from the picker) */
+  await page.evaluate(() => openEditor("appt", "a1"));
+  eq(await page.$$eval("#whoRows input", l => l.map(i => i.value)), ["Dr. Lee", "Dr. Kim"], "editor lists both");
+  await page.fill("#whoRows input >> nth=0", "Dr. Lee-Park");
+  await page.click("#whoRows .whorow >> nth=1 >> button");
+  await page.click("#saveItem");
+  s = await page.state();
+  eq(s.appts[0].who.map(w => [w.name, !!w.gone]), [["Dr. Lee-Park", false], ["Dr. Kim", true]], "renamed; removed one kept for history");
+  eq(await optVals(page, 'select[data-pick="ev"][data-ev="appt"]'), ["", "a1|w1", "__new"], "removed one leaves the picker");
+  const csv = await page.evaluate(k => buildCSV(k, k), today);
+  assert(csv.includes("Therapy (Dr. Lee-Park) at") && csv.includes("Therapy (Dr. Kim) at"), "spreadsheet names each visit's practitioner");
+  const c = await copyFrom(page, '[data-copy="appt"]');
+  eq(c.sub, "Nothing logged yesterday", "copy menu still works");
+}, { ...base, appts: [{ id: "a1", name: "Therapy", who: [{ id: "w1", name: "Dr. Lee" }] }] });
+
+await test("an older save's single Who or where becomes the practitioner of every past visit", async page => {
+  const s = await page.state(), a = s.appts[0];
+  eq([a.dose, a.who.map(w => w.name)], [undefined, ["City Clinic"]], "converted");
+  eq(s.alog[yday][0].w, a.who[0].id, "past visit points to it");
+  eq(s.appts[1].who, [], "one without stays empty");
+}, { ...base, appts: [{ id: "a1", name: "GI", dose: "City Clinic" }, { id: "a2", name: "Labs" }], alog: { [yday]: [{ id: "a1", t: at(yday, 9) }] } });
 
 /* ---------- Existing features still work ---------- */
 await test("checking off a med and adding a food still work", async page => {

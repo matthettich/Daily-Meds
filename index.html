@@ -250,7 +250,19 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .actions .danger{margin-right:auto}
 .is-sym .med-only{display:none}
 .is-extra .timed-only{display:none}
-/* The dose time is a button: tap it to change the time */
+/* Appointments list their people or places (one row each) instead of one Who or where box */
+.appt-only{display:none}
+.is-appt .appt-only{display:block}
+.is-appt .dose-f{display:none}
+.whorow{display:flex;margin-bottom:6px}
+.whorow input{flex:1;min-width:0;padding:10px;border:1px solid var(--rule);border-radius:0;background:var(--white);font:inherit;font-size:15px;color:var(--ink)}
+.whorow button{flex:none;width:44px;border:1px solid var(--rule);border-left:0;background:var(--white);font-size:18px;line-height:1;color:var(--ink)}
+#addWho{margin-top:2px}
+label.f select{display:block;width:100%;margin-top:4px;appearance:none;-webkit-appearance:none;min-height:42px;border:1px solid var(--rule);border-radius:0;
+  background:var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23111' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 8px center/14px;
+  padding:10px 28px 10px 10px;font:inherit;font-size:15px;color:var(--ink)}
+/* The dose time is a button: tap it to change the time (an appointment's practitioner too: tap it to change who) */
+.chip button.who{border:0;width:auto;align-self:center;margin-left:6px;padding:4px 2px;font-size:13px;color:var(--muted);text-decoration:underline dotted;text-underline-offset:3px}
 .chip button.t{border:0;width:auto;align-self:center;margin-left:6px;padding:4px 2px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;
   text-decoration:underline dotted;text-underline-offset:3px}
 
@@ -662,6 +674,7 @@ body{display:flex;flex-direction:column}
     <div class="body">
       <p class="askmsg" id="xnote" hidden></p>
       <label class="allday" id="xalldayRow"><input type="checkbox" id="xallday"><span>All day</span></label>
+      <label class="f" id="xwhoRow" style="display:none"><span>Who or where</span><select id="xwho"></select></label>
       <label class="f" id="xtimeRow"><span id="xlabel">Time taken</span><input type="time" id="xtime"></label>
       <div class="actions">
         <button type="button" class="danger" id="xremove">Remove dose</button>
@@ -737,7 +750,12 @@ body{display:flex;flex-direction:column}
     <h3 id="dlgTitle">Add medication</h3>
     <div class="body">
       <label class="f">Name<input name="name" autocomplete="off" required></label>
-      <label class="f med-only"><span id="doseLabel">Dose</span><input name="dose" placeholder="e.g. 50 mg, 2 tablets" autocomplete="off"></label>
+      <label class="f med-only dose-f"><span id="doseLabel">Dose</span><input name="dose" placeholder="e.g. 50 mg, 2 tablets" autocomplete="off"></label>
+      <fieldset class="appt-only">
+        <legend>Who or where</legend>
+        <div id="whoRows"></div>
+        <button type="button" class="ghost" id="addWho">+ Add another</button>
+      </fieldset>
       <fieldset class="med-only timed-only">
         <legend>Times</legend>
         <div class="slotpick" id="slotPick"></div>
@@ -793,7 +811,7 @@ const LATE_CUTOFF = 3;       // 3 AM: the latest a day can run past midnight whi
    hotAdded: "Got overheated" was added to the Other list once (so deleting it sticks)
    acts: activity list (walk, yoga, cleaning…). aclog: {date:[{id,t,x,min}]} — each activity: start time t, exertion x 1–10
    (optional), minutes min (optional)
-   appts: appointment list ({id,name,dose} — dose holds who/where). alog: {date:[{id,t}]}
+   appts: appointment list ({id,name,who:[{id,name,gone?}]} — the people or places it can be with). alog: {date:[{id,t,w?}]}, w = which of who
    layout: [{id,show}] — the Today page's sections in order, and whether each shows. folded: {id:true} — sections folded on Today
    showYearCal: show the year calendar on Recap
    smells: smell list. smlog: {date:[{id,t}]} — each smell noticed. trackSmells: show the Smells box on Today
@@ -901,7 +919,7 @@ document.getElementById("askDlg").addEventListener("close",()=>askDone&&askDone(
 /* ---------- storage ---------- */
 function normalize(s){
   const obj=v=>(v&&typeof v==="object"&&!Array.isArray(v))?v:{};
-  return {meds:Array.isArray(s.meds)?s.meds:[], log:obj(s.log),
+  const n={meds:Array.isArray(s.meds)?s.meds:[], log:obj(s.log),
           symptoms:Array.isArray(s.symptoms)?s.symptoms:[], slog:normSlog(obj(s.slog)),
           food:obj(s.food), notes:obj(s.notes), pnotes:obj(s.pnotes),
           foods:Array.isArray(s.foods)?s.foods:[], places:Array.isArray(s.places)?s.places:[], meals:obj(s.meals),
@@ -922,6 +940,21 @@ function normalize(s){
           name:typeof s.name==="string"?s.name.trim().slice(0,60):"",
           dayEnd:typeof s.dayEnd==="string"?s.dayEnd:undefined,
           updated:Number(s.updated)||0};
+  normAppts(n); return n;
+}
+/* Appointments used to hold one Who or where (appt.dose), shared by every visit, so two therapists under one Therapy
+   overwrote each other. Now each appointment lists its people or places (appt.who) and each visit keeps its own (e.w).
+   Older data and backups are converted here: the one name becomes the first practitioner and every past visit gets it. */
+function normAppts(st){
+  for(const m of st.appts){
+    if(!m||typeof m!=="object") continue;
+    if(!Array.isArray(m.who)){
+      m.who=[]; const d=typeof m.dose==="string"?m.dose.trim():"";
+      if(d){ const w={id:uid(),name:d}; m.who.push(w);
+        for(const L of Object.values(st.alog)) if(Array.isArray(L)) for(const e of L) if(e&&e.id===m.id&&!e.w) e.w=w.id; }
+    }
+    delete m.dose;
+  }
 }
 /* Symptoms used to hold one value per day (a timestamp or "all"); now each is a list of times, so the same
    symptom can be logged more than once a day. Older data and backups are converted here. */
@@ -1049,18 +1082,32 @@ const EVLOGS={
 };
 function evOf(kind,id){return state[EVLOGS[kind].items].find(x=>x.id===id)}
 function evHits(kind,date){return (state[EVLOGS[kind].log][date]||[]).map((e,i)=>({...e,i})).filter(e=>evOf(kind,e.id))}
-function logEv(kind,date,id){const L=state[EVLOGS[kind].log], list=L[date]||(L[date]=[]); list.push({id,t:stampFor(date)}); list.sort((a,b)=>a.t-b.t)}
+function logEv(kind,date,id,w){const L=state[EVLOGS[kind].log], list=L[date]||(L[date]=[]); list.push({id,t:stampFor(date),...(w?{w}:{})}); list.sort((a,b)=>a.t-b.t)}
+/* Appointments: appt.who = the people or places it can be with ({id,name}; gone:true = removed in Settings but kept
+   because past visits name them). Each visit keeps which one it was (e.w), so two therapists under one Therapy stay apart. */
+function whoOf(m,wid){return (wid&&m&&(m.who||[]).find(x=>x.id===wid))||null}
+function whoLive(m){return ((m&&m.who)||[]).filter(x=>!x.gone)}
+/* "Therapy · Dr. Lee" (or "Therapy (Dr. Lee)" with paren) for one logged entry; only appointments have someone */
+function evName(kind,e,paren){const m=evOf(kind,e.id), w=kind==="appt"&&whoOf(m,e.w);return m.name+(w?(paren?" ("+w.name+")":" · "+w.name):"")}
+/* "Therapy · Dr. Lee ×2, Therapy · Dr. Kim": each name once, in first-seen order */
+function tallyNames(names){const c=new Map();for(const n of names)c.set(n,(c.get(n)||0)+1);return [...c].map(([n,k])=>n+(k>1?" ×"+k:"")).join(", ")}
 function evBox(kind){
-  const E=EVLOGS[kind], hits=evHits(kind,viewDate);
-  const groups=new Map(); for(const e of hits){ const g=groups.get(e.id); if(g){g.n++;g.last=e} else groups.set(e.id,{n:1,last:e}) }
+  const E=EVLOGS[kind], hits=evHits(kind,viewDate), ap=kind==="appt";
+  /* One chip per item; for appointments, one per item and practitioner */
+  const groups=new Map(); for(const e of hits){ const key=ap?e.id+"|"+(e.w||""):e.id, g=groups.get(key); if(g){g.n++;g.last=e} else groups.set(key,{n:1,last:e}) }
   const items=state[E.items].filter(m=>activeOn(m,viewDate)).sort((a,b)=>a.name.localeCompare(b.name));
+  /* An appointment with practitioners is picked as "Therapy · Dr. Lee" (value id|who) */
+  const opts=m=>{const ws=ap?whoLive(m):[];
+    return ws.length?ws.map(w=>`<option value="${esc(m.id)}|${esc(w.id)}">${esc(m.name)} · ${esc(w.name)}</option>`).join("")
+      :`<option value="${esc(m.id)}">${esc(m.name)}${m.dose?" · "+esc(m.dose):""}</option>`};
   return `<div class="box ${E.cls}" data-evbox="${kind}">
       <div class="lid">${COPY[kind]?copyName(kind,kind,E.title):E.title}<span class="st">${hits.length?E.count(hits.length):"None"}</span></div>
-      <div class="chips">${groups.size?[...groups].map(([id,g])=>{const m=evOf(kind,id),e=g.last;return `<span class="chip">${esc(m.name)}${m.dose&&kind==="appt"?`<span class="qty">${esc(m.dose)}</span>`:""}${g.n>1?`<span class="qty">×${g.n}</span>`:""}<button class="t" data-evt="${kind}" data-i="${e.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-evrm="${kind}" data-i="${e.i}" aria-label="Remove ${g.n>1?"one ":""}${esc(m.name)}">×</button></span>`}).join(""):`<span class="none">${E.none}</span>`}</div>
+      <div class="chips">${groups.size?[...groups.values()].map(g=>{const e=g.last, m=evOf(kind,e.id), w=ap&&whoOf(m,e.w), nm=esc(evName(kind,e));
+        return `<span class="chip">${esc(m.name)}${w?`<button class="who" data-evt="${kind}" data-i="${e.i}" aria-label="${nm}. Tap to change who or where">${esc(w.name)}</button>`:""}${g.n>1?`<span class="qty">×${g.n}</span>`:""}<button class="t" data-evt="${kind}" data-i="${e.i}" aria-label="Change time of ${nm}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-evrm="${kind}" data-i="${e.i}" aria-label="Remove ${g.n>1?"one ":""}${nm}">×</button></span>`}).join(""):`<span class="none">${E.none}</span>`}</div>
       <div class="pickers one">
         <select data-pick="ev" data-ev="${kind}" aria-label="${E.add.replace("…","")}">
           <option value="">${E.add}</option>
-          ${items.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}${m.dose?" · "+esc(m.dose):""}</option>`).join("")}
+          ${items.map(opts).join("")}
           <option value="__new">${E.add2}</option>
         </select>
       </div>
@@ -1345,7 +1392,7 @@ function render(){
     "Walks, yoga, cleaning, errands… anything that takes effort. Tap Add.","Every activity is archived.");
   renderLayout();
   put("apptList","appt",state.appts,(m,a)=>`<button class="row" data-edit-appt="${esc(m.id)}">
-        <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,a)}</span>
+        <span><span class="nm">${esc(m.name)}</span>${ds(whoLive(m).map(w=>w.name).join(", "),a)}</span>
         <span class="side">${times(evMonth("appt",m.id),"visit","visits")}</span></button>`,
     "Doctor visits, therapy, lab work… Tap Add.","Every appointment is archived.");
   put("symList","sym",state.symptoms,(x,a)=>`<button class="row" data-edit-sym="${esc(x.id)}">
@@ -1548,12 +1595,13 @@ function renderSummary(){
     const E=EVLOGS[kind], tally={};
     for(const [k,v] of Object.entries(state[E.log])){ if(k<from||k>upto) continue;
       const seen=new Set();
-      for(const e of v){ if(!evOf(kind,e.id)) continue; const t=tally[e.id]||(tally[e.id]={times:0,days:0}); t.times++; if(!seen.has(e.id)){seen.add(e.id);t.days++} } }
-    const rows=Object.entries(tally).map(([id,t])=>({m:evOf(kind,id),...t})).sort((a,b)=>b.days-a.days||b.times-a.times||a.m.name.localeCompare(b.m.name));
+      for(const e of v){ if(!evOf(kind,e.id)) continue; const key=kind==="appt"?e.id+"|"+(e.w||""):e.id;   // appointments: per practitioner
+        const t=tally[key]||(tally[key]={times:0,days:0,name:evName(kind,e)}); t.times++; if(!seen.has(key)){seen.add(key);t.days++} } }
+    const rows=Object.values(tally).sort((a,b)=>b.days-a.days||b.times-a.times||a.name.localeCompare(b.name));
     if(!rows.length&&!on) continue;
     const maxD=Math.max(1,...rows.map(r=>r.days));
     html+=`<div class="box l-list"><div class="lid">${title}</div>
-      ${rows.length?rows.map(r=>`<div class="stat"><span class="nm">${esc(r.m.name)}</span><span class="num">${r.days} ${r.days===1?"day":"days"}${r.times>r.days?" · "+r.times+" times":""}</span><div class="track"><i style="width:${Math.round(r.days/maxD*100)}%"></i></div></div>`).join("")
+      ${rows.length?rows.map(r=>`<div class="stat"><span class="nm">${esc(r.name)}</span><span class="num">${r.days} ${r.days===1?"day":"days"}${r.times>r.days?" · "+r.times+" times":""}</span><div class="track"><i style="width:${Math.round(r.days/maxD*100)}%"></i></div></div>`).join("")
         :`<div class="empty-row">${empty} this ${unit}.</div>`}</div>`;
   }
 
@@ -2092,6 +2140,7 @@ function symText(name,list){
 const xdlg=document.getElementById("xdlg"); let xedit=null;
 function openTimeDialog(title,label,removeText,t,allDay){
   const d=new Date(realTime(t)?t:Date.now());
+  document.getElementById("xwhoRow").style.display="none";
   document.getElementById("xnote").hidden=true;
   document.getElementById("xalldayRow").style.display = allDay===undefined ? "none" : "";
   document.getElementById("xallday").checked = !!allDay;
@@ -2111,7 +2160,16 @@ function openDoseTime(date,i){
 function openEvTime(kind,date,i){
   const E=EVLOGS[kind], e=(state[E.log][date]||[])[i], m=e&&evOf(kind,e.id); if(!m) return;
   xedit={kind:"ev",ev:kind,date,i};
-  openTimeDialog(m.name+(m.dose?" · "+m.dose:""),E.time,"Remove",e.t);
+  openTimeDialog(kind==="appt"?m.name:m.name+(m.dose?" · "+m.dose:""),E.time,"Remove",e.t);
+  /* An appointment's visit picks its own practitioner here (changing it never touches other visits) */
+  const ws=kind==="appt"?whoLive(m):[], cur=kind==="appt"&&whoOf(m,e.w);
+  if(cur&&cur.gone) ws.push(cur);
+  if(ws.length){
+    const sel=document.getElementById("xwho");
+    sel.innerHTML=`<option value="">Not listed</option>`+ws.map(w=>`<option value="${esc(w.id)}">${esc(w.name)}</option>`).join("");
+    sel.value=cur?cur.id:"";
+    document.getElementById("xwhoRow").style.display="";
+  }
 }
 function openMoodTime(date,mt,id){
   const ids=((state.mlog[date]||{})[mt])||[], x=state.moods.find(q=>q.id===id), lab=MOODTIMES.find(q=>q.id===mt); if(!x||!ids.includes(id)) return;
@@ -2270,6 +2328,10 @@ document.getElementById("xform").addEventListener("submit",ev=>{
     copyRestore(xedit); COPY[xedit.ck].put(xedit.p,xedit.date,xedit.k,t);
     xdlg.close(); commit(); return;
   }
+  if(xedit.kind==="ev"&&xedit.ev==="appt"&&document.getElementById("xwhoRow").style.display!=="none"){
+    const e=(state.alog[xedit.date]||[])[xedit.i], w=document.getElementById("xwho").value;
+    if(e){ if(w) e.w=w; else delete e.w; }
+  }
   const se=xedit.kind==="sym"&&symList(xedit.date,xedit.id)[xedit.si];
   if(se&&document.getElementById("xallday").checked){ se.t=ALLDAY; sortSym(symList(xedit.date,xedit.id)); }
   else if(/^\d\d:\d\d/.test(v)){
@@ -2308,9 +2370,9 @@ function evCopier(kind,what,q){
   const E=EVLOGS[kind];
   return {what, q, time:E.time, logs:[E.log], box:()=>E.title,
     pick(from,to){ return {e:(state[E.log][from]||[]).filter(e=>liveOn(state[E.items],e.id,to))}; },
-    size:p=>p.e.length, preview:p=>namesOf(p.e.map(e=>e.id),state[E.items]),
+    size:p=>p.e.length, preview:p=>tallyNames(p.e.map(e=>evName(kind,e))),
     has:to=>evHits(kind,to).length>0,
-    put(p,to,k,t){ const L=state[E.log]; if(p.e.length) L[to]=p.e.map(e=>({id:e.id,t,...(e.x?{x:e.x}:{}),...(e.min?{min:e.min}:{})})); else delete L[to]; return p.e.length; }};   // an activity keeps its exertion and minutes
+    put(p,to,k,t){ const L=state[E.log]; if(p.e.length) L[to]=p.e.map(e=>({id:e.id,t,...(e.x?{x:e.x}:{}),...(e.min?{min:e.min}:{}),...(e.w?{w:e.w}:{})})); else delete L[to]; return p.e.length; }};   // an activity keeps its exertion and minutes, an appointment its practitioner
 }
 const COPY={
   meal:{what:"Meal", word:k=>MEALS.find(x=>x.id===k).what, q:"When did you eat?", time:"Time eaten", logs:["meals"], box:k=>MEALS.find(x=>x.id===k).label,
@@ -2572,7 +2634,7 @@ todayCol.addEventListener("change",e=>{
   if(sel.dataset.pick==="ev"){
     const v=sel.value, kind=sel.dataset.ev;
     if(v==="__new"){ sel.value=""; openEditor(kind,null,{date:viewDate,ev:kind}); return; }
-    if(v){ logEv(kind,viewDate,v); commit(); }
+    if(v){ const [id,w]=v.split("|"); logEv(kind,viewDate,id,w); commit(); }
     return;
   }
   if(sel.dataset.pick==="mood"){
@@ -2727,6 +2789,8 @@ function openEditor(kind,id,pending){
   const item=id?K.list().find(x=>x.id===id):null;
   form.classList.toggle("is-sym",!isMed&&!isExtra);
   form.classList.toggle("is-extra",isExtra);
+  form.classList.toggle("is-appt",kind==="appt");
+  if(kind==="appt") whoRowsFill(item?whoLive(item):[]);
   document.getElementById("dlgTitle").textContent=(item?"Edit ":"Add ")+K.word;
   document.getElementById("saveItem").textContent=item?"Save":"Add";
   document.getElementById("delItem").style.visibility=item?"visible":"hidden";
@@ -2761,7 +2825,9 @@ form.addEventListener("submit",e=>{
     let item=editing.id ? state.extras.find(x=>x.id===editing.id) : state.extras.find(x=>x.name.toLowerCase()===name.toLowerCase());
     if(item){ Object.assign(item,{name,dose}); if(!editing.id&&item.archived) setArchived(item,false); } else state.extras.push(item={id:uid(),name,dose});
     if(editing.pending&&editing.pending.xmed) logExtra(editing.pending.date,item.id);
-  } else if(editing.kind==="supp"||editing.kind==="appt"){
+  } else if(editing.kind==="appt"){
+    saveAppt(name);
+  } else if(editing.kind==="supp"){
     const dose=F("dose").value.trim(), list=K.list();
     let item=editing.id ? list.find(x=>x.id===editing.id) : list.find(x=>x.name.toLowerCase()===name.toLowerCase());
     if(item){ Object.assign(item,{name,dose}); if(!editing.id&&item.archived) setArchived(item,false); } else list.push(item={id:uid(),name,dose});
@@ -2790,6 +2856,45 @@ document.getElementById("delItem").onclick=async()=>{
   K.set(K.list().filter(x=>x.id!==editing.id));
   dlg.close(); commit();
 };
+
+/* Appointment editor: one row per person or place. Existing rows carry their id, so renaming one renames it on every visit. */
+function whoRowsFill(list){
+  const rows=(list.length?list:[{id:"",name:""}]).map(w=>`<div class="whorow"><input data-wid="${esc(w.id)}" value="${esc(w.name)}" placeholder="e.g. Dr. Lee, City Clinic" autocomplete="off" aria-label="Who or where"><button type="button" class="whorm" aria-label="Remove">×</button></div>`);
+  document.getElementById("whoRows").innerHTML=rows.join("");
+}
+document.getElementById("addWho").onclick=()=>{
+  const box=document.getElementById("whoRows");
+  box.insertAdjacentHTML("beforeend",`<div class="whorow"><input data-wid="" placeholder="e.g. Dr. Lee, City Clinic" autocomplete="off" aria-label="Who or where"><button type="button" class="whorm" aria-label="Remove">×</button></div>`);
+  box.lastElementChild.querySelector("input").focus();
+};
+document.getElementById("whoRows").addEventListener("click",e=>{
+  const b=e.target.closest(".whorm"); if(!b) return;
+  const row=b.closest(".whorow"), box=document.getElementById("whoRows");
+  if(box.children.length>1) row.remove(); else { const i=row.querySelector("input"); i.value=""; i.dataset.wid=""; }
+});
+/* Saving an appointment. Adding one whose name already exists (say Therapy again, with a second therapist) only adds
+   its new practitioners; it never replaces the ones already there. Editing one removes the rows taken out, except a
+   practitioner with past visits, who is kept (gone:true) so those visits still say who it was. A visit started from
+   Today's "+ New appointment…" is logged with the first practitioner typed. */
+function saveAppt(name){
+  const typed=[...document.querySelectorAll("#whoRows input")].map(i=>({id:i.dataset.wid||"",name:i.value.trim()})).filter(x=>x.name);
+  let item=editing.id?state.appts.find(x=>x.id===editing.id):state.appts.find(x=>x.name.toLowerCase()===name.toLowerCase());
+  if(!item) state.appts.push(item={id:uid(),name,who:[]});
+  if(editing.id) item.name=name;   // adding "therapy" to an existing Therapy doesn't rename it
+  delete item.dose;
+  if(!editing.id&&item.archived) setArchived(item,false);
+  const who=item.who||(item.who=[]), picked=[];
+  for(const t of typed){
+    let w=(t.id&&who.find(x=>x.id===t.id))||who.find(x=>x.name.toLowerCase()===t.name.toLowerCase());
+    if(w){ w.name=t.name; delete w.gone; } else who.push(w={id:uid(),name:t.name});
+    if(!picked.includes(w)) picked.push(w);
+  }
+  if(editing.id){
+    const used=wid=>Object.values(state.alog).some(L=>(L||[]).some(e=>e.id===item.id&&e.w===wid));
+    item.who=[...picked,...who.filter(w=>!picked.includes(w)&&used(w.id)).map(w=>(w.gone=true,w))];
+  }
+  if(editing.pending&&editing.pending.ev) logEv("appt",editing.pending.date,item.id,picked[0]&&picked[0].id);
+}
 
 /* Archive / Unarchive buttons on every Settings list */
 document.addEventListener("click",e=>{
@@ -2835,7 +2940,10 @@ async function saveFile(name,text,mime){
 /* ---------- CSV export: one row per day, every day in range (empty days included so delays are easy to spot) ---------- */
 /* Columns for the simple logs (smells, other, appointments): "Smoke x2 at 9:00 AM, 1:10 PM", and how many */
 function evCols(kinds,k){
-  return kinds.flatMap(kind=>{const sm=evHits(kind,k);return [[...new Set(sm.map(e=>e.id))].map(id=>{const m=evOf(kind,id), ts=sm.filter(e=>e.id===id).map(e=>fmtTime(e.t));return m.name+(kind==="appt"&&m.dose?" ("+m.dose+")":"")+(ts.length>1?" x"+ts.length:"")+" at "+ts.join(", ")}).join("; "),sm.length]});
+  /* Appointments are listed per practitioner: "Therapy (Dr. Lee) at 10:00 AM; Therapy (Dr. Kim) at 3:00 PM" */
+  return kinds.flatMap(kind=>{const sm=evHits(kind,k), by=new Map();
+    for(const e of sm){ const n=evName(kind,e,true); (by.get(n)||by.set(n,[]).get(n)).push(fmtTime(e.t)); }
+    return [[...by].map(([n,ts])=>n+(ts.length>1?" x"+ts.length:"")+" at "+ts.join(", ")).join("; "),sm.length]});
 }
 function buildCSV(start,end){
   const q=v=>{v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
