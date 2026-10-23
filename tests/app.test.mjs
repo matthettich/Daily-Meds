@@ -752,7 +752,14 @@ await test("Symptoms box says Suspected Flare and tags Flare?; other boxes keep 
   eq(await page.textContent('.box:has([data-copy="syms"]) .trig'), "Flare?", "tag on Symptoms");
   await page.click('[data-copy="meal"][data-key="breakfast"]');
   eq(await page.textContent("#cmTrigLbl"), "Suspected trigger", "label back on Breakfast");
-  await page.keyboard.press("Escape");
+  await page.check("#cmTrig"); await page.keyboard.press("Escape");
+  const csv = await page.evaluate(([a, b]) => buildCSV(a, b), [today, today]), lines = csv.replace(/^﻿/, "").split("\r\n"),
+    head = parseCSVLine(lines[0]), row = parseCSVLine(lines.find(l => l.startsWith(today))), col = p => row[head.findIndex(h => h.startsWith(p))];
+  eq(head.findIndex(h => h.startsWith("suspected_flare")), head.findIndex(h => h.startsWith("suspected_triggers")) + 1, "flare column right after triggers");
+  eq([col("suspected_flare"), col("suspected_triggers")], ["1", "Breakfast: nothing logged"], "flare in its own column, not in triggers");
+  await page.click('[data-copy="syms"]'); await page.uncheck("#cmTrig"); await page.keyboard.press("Escape");
+  const csv2 = await page.evaluate(([a, b]) => buildCSV(a, b), [today, today]), head2 = parseCSVLine(csv2.replace(/^﻿/, "").split("\r\n")[0]);
+  eq(parseCSVLine(csv2.replace(/^﻿/, "").split("\r\n").find(l => l.startsWith(today)))[head2.findIndex(h => h.startsWith("suspected_flare"))], "0", "0 when not marked");
 });
 
 await test("Suspected triggers setting (Settings → Today page): off hides the checkbox and tags, keeps the marks and export", async page => {

@@ -1614,7 +1614,7 @@ function renderSummary(){
   const yr=P.start.slice(0,4);
   html+=`<div class="box l-list"><div class="lid">Export for AI</div>
     <p class="hint">A spreadsheet with one row per day: each dose taken (with its time), doses missed, additional medication, supplements, symptoms (how many times and how strong), each meal's foods and restaurant, mood, smells and other things, activities (minutes and exertion), appointments, weather, air quality, pollen, and your notes. Upload it to AI or another AI and ask something like:</p>
-    <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses, moods, harder activities, pressure changes, air quality or pollen line up with symptoms? The suspected_triggers column is what I thought set off my symptoms; does the data back that up?"</p>
+    <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses, moods, harder activities, pressure changes, air quality or pollen line up with symptoms? The suspected_triggers column is what I thought set off my symptoms, and suspected_flare marks days I thought were a flare-up; does the data back that up?"</p>
     <div class="backup-btns"><button class="ghost" data-export="year">Download ${esc(yr)}</button><button class="ghost" data-export="all">Download everything</button></div>
     <p class="hint" id="exportMsg" role="status"></p></div>`;
   body.innerHTML=html;
@@ -2441,10 +2441,11 @@ function setTrig(date,key,on){
   if(on) d[key]=true; else delete d[key];
   if(!Object.keys(d).length) delete state.trig[date];
 }
-/* Every box that can be marked, in Today's order, with a label for the export */
+/* Every box whose mark is exported as a suspected trigger, in Today's order, with a label for the export.
+   Symptoms isn't here: its mark means a suspected flare and has its own suspected_flare column. */
 function trigBoxes(){
   return [...MEALS.map(m=>({ck:"meal",k:m.id,label:m.label})),...MOODTIMES.map(m=>({ck:"mood",k:m.id,label:m.label+" mood"})),
-    {ck:"supp",k:"supp",label:"Supplements"},{ck:"smell",k:"smell",label:"Smells"},{ck:"other",k:"other",label:"Other"},{ck:"act",k:"act",label:"Activity"},{ck:"syms",k:"syms",label:"Symptoms"},{ck:"appt",k:"appt",label:"Appointments"}];
+    {ck:"supp",k:"supp",label:"Supplements"},{ck:"smell",k:"smell",label:"Smells"},{ck:"other",k:"other",label:"Other"},{ck:"act",k:"act",label:"Activity"},{ck:"appt",k:"appt",label:"Appointments"}];
 }
 /* "Breakfast: Coffee x2, Oatmeal · at Snooze | Smells: Smoke" — what was in each marked box that day */
 function trigText(date){
@@ -2982,6 +2983,7 @@ function buildCSV(start,end){
     "appointments","appointment_count",
     "weather","high_"+(US_UNITS?"F":"C"),"low_"+(US_UNITS?"F":"C"),"precip_"+(US_UNITS?"in":"mm"),"humidity_pct","pressure_hpa","pressure_change_hpa","us_aqi","pm2_5","pollen_tree","pollen_grass","pollen_weed","latitude","longitude","elevation_"+(US_UNITS?"ft":"m"),"distance_from_last_"+(US_UNITS?"mi":"km"),"elevation_change_"+(US_UNITS?"ft":"m"),"big_move",
     "suspected_triggers (what the user marked as possibly triggering their condition that day)",
+    "suspected_flare (1 = the user marked this day as a possible flare-up of their condition)",
     "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells_other","notes_activity","notes_appointments"];
   if(state.name) head.unshift("name");
   const rows=[head.map(q).join(",")];
@@ -3027,6 +3029,7 @@ function buildCSV(start,end){
         const m=geoMove(k), el=v=>v==null?"":Math.round(US_UNITS?v*3.28084:v);
         return [g.lat,g.lon,el(g.el),m?(US_UNITS?m.mi:m.mi*1.609344).toFixed(0):"",m&&m.de!=null?el(m.de):"",m&&(m.far||m.high)?1:0]})(),
       trigText(k),
+      isTrig(k,"syms")?1:0,
       MEALS.filter(m=>typed[m.id]).map(m=>m.label+": "+typed[m.id]).join(" | "),
       state.notes[k]||"",...["food","meds","syms","mood","smell","act","appt"].map(n=>(state.pnotes[n]||{})[k]||"")];
     if(state.name) row.unshift(state.name);
