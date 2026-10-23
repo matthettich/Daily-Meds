@@ -687,7 +687,7 @@ body{display:flex;flex-direction:column}
 <!-- Tap a box's name on Today (Breakfast, Morning, Symptoms…) for this menu: copy that box from the day before -->
 <dialog id="cmenu" class="menu" aria-label="Copy from yesterday">
   <button type="button" class="mitem" id="cmCopy"><span class="mt" id="cmText">Copy Yesterday's Meal</span><span class="ms" id="cmSub"></span></button>
-  <label class="mitem mtrig" id="cmTrigRow"><input type="checkbox" id="cmTrig"><span>Suspected trigger</span></label>
+  <label class="mitem mtrig" id="cmTrigRow"><input type="checkbox" id="cmTrig"><span id="cmTrigLbl">Suspected trigger</span></label>
 </dialog>
 <!-- Symptom details: every time it was logged today, each with its own time and 1–10 intensity -->
 <dialog id="sdlg">
@@ -2429,7 +2429,7 @@ const COPY={
 const copyWord=(C,k)=>(C.word&&C.word(k))||C.what;
 function copyName(ck,k,label){
   const tr=!COPY[ck].noTrig&&isTrig(viewDate,trigKey(ck,k))&&state.trackTrig;
-  return `<button type="button" class="cpn" data-copy="${ck}" data-key="${esc(k)}" aria-haspopup="menu">${esc(label)}</button>${tr?`<span class="trig" title="Marked as a suspected trigger">Trigger?</span>`:""}`;
+  return `<button type="button" class="cpn" data-copy="${ck}" data-key="${esc(k)}" aria-haspopup="menu">${esc(label)}</button>${tr?(ck==="syms"?`<span class="trig" title="Marked as a suspected flare">Flare?</span>`:`<span class="trig" title="Marked as a suspected trigger">Trigger?</span>`):""}`;
 }
 /* ---------- suspected triggers ----------
    Any box with the tap menu (meals, mood times, Symptoms, Smells, Other, Appointments) can be marked as a suspected
@@ -2468,6 +2468,8 @@ function openCopyMenu(btn){
   document.getElementById("cmCopy").disabled=!n;
   document.getElementById("cmTrigRow").hidden=!state.trackTrig||!!C.noTrig;
   document.getElementById("cmTrig").checked=isTrig(date,trigKey(ck,k));
+  /* On Symptoms the mark means a flare-up rather than a cause, so it's worded that way */
+  document.getElementById("cmTrigLbl").textContent=ck==="syms"?"Suspected Flare":"Suspected trigger";
   /* Hangs from the box's title bar, edge to edge with the box; opens upward if there's no room below */
   const r=btn.closest(".lid").getBoundingClientRect(), bx=btn.closest(".box").getBoundingClientRect();
   cmenu.style.width=bx.width+"px";

@@ -743,6 +743,18 @@ await test("Suspected trigger: tick it in a box's menu; tagged on Today, saved, 
 }, { ...copyFoods, smells: [{ id: "sm1", name: "Smoke" }], trackSmells: true,
   meals: { [today]: { breakfast: { foods: ["f1", "f1", "f2"], place: "p1" } } }, mlog: { [today]: { morning: ["md2"] } } });
 
+await test("Symptoms box says Suspected Flare and tags Flare?; other boxes keep Suspected trigger", async page => {
+  await page.click('[data-copy="syms"]');
+  await page.waitForSelector("#cmenu[open]");
+  eq(await page.textContent("#cmTrigLbl"), "Suspected Flare", "label on Symptoms");
+  await page.check("#cmTrig"); await page.keyboard.press("Escape");
+  eq((await page.state()).trig, { [today]: { syms: true } }, "same mark as before");
+  eq(await page.textContent('.box:has([data-copy="syms"]) .trig'), "Flare?", "tag on Symptoms");
+  await page.click('[data-copy="meal"][data-key="breakfast"]');
+  eq(await page.textContent("#cmTrigLbl"), "Suspected trigger", "label back on Breakfast");
+  await page.keyboard.press("Escape");
+});
+
 await test("Suspected triggers setting (Settings → Today page): off hides the checkbox and tags, keeps the marks and export", async page => {
   assert(await page.isVisible(".lid .trig"), "on by default for an older save");
   await page.click('[data-tab="set"][role="tab"]');
