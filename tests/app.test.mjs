@@ -83,6 +83,7 @@ async function open(seed, { width = 412, height = 900, geo = null, clock = null 
   return page;
 }
 async function test(name, fn, seed, opts) {
+  if (process.env.ONLY && !name.includes(process.env.ONLY)) return;   // ONLY="part of a name" node tests/app.test.mjs
   const page = await open(seed, opts);
   try { await fn(page); eq(page.errors, [], "page errors"); passed++; results.push("  ok   " + name); }
   catch (e) { failed++; results.push("  FAIL " + name + "\n       " + e.message); await page.screenshot({ path: path.join(ROOT, "tests", "fail-" + name.replace(/\W+/g, "-") + ".png"), fullPage: true }).catch(() => {}); }
@@ -274,7 +275,8 @@ await test("weather is saved for every day since starting, gaps retried", async 
   gapDay = shift(today, -3);
   await page.click('[data-tab="set"][role="tab"]');
   await page.fill("#wxCity", "Denver"); await page.click('#wxCityForm button');
-  await page.waitForFunction(() => /Weather saved for/.test(document.getElementById("wxCover").textContent));
+  // The coverage line shows at once ("0 of 11"); wait for the fetched weather itself, or this races on a busy machine
+  await page.waitForFunction(() => /Weather saved for/.test(document.getElementById("wxCover").textContent) && !wxBusy && (state.weather[todayKey()] || {}).hi != null);
   let s = await page.state();
   for (let i = 0; i <= 10; i++) { const k = shift(today, -i); assert(s.weather[k] && (k === gapDay || s.weather[k].hi === 20), "day " + k); }
   eq(s.weather[shift(today, -1)].final, true, "full past day is final");
@@ -1055,6 +1057,164 @@ await test("an older save's single Who or where becomes the practitioner of ever
   eq(s.alog[yday][0].w, a.who[0].id, "past visit points to it");
   eq(s.appts[1].who, [], "one without stays empty");
 }, { ...base, appts: [{ id: "a1", name: "GI", dose: "City Clinic" }, { id: "a2", name: "Labs" }], alog: { [yday]: [{ id: "a1", t: at(yday, 9) }] } });
+
+/* ---------- 11. Types, skip, comments and links, flare-ups ---------- */
+const csvRowOf = (csv, k = today) => { const lines = csv.replace(/^﻿/, "").split("\r\n"), head = parseCSVLine(lines[0]), row = parseCSVLine(lines.find(l => l.startsWith(k)));
+  return p => row[head.findIndex(h => h === p || h.startsWith(p + " "))]; };
+const typedMed = { ...base, meds: [...base.meds, { id: "ah", name: "Antihistamine", slots: ["morning"], lastOpt: "o2",
+  opts: [{ id: "o1", name: "Allegra", dose: "180 mg" }, { id: "o2", name: "Zyrtec", dose: "10 mg" }] }] };
+await test("a med with types: Take all uses the last one; checking it asks which one; the row, time pop-up and export show it", async page => {
+  await page.click('[data-all="morning"]');
+  let s = await page.state();
+  eq([!!s.log[today]["m1|morning"], !!s.log[today]["ah|morning"], s.ldet[today]["ah|morning"]], [true, true, { o: "o2" }], "Take all uses the one taken last");
+  await page.click('.row.med[data-k="ah|morning"]');
+  eq((await page.state()).ldet[today], undefined, "unchecking clears which one");
+  await page.click('.row.med[data-k="ah|morning"]');
+  await page.waitForSelector("#odlg[open]");
+  assert((await page.textContent("#odlgTitle")).includes("Antihistamine"), "asks about Antihistamine");
+  eq(await page.$$eval("#oList [data-oid]", b => b.map(x => x.textContent)), ["Allegra180 mg", "Zyrtec10 mg" + "last time"], "both types, last one marked");
+  await page.click("#oCancel");
+  eq((await page.state()).log[today]["ah|morning"], undefined, "Cancel checks nothing");
+  await page.click('.row.med[data-k="ah|morning"]'); await page.click('#oList [data-oid="o1"]');
+  s = await page.state();
+  eq([s.log[today]["ah|morning"] > 1e11, s.ldet[today]["ah|morning"], s.meds[1].lastOpt], [true, { o: "o1" }, "o1"], "checked with Allegra");
+  assert((await page.textContent('.medrow:has([data-k="ah|morning"]) .ds')).includes("Allegra 180 mg"), "row shows the one taken");
+  await page.click('.medrow:has([data-k="ah|morning"]) .when');
+  assert(await page.isVisible("#xoptRow"), "time pop-up can change which one");
+  eq(await page.isVisible("#xsymRow"), false, "no linked symptom on a checked med");
+  await page.selectOption("#xopt", "o2"); await page.click('#xform button[type="submit"]');
+  eq((await page.state()).ldet[today]["ah|morning"].o, "o2", "changed to Zyrtec");
+  const col = csvRowOf(await page.evaluate(k => buildCSV(k, k), today));
+  assert(/Antihistamine: Zyrtec 10 mg \(Morning\) at/.test(col("doses_taken_list")), "export names the type: " + col("doses_taken_list"));
+}, typedMed);
+
+await test("types are added in the editor; + New type… in Which one? adds one and logs it; a used type removed is kept for history", async page => {
+  await page.click('[data-tab="set"][role="tab"]');
+  await page.click("#addExtra");
+  assert(await page.isVisible("#addOpt"), "Types section in the editor");
+  await page.fill('#itemForm [name="name"]', "Antihistamine");
+  await page.click("#addOpt"); await page.fill("#optRows .optrow:nth-child(1) input:not(.od)", "Allegra"); await page.fill("#optRows .optrow:nth-child(1) input.od", "180 mg");
+  await page.click("#addOpt"); await page.fill("#optRows .optrow:nth-child(2) input:not(.od)", "Zyrtec");
+  await page.click("#saveItem");
+  let s = await page.state();
+  eq(s.extras[0].opts.map(o => [o.name, o.dose]), [["Allegra", "180 mg"], ["Zyrtec", undefined]], "types saved with details");
+  assert((await page.textContent("#extraList")).includes("Allegra / Zyrtec"), "Settings row lists them");
+  await page.click('[data-edit-sym="s1"]');
+  eq(await page.isVisible("#addOpt"), false, "symptoms have no types");
+  await page.click("#cancel");
+  await page.click('[role="tab"][data-tab="today"]');
+  const xid = s.extras[0].id;
+  await page.selectOption('select[data-pick="xmed"]', xid);
+  await page.waitForSelector("#odlg[open]");
+  await page.click("#oNew");
+  await page.waitForSelector("#dlg[open]");
+  await page.fill("#optRows .optrow:last-child input:not(.od)", "Claritin");
+  await page.click("#saveItem");
+  s = await page.state();
+  const cl = s.extras[0].opts.find(o => o.name === "Claritin");
+  assert(cl, "Claritin added");
+  eq(s.xlog[today].map(e => e.o), [cl.id], "and logged as the one taken");
+  assert((await page.textContent(".box.l-extra .chips")).includes("Claritin"), "chip shows it");
+  await page.click('[data-tab="set"][role="tab"]');
+  await page.click(`[data-edit-extra="${xid}"]`);
+  for (const n of ["Claritin", "Zyrtec"]) await page.click(`#optRows .optrow:has(input[value="${n}"]) .whorm`);
+  await page.click("#saveItem");
+  s = await page.state();
+  eq(s.extras[0].opts.map(o => [o.name, !!o.gone]), [["Allegra", false], ["Claritin", true]], "used one kept (hidden), unused one dropped");
+  assert(/Antihistamine \(Claritin\) at/.test(await page.evaluate(k => buildCSV(k, k), today)), "export still names it");
+}, base);
+
+await test("a food with types (Rice → jasmine, brown) asks which one, with Just Rice; the picker lists Rice once", async page => {
+  eq(await optVals(page, 'select[data-pick="food"][data-meal="lunch"]'), ["", "r", "__new"], "one Rice in the picker");
+  await page.selectOption('select[data-pick="food"][data-meal="lunch"]', "r");
+  await page.waitForSelector("#odlg[open]");
+  eq(await page.$$eval("#oList [data-oid]", b => b.map(x => x.dataset.oid)), ["", "v1", "v2"], "Just Rice, then each type");
+  await page.click('#oList [data-oid="v1"]');
+  let s = await page.state();
+  eq(s.meals[today].lunch.fi.r, { v: "v1", ings: ["jasmine rice"] }, "jasmine with its ingredients");
+  assert((await page.textContent(".box.meal.l-morning .chips")).includes("· jasmine"), "chip shows the type");
+  await page.selectOption('select[data-pick="food"][data-meal="dinner"]', "r");
+  await page.click('#oList [data-oid=""]');
+  s = await page.state();
+  eq([s.meals[today].dinner.foods, s.meals[today].dinner.fi], [["r"], undefined], "Just Rice");
+  await page.click('[data-tab="set"][role="tab"]'); await page.click('[data-edit-food="r"]');
+  eq(await page.$$eval("#optRows input", i => i.map(x => x.value)), ["jasmine", "jasmine rice", "brown", ""], "editor shows types and ingredients");
+}, { ...base, foods: [{ id: "r", name: "Rice", versions: [{ id: "v1", name: "jasmine", ings: ["jasmine rice"] }, { id: "v2", name: "brown", ings: [] }] }] });
+
+async function longPress(page, sel) {
+  const b = await page.locator(sel).boundingBox();
+  await page.mouse.move(b.x + 40, b.y + b.height / 2); await page.mouse.down();
+  await page.waitForSelector("#askDlg[open]", { timeout: 2000 }); await page.mouse.up();
+}
+await test("long-press a med to skip it: counts as done, Recap and export say skipped; long-press again to undo", async page => {
+  await longPress(page, '.row.med[data-k="m1|morning"]');
+  assert((await askText(page)).includes("Skip Lisinopril (morning)?"), "asks: " + await askText(page));
+  await page.click("#askYes");
+  let s = await page.state();
+  eq([s.log[today]["m1|morning"] > 1e11, s.ldet[today]["m1|morning"]], [true, { skip: true }], "checked, marked skipped");
+  eq(await page.textContent(".medrow.skipped .sk"), "Skipped", "tagged on Today");
+  eq(await page.textContent(".progress .count"), "1/1", "counts as done");
+  const col = csvRowOf(await page.evaluate(k => buildCSV(k, k), today));
+  eq([col("doses_taken"), col("skipped_doses"), col("missed_doses"), col("doses_not_yet_taken"), col("doses_taken_list")], ["0", "Lisinopril (Morning)", "", "", ""], "exported as skipped, not taken");
+  await page.click('[data-tab="sum"][role="tab"]');
+  assert((await page.textContent("#sumBody")).includes("1 skipped"), "Recap counts it");
+  await page.click('[role="tab"][data-tab="today"]');
+  await page.click('.row.med[data-k="m1|morning"]', { button: "right" });
+  await page.waitForSelector("#askDlg[open]");
+  eq(await page.textContent("#askYes"), "Undo skip", "right-click / long-press again offers undo");
+  await page.click("#askYes");
+  s = await page.state();
+  eq([s.log[today], s.ldet[today]], [undefined, undefined], "back to unchecked");
+  await page.click('.row.med[data-k="m1|morning"]');
+  eq((await page.state()).ldet[today], undefined, "a normal tap is still a plain check");
+}, base);
+
+await test("comments and linked symptoms: tap an Other entry, an additional med, a food; shown on chips and exported", async page => {
+  await page.selectOption('select[data-pick="ev"][data-ev="other"]', "o1");
+  await page.click('[data-evbox="other"] button.nm');
+  assert(await page.isVisible("#xcRow") && await page.isVisible("#xsymRow"), "comment and symptom in the pop-up");
+  await page.fill("#xc", "Window seat, 3 hours"); await page.selectOption("#xsym", "s1");
+  await page.click('#xform button[type="submit"]');
+  let s = await page.state();
+  eq([s.olog[today][0].c, s.olog[today][0].sym], ["Window seat, 3 hours", "s1"], "saved on the entry");
+  eq(await page.textContent('[data-evbox="other"] .lnk'), "→ Headache", "chip shows the link");
+  eq(await page.textContent('[data-evbox="other"] .cmt'), "Window seat, 3 hours", "and the comment");
+  await page.selectOption('select[data-pick="ev"][data-ev="other"]', "o1");
+  eq(await page.locator('[data-evbox="other"] .chip').count(), 2, "a plain second entry gets its own chip");
+  await page.selectOption('select[data-pick="xmed"]', "x1");
+  await page.click(".box.l-extra button.nm"); await page.selectOption("#xsym", "s1"); await page.click('#xform button[type="submit"]');
+  eq((await page.state()).xlog[today][0].sym, "s1", "Tylenol → Headache");
+  await page.selectOption('select[data-pick="food"][data-meal="lunch"]', "f1");
+  await page.click('.box.meal.l-morning [data-ings="f1"]');
+  await page.selectOption("#fsym", "s2"); await page.fill("#fc", "extra spicy");
+  await page.click('#fform button[type="submit"]');
+  s = await page.state();
+  eq(s.meals[today].lunch.fi.f1, { ings: [], sym: "s2", c: "extra spicy" }, "food entry linked and commented");
+  const col = csvRowOf(await page.evaluate(k => buildCSV(k, k), today));
+  assert(col("other").includes("(linked to Headache; note: Window seat, 3 hours)"), "other: " + col("other"));
+  assert(col("additional_meds").includes("Tylenol at") && col("additional_meds").includes("linked to Headache"), "meds: " + col("additional_meds"));
+  eq(col("linked_symptoms"), "Tylenol → Headache; Air travel → Headache; Oatmeal (Lunch) → Nausea", "linked_symptoms column");
+}, { ...base, others: [{ id: "o1", name: "Air travel" }], hotAdded: true, extras: [{ id: "x1", name: "Tylenol" }], foods: [{ id: "f1", name: "Oatmeal" }] });
+
+await test("Flare-up checkbox in Symptoms logs a time with no symptoms; same mark as Suspected Flare; Recap and export show it", async page => {
+  await page.check("[data-flare]");
+  let s = await page.state();
+  eq([s.trig[today], s.flare[today] > 1e11, s.slog[today]], [{ syms: true }, true, undefined], "flare marked with a time, no symptoms");
+  await page.click("[data-flaret]"); await page.fill("#xtime", "07:45"); await page.click('#xform button[type="submit"]');
+  eq(new Date((await page.state()).flare[today]).getHours(), 7, "time changed");
+  const col = csvRowOf(await page.evaluate(k => buildCSV(k, k), today));
+  eq([col("suspected_flare"), col("flare_time")], ["1", "7:45 AM"], "exported");
+  await page.click('[data-tab="sum"][role="tab"]');
+  assert((await page.textContent("#sumBody")).includes("Flare-ups"), "Recap counts flare-ups");
+  assert(await page.$(`.cal button.fl[data-goto="${today}"]`), "outlined on the calendar");
+  await page.click('[role="tab"][data-tab="today"]');
+  await page.uncheck("[data-flare]");
+  s = await page.state();
+  eq([s.trig[today], s.flare[today]], [undefined, undefined], "unchecking clears both");
+  await page.click('[data-copy="syms"]'); await page.check("#cmTrig"); await page.keyboard.press("Escape");
+  assert(await page.isChecked("[data-flare]"), "Suspected Flare in the menu ticks the box");
+  assert((await page.state()).flare[today] > 1e11, "and gives it a time");
+}, base);
 
 /* ---------- Existing features still work ---------- */
 await test("checking off a med and adding a food still work", async page => {

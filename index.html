@@ -234,7 +234,7 @@ dialog h3{margin:0;font-size:17px;font-weight:500;color:var(--tx);border-bottom:
 dialog .body{padding:14px}
 label.f{display:block;margin-bottom:12px;font-size:13px;color:var(--muted)}
 label.f input{display:block;width:100%;margin-top:4px;padding:10px;border:1px solid var(--rule);background:var(--white);font-size:15px;color:var(--ink)}
-fieldset{border:0;padding:0;margin:0 0 12px}
+fieldset{border:0;padding:0;margin:0 0 12px;min-width:0}   /* min-width:0 lets rows of inputs shrink to the pop-up */
 legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .slotpick{display:flex;flex-wrap:wrap;border:1px solid var(--rule)}
 .slotpick label{position:relative;flex:1 1 auto}
@@ -254,6 +254,7 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .appt-only{display:none}
 .is-appt .appt-only{display:block}
 .is-appt .dose-f{display:none}
+.no-types .types-f{display:none}
 .whorow{display:flex;margin-bottom:6px}
 .whorow input{flex:1;min-width:0;padding:10px;border:1px solid var(--rule);border-radius:0;background:var(--white);font:inherit;font-size:15px;color:var(--ink)}
 .whorow button{flex:none;width:44px;border:1px solid var(--rule);border-left:0;background:var(--white);font-size:18px;line-height:1;color:var(--ink)}
@@ -263,7 +264,7 @@ label.f select{display:block;width:100%;margin-top:4px;appearance:none;-webkit-a
   padding:10px 28px 10px 10px;font:inherit;font-size:15px;color:var(--ink)}
 /* The dose time is a button: tap it to change the time (an appointment's practitioner too: tap it to change who) */
 .chip button.who{border:0;width:auto;align-self:center;margin-left:6px;padding:4px 2px;font-size:13px;color:var(--muted);text-decoration:underline dotted;text-underline-offset:3px}
-.chip button.t{border:0;width:auto;align-self:center;margin-left:6px;padding:4px 2px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;
+.chip button.t{border:0;width:auto;align-self:center;margin-left:6px;padding:4px 2px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;
   text-decoration:underline dotted;text-underline-offset:3px}
 
 /* Check-off sweep: a white wave down the screen */
@@ -353,6 +354,39 @@ input[type=time]:not(:disabled){cursor:pointer}
 .scalelab{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:4px}
 .sagain{justify-content:flex-start;margin:0 0 14px}
 .lid .place{margin-left:auto;padding-right:10px;font-size:13px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
+/* Long-press a medication for Skip: a held press doesn't select text or open the phone's own menu */
+.row.med{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+/* A skipped dose: checked off, its box shows a dash instead of a tick, and a Skipped tag */
+.medrow.skipped .pill svg{display:none}
+.medrow.skipped .pill::after{content:"";width:12px;height:2px;background:var(--white)}
+.row .sk{display:inline-block;margin-right:6px;padding:0 5px;border:1px solid var(--ink);font-size:11px;font-weight:500;line-height:16px;color:var(--ink)}
+/* Types (Antihistamine → Allegra): in the editor, one row per type with its details; on chips, the type after the name */
+.types-f .opt{font-size:12px}
+.thint{margin:0 0 8px;font-size:12px;color:var(--muted)}
+.optrow input.od{flex:.8;border-left:0}
+#addOpt{margin-top:2px}
+.chip .typ{margin-left:4px;font-size:13px;color:var(--muted)}
+/* An entry's linked symptom and comment, on its chip */
+.chip .lnk{margin-left:6px;padding:0 5px;border:1px solid var(--rule);font-size:12px;line-height:18px;white-space:nowrap}
+.chip .cmt{margin-left:6px;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-style:italic;color:var(--muted)}
+.chip button.nm .lnk,.chip button.nm .cmt{margin-left:2px}
+label.f textarea{display:block;width:100%;margin-top:4px;padding:10px;border:1px solid var(--rule);border-radius:0;background:var(--white);
+  font:inherit;font-size:15px;color:var(--ink);resize:vertical;min-height:64px}
+/* Which one? pop-up */
+.occ .occf{margin:10px 0 0}
+.olist{display:flex;flex-direction:column;border:1px solid var(--rule);margin:0 0 14px}
+.olist button{display:flex;align-items:baseline;gap:8px;width:100%;min-height:52px;padding:10px 12px;border:0;background:var(--white);text-align:left;font-size:16px;font-weight:500}
+.olist button+button{border-top:1px solid var(--hair)}
+.olist .od{font-size:13px;font-weight:400;color:var(--muted)}
+.olist .last{margin-left:auto;font-size:12px;font-weight:400;color:var(--muted);white-space:nowrap}
+.actions .onew{margin-right:auto}
+/* Flare-up: a checkbox in the Symptoms box that logs when a flare started, without naming symptoms */
+.flare{display:flex;align-items:center;gap:10px;padding:4px 10px 0}
+.flare .toggle{min-height:44px;padding:0;font-size:15px}
+.flare .t{border:0;background:transparent;padding:6px 2px;font-size:13px;font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums;
+  text-decoration:underline dotted;text-underline-offset:3px}
+.flare .t svg{width:14px;height:14px;display:block}
+.cal button.fl,.ycal button.fl{box-shadow:inset 0 0 0 2px var(--ink)}
 
 /* ---------- Summary ---------- */
 .sumbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
@@ -675,7 +709,10 @@ body{display:flex;flex-direction:column}
       <p class="askmsg" id="xnote" hidden></p>
       <label class="allday" id="xalldayRow"><input type="checkbox" id="xallday"><span>All day</span></label>
       <label class="f" id="xwhoRow" style="display:none"><span>Who or where</span><select id="xwho"></select></label>
+      <label class="f" id="xoptRow" style="display:none"><span>Which one</span><select id="xopt"></select></label>
       <label class="f" id="xtimeRow"><span id="xlabel">Time taken</span><input type="time" id="xtime"></label>
+      <label class="f" id="xsymRow" style="display:none"><span>Linked symptom</span><select id="xsym"></select></label>
+      <label class="f" id="xcRow" style="display:none"><span>Comment</span><textarea id="xc" rows="2" maxlength="500" placeholder="Anything to remember about this one"></textarea></label>
       <div class="actions">
         <button type="button" class="danger" id="xremove">Remove dose</button>
         <button type="button" class="ghost" id="xcancel">Cancel</button>
@@ -683,6 +720,17 @@ body{display:flex;flex-direction:column}
       </div>
     </div>
   </form>
+</dialog>
+<!-- Which one? Logging an item that has types (Antihistamine → Allegra, Zyrtec) asks which was taken -->
+<dialog id="odlg" aria-labelledby="odlgTitle">
+  <h3 id="odlgTitle">Which one?</h3>
+  <div class="body">
+    <div class="olist" id="oList"></div>
+    <div class="actions">
+      <button type="button" class="ghost onew" id="oNew">+ New type…</button>
+      <button type="button" class="ghost" id="oCancel">Cancel</button>
+    </div>
+  </div>
 </dialog>
 <!-- Tap a box's name on Today (Breakfast, Morning, Symptoms…) for this menu: copy that box from the day before -->
 <dialog id="cmenu" class="menu" aria-label="Copy from yesterday">
@@ -737,6 +785,8 @@ body{display:flex;flex-direction:column}
         <label><input type="radio" name="fmode" value="ver"><span>Save as version</span></label>
       </div>
       <label class="f" id="fverRow">Version name<input id="fverName" placeholder="e.g. with banana" autocomplete="off"></label>
+      <label class="f">Linked symptom<select id="fsym"></select></label>
+      <label class="f">Comment<textarea id="fc" rows="2" maxlength="500" placeholder="e.g. extra spicy, ate in a hurry"></textarea></label>
       <p class="err" id="fErr" role="alert"></p>
       <div class="actions">
         <button type="button" class="ghost" id="fcancel">Cancel</button>
@@ -761,6 +811,12 @@ body{display:flex;flex-direction:column}
         <div class="slotpick" id="slotPick"></div>
       </fieldset>
       <label class="f med-only timed-only">Note<input name="notes" placeholder="e.g. with food" autocomplete="off"></label>
+      <fieldset class="types-f">
+        <legend>Types <span class="opt">(optional)</span></legend>
+        <p class="thint" id="typeHint">For something you switch between. Each time you log it, you'll be asked which one.</p>
+        <div id="optRows"></div>
+        <button type="button" class="ghost" id="addOpt">+ Add type</button>
+      </fieldset>
       <p class="err" id="formErr" role="alert"></p>
       <div class="actions">
         <button type="button" class="danger" id="delItem">Delete</button>
@@ -822,7 +878,14 @@ const LATE_CUTOFF = 3;       // 3 AM: the latest a day can run past midnight whi
    "syms", "supp", "smell", "other", "act", "appt"). trackTrig: show the Suspected trigger checkbox and tags (on unless turned off)
    altLook: Recap and Settings boxes alternate like Today's (on unless turned off)
    name: who this tracking is for — shown on Recap and in exported files
-   dayEnd: the id of the bedtime med whose check-off ends the day (see "end of day"); "" = midnight; unset = a bedtime Cromolyn */
+   dayEnd: the id of the bedtime med whose check-off ends the day (see "end of day"); "" = midnight; unset = a bedtime Cromolyn
+   Types: any med, additional med, supplement, smell, other or activity can list the kinds it comes in (item.opts =
+   [{id,name,dose,gone?}], e.g. Antihistamine → Allegra, Zyrtec); foods do the same with food.versions. Logging one asks which.
+   Logged entries (xlog, suplog, smlog, olog, aclog, alog) can carry o (type id), c (a comment) and sym (a linked symptom id);
+   so can a meal's food (m.fi[foodId].c / .sym).
+   ldet: {date:{"medId|slot":{o?,skip?}}} — for a checked dose: which type was taken, or skip:true when it was skipped
+   (long-press). A skipped dose is checked (it counts as done) but exported as skipped.
+   flare: {date:t} — when a flare-up started (the Flare-up checkbox in Symptoms; the flag itself is trig[date].syms) */
 /* ---------- Today page sections ----------
    Default order tells the day's story: what you took, ate and were around, then how you felt. */
 const SECTIONS=[
@@ -847,7 +910,8 @@ function normLayout(saved,hidden){
 function secShown(id){ const e=state.layout.find(x=>x.id===id); return !e||e.show; }
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{},
   moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:defaultOthers(), olog:{}, trackOther:true, hotAdded:true, acts:[], aclog:{}, showSnacks:true, showAfter:true, trig:{}, trackTrig:true, altLook:true,
-  appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, trackLoc:false, geo:{}, pollenKey:"", name:"", updated:0};
+  appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, trackLoc:false, geo:{}, pollenKey:"", name:"", updated:0,
+  ldet:{}, flare:{}};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
 
@@ -915,6 +979,33 @@ function tell(msg,title){return ask(msg,{cancel:null,title:title||"Daily meds"})
 document.getElementById("askYes").onclick=()=>askDone&&askDone(true);
 document.getElementById("askNo").onclick=()=>askDone&&askDone(false);
 document.getElementById("askDlg").addEventListener("close",()=>askDone&&askDone(false));
+/* Which one? — for an item with types (Antihistamine → Allegra, Zyrtec). Resolves the type's id, "" for the plain item
+   (foods only: "Just Rice"), or null when cancelled. The one picked last time is marked and focused.
+   + New type… opens the item's editor with an empty type row; the type added there is the answer. */
+const odlg=document.getElementById("odlg"); let oDone=null, oFor=null;
+function pickType(item,kind,plain){
+  const L=liveOpts(item);
+  if(!item||!L.length) return Promise.resolve("");
+  if(oDone) oDone(null);
+  const last=L.some(o=>o.id===item.lastOpt)?item.lastOpt:"";
+  document.getElementById("odlgTitle").textContent=item.name+": which one?";
+  document.getElementById("oList").innerHTML=[...(plain?[{id:"",name:"Just "+item.name}]:[]),...L].map(o=>
+    `<button type="button" data-oid="${esc(o.id)}"><span>${esc(o.name)}</span>${o.dose?`<span class="od">${esc(o.dose)}</span>`:""}${o.id&&o.id===last?`<span class="last">last time</span>`:""}</button>`).join("");
+  oFor={item,kind};
+  return new Promise(res=>{
+    oDone=v=>{oDone=null;res(v);if(odlg.open)odlg.close()};
+    odlg.showModal();
+    (odlg.querySelector(`[data-oid="${CSS.escape(last)}"]`)||odlg.querySelector("[data-oid]")).focus();
+  });
+}
+document.getElementById("oList").addEventListener("click",e=>{const b=e.target.closest("[data-oid]"); if(b&&oDone) oDone(b.dataset.oid);});
+document.getElementById("oCancel").onclick=()=>oDone&&oDone(null);
+odlg.addEventListener("close",()=>oDone&&oDone(null));
+document.getElementById("oNew").onclick=()=>{
+  const {item,kind}=oFor||{}, done=oDone; if(!item||!done) return;
+  oDone=null; odlg.close();
+  openEditor(kind,item.id,{newType:true,thenType:done});
+};
 
 /* ---------- storage ---------- */
 function normalize(s){
@@ -939,6 +1030,7 @@ function normalize(s){
           trackLoc:s.trackLoc===true, geo:obj(s.geo),
           name:typeof s.name==="string"?s.name.trim().slice(0,60):"",
           dayEnd:typeof s.dayEnd==="string"?s.dayEnd:undefined,
+          ldet:obj(s.ldet), flare:obj(s.flare),
           updated:Number(s.updated)||0};
   normAppts(n); return n;
 }
@@ -987,9 +1079,16 @@ function persist(){
   state.updated=Date.now();
   const cutoff=shiftKey(todayKey(),-KEEP_MED_DAYS);
   for(const k of Object.keys(state.log)) if(k<cutoff) delete state.log[k];
+  for(const k of Object.keys(state.ldet)) if(k<cutoff) delete state.ldet[k];
   prunePollen(state.weather);
-  try{localStorage.setItem(LS_KEY,JSON.stringify(state));return true}catch(e){return false}
+  try{localStorage.setItem(LS_KEY,JSON.stringify(state));saveWarned=false;return true}
+  catch(e){
+    /* Usually the phone's storage for the app is full. Say so once (until a save works again) instead of failing quietly. */
+    if(!saveWarned){ saveWarned=true; setTimeout(()=>tell("Couldn't save your latest changes. This phone's storage for Daily meds may be full.\n\nSave a backup now (Settings → Your data), then free up space on the phone.","Not saved"),0); }
+    return false;
+  }
 }
+let saveWarned=false;
 function commit(){ persist(); render(); }
 
 /* Text boxes save as you type, without redrawing the page */
@@ -1065,6 +1164,38 @@ function dueOn(m,sl,k){return activeOn(m,k)||!!(state.log[k]||{})[m.id+"|"+sl]}
 function medsFor(slot,k=viewDate){return state.meds.filter(m=>m.slots&&m.slots.includes(slot)&&dueOn(m,slot,k))}
 /* An additional dose can point at an as-needed med or a regular one */
 function anyMed(id){return state.extras.find(x=>x.id===id)||state.meds.find(x=>x.id===id)}
+/* ---------- types ----------
+   An item that comes in kinds (Antihistamine → Allegra, Zyrtec; Rice → jasmine, brown) lists them as types: item.opts,
+   or food.versions for foods. Logging it asks which one (pickType). A removed type that past entries name stays, gone:true. */
+function optsOf(item){return (item&&(item.versions||item.opts))||[]}
+function liveOpts(item){return optsOf(item).filter(o=>!o.gone)}
+function optOf(item,oid){return (oid&&optsOf(item).find(o=>o.id===oid))||null}
+function optLabel(o){return o?o.name+(o.dose?" "+o.dose:""):""}
+/* A dose's details: which type was taken, or that it was skipped */
+function doseDet(date,k){return (state.ldet[date]||{})[k]||null}
+function setDoseDet(date,k,v){
+  const d=state.ldet[date]||(state.ldet[date]={});
+  if(v&&Object.keys(v).length) d[k]=v; else delete d[k];
+  if(!Object.keys(d).length) delete state.ldet[date];
+}
+/* "Antihistamine · Allegra 180 mg" for a checked dose of a med with types */
+function doseTypeName(m,date,k){const o=optOf(m,(doseDet(date,k)||{}).o);return o?optLabel(o):""}
+/* Linked symptom and comment on a logged entry: shown on its chip and in the export */
+function symName(id){const x=id&&state.symptoms.find(s=>s.id===id);return x?x.name:""}
+function symOptions(cur){
+  const syms=state.symptoms.filter(x=>!x.archived||x.id===cur).sort((a,b)=>a.name.localeCompare(b.name));
+  return `<option value="">None</option>`+syms.map(x=>`<option value="${esc(x.id)}"${x.id===cur?" selected":""}>${esc(x.name)}</option>`).join("");
+}
+function entryTags(e){
+  const sn=symName(e&&e.sym), c=e&&e.c;
+  return (sn?`<span class="lnk" title="Linked symptom">→ ${esc(sn)}</span>`:"")+(c?`<span class="cmt" title="${esc(c)}">${esc(c)}</span>`:"");
+}
+/* The same for a chip standing for several entries (an activity done twice): each linked symptom once, the latest comment */
+function groupTags(L){
+  const syms=[...new Set(L.map(e=>symName(e.sym)).filter(Boolean))], c=[...L].reverse().map(e=>e.c).find(Boolean);
+  return syms.map(n=>`<span class="lnk" title="Linked symptom">→ ${esc(n)}</span>`).join("")+(c?`<span class="cmt" title="${esc(c)}">${esc(c)}</span>`:"");
+}
+function entryNote(e){const sn=symName(e&&e.sym), p=[sn?"linked to "+sn:"",e&&e.c?"note: "+e.c:""].filter(Boolean);return p.length?" ("+p.join("; ")+")":""}
 function xdoses(date){return (state.xlog[date]||[]).filter(e=>anyMed(e.id))}
 function suppOf(id){return state.supps.find(x=>x.id===id)}
 function sdoses(date){return (state.suplog[date]||[]).filter(e=>suppOf(e.id))}
@@ -1082,28 +1213,32 @@ const EVLOGS={
 };
 function evOf(kind,id){return state[EVLOGS[kind].items].find(x=>x.id===id)}
 function evHits(kind,date){return (state[EVLOGS[kind].log][date]||[]).map((e,i)=>({...e,i})).filter(e=>evOf(kind,e.id))}
-function logEv(kind,date,id,w){const L=state[EVLOGS[kind].log], list=L[date]||(L[date]=[]); list.push({id,t:stampFor(date),...(w?{w}:{})}); list.sort((a,b)=>a.t-b.t)}
+function logEv(kind,date,id,w,o){const L=state[EVLOGS[kind].log], list=L[date]||(L[date]=[]); list.push({id,t:stampFor(date),...(w?{w}:{}),...(o?{o}:{})}); list.sort((a,b)=>a.t-b.t); if(o) rememberOpt(evOf(kind,id),o)}
+/* The type picked last is offered first next time */
+function rememberOpt(item,o){ if(item&&o) item.lastOpt=o; }
 /* Appointments: appt.who = the people or places it can be with ({id,name}; gone:true = removed in Settings but kept
    because past visits name them). Each visit keeps which one it was (e.w), so two therapists under one Therapy stay apart. */
 function whoOf(m,wid){return (wid&&m&&(m.who||[]).find(x=>x.id===wid))||null}
 function whoLive(m){return ((m&&m.who)||[]).filter(x=>!x.gone)}
 /* "Therapy · Dr. Lee" (or "Therapy (Dr. Lee)" with paren) for one logged entry; only appointments have someone */
-function evName(kind,e,paren){const m=evOf(kind,e.id), w=kind==="appt"&&whoOf(m,e.w);return m.name+(w?(paren?" ("+w.name+")":" · "+w.name):"")}
+function evName(kind,e,paren){const m=evOf(kind,e.id), w=kind==="appt"&&whoOf(m,e.w), sub=w?w.name:optLabel(optOf(m,e.o));return m.name+(sub?(paren?" ("+sub+")":" · "+sub):"")}
 /* "Therapy · Dr. Lee ×2, Therapy · Dr. Kim": each name once, in first-seen order */
 function tallyNames(names){const c=new Map();for(const n of names)c.set(n,(c.get(n)||0)+1);return [...c].map(([n,k])=>n+(k>1?" ×"+k:"")).join(", ")}
 function evBox(kind){
   const E=EVLOGS[kind], hits=evHits(kind,viewDate), ap=kind==="appt";
   /* One chip per item; for appointments, one per item and practitioner */
-  const groups=new Map(); for(const e of hits){ const key=ap?e.id+"|"+(e.w||""):e.id, g=groups.get(key); if(g){g.n++;g.last=e} else groups.set(key,{n:1,last:e}) }
+  /* Entries with their own type, linked symptom or comment get their own chip */
+  const groups=new Map(); for(const e of hits){ const key=[e.id,ap?e.w||"":"",e.o||"",e.sym||"",e.c||""].join("|"), g=groups.get(key); if(g){g.n++;g.last=e} else groups.set(key,{n:1,last:e}) }
   const items=state[E.items].filter(m=>activeOn(m,viewDate)).sort((a,b)=>a.name.localeCompare(b.name));
   /* An appointment with practitioners is picked as "Therapy · Dr. Lee" (value id|who) */
   const opts=m=>{const ws=ap?whoLive(m):[];
     return ws.length?ws.map(w=>`<option value="${esc(m.id)}|${esc(w.id)}">${esc(m.name)} · ${esc(w.name)}</option>`).join("")
-      :`<option value="${esc(m.id)}">${esc(m.name)}${m.dose?" · "+esc(m.dose):""}</option>`};
+      :`<option value="${esc(m.id)}">${esc(m.name)}${liveOpts(m).length?" ›":m.dose?" · "+esc(m.dose):""}</option>`};   // › = asks which type
   return `<div class="box ${E.cls}" data-evbox="${kind}">
       <div class="lid">${COPY[kind]?copyName(kind,kind,E.title):E.title}<span class="st">${hits.length?E.count(hits.length):"None"}</span></div>
       <div class="chips">${groups.size?[...groups.values()].map(g=>{const e=g.last, m=evOf(kind,e.id), w=ap&&whoOf(m,e.w), nm=esc(evName(kind,e));
-        return `<span class="chip">${esc(m.name)}${w?`<button class="who" data-evt="${kind}" data-i="${e.i}" aria-label="${nm}. Tap to change who or where">${esc(w.name)}</button>`:""}${g.n>1?`<span class="qty">×${g.n}</span>`:""}<button class="t" data-evt="${kind}" data-i="${e.i}" aria-label="Change time of ${nm}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-evrm="${kind}" data-i="${e.i}" aria-label="Remove ${g.n>1?"one ":""}${nm}">×</button></span>`}).join(""):`<span class="none">${E.none}</span>`}</div>
+        const tn=optLabel(optOf(m,e.o));
+        return `<span class="chip"><button class="nm" data-evt="${kind}" data-i="${e.i}" aria-label="${nm}. Tap for time, ${ap?"who":"type"}, linked symptom and comment">${esc(m.name)}${tn?`<span class="typ">${esc(tn)}</span>`:""}${entryTags(e)}</button>${w?`<button class="who" data-evt="${kind}" data-i="${e.i}" aria-label="${nm}. Tap to change who or where">${esc(w.name)}</button>`:""}${g.n>1?`<span class="qty">×${g.n}</span>`:""}<button class="t" data-evt="${kind}" data-i="${e.i}" aria-label="Change time of ${nm}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-evrm="${kind}" data-i="${e.i}" aria-label="Remove ${g.n>1?"one ":""}${nm}">×</button></span>`}).join(""):`<span class="none">${E.none}</span>`}</div>
       <div class="pickers one">
         <select data-pick="ev" data-ev="${kind}" aria-label="${E.add.replace("…","")}">
           <option value="">${E.add}</option>
@@ -1119,28 +1254,39 @@ function actMins(L){return L.reduce((n,e)=>n+(+e.min||0),0)}
 function fmtMins(n){return n>=60?Math.floor(n/60)+"h"+(n%60?" "+n%60+"m":""):n+"m"}
 function actBox(){
   const E=EVLOGS.act, hits=evHits("act",viewDate), groups=new Map();
-  for(const e of hits){ const g=groups.get(e.id); if(g) g.push(e); else groups.set(e.id,[e]); }
+  for(const e of hits){ const key=e.id+"|"+(e.o||""), g=groups.get(key); if(g) g.push(e); else groups.set(key,[e]); }   // one chip per activity and type
   const items=state.acts.filter(m=>activeOn(m,viewDate)).sort((a,b)=>a.name.localeCompare(b.name));
   return `<div class="box ${E.cls}" data-evbox="act">
       <div class="lid">${copyName("act","act",E.title)}<span class="st">${hits.length?E.count(hits.length):"None"}</span></div>
-      <div class="chips">${groups.size?[...groups].map(([id,L])=>{
-        const m=evOf("act",id), last=L[L.length-1], mx=Math.max(0,...L.map(e=>+e.x||0)), mins=actMins(L);
-        const nb=`<button class="nm" data-actd="${esc(id)}" aria-label="${esc(m.name)}${mx?", exertion "+mx+" of 10":""}${mins?", "+mins+" minutes":""}. Tap to set exertion, minutes and times">${esc(m.name)}${mx?`<span class="lvl" style="--i:${mx}">${mx}</span>`:""}</button>`;
+      <div class="chips">${groups.size?[...groups.values()].map(L=>{
+        const id=L[0].id, o=L[0].o||"", m=evOf("act",id), tn=optLabel(optOf(m,o)), last=L[L.length-1], mx=Math.max(0,...L.map(e=>+e.x||0)), mins=actMins(L);
+        const nb=`<button class="nm" data-actd="${esc(id)}" data-o="${esc(o)}" aria-label="${esc(m.name)}${tn?" "+esc(tn):""}${mx?", exertion "+mx+" of 10":""}${mins?", "+mins+" minutes":""}. Tap to set exertion, minutes, times, linked symptom and comment">${esc(m.name)}${tn?`<span class="typ">${esc(tn)}</span>`:""}${mx?`<span class="lvl" style="--i:${mx}">${mx}</span>`:""}${groupTags(L)}</button>`;
         return `<span class="chip">${nb}${L.length>1?`<span class="qty">×${L.length}</span>`:""}${mins?`<span class="qty">${fmtMins(mins)}</span>`:""}<button class="t" data-evt="act" data-i="${last.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(last.t)}">${fmtTime(last.t)}</button><button data-evrm="act" data-i="${last.i}" aria-label="Remove ${L.length>1?"one ":""}${esc(m.name)}">×</button></span>`}).join(""):`<span class="none">${E.none}</span>`}</div>
       <div class="pickers one">
         <select data-pick="ev" data-ev="act" aria-label="${E.add.replace("…","")}">
           <option value="">${E.add}</option>
-          ${items.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}</option>`).join("")}
+          ${items.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}${liveOpts(m).length?" ›":""}</option>`).join("")}
           <option value="__new">${E.add2}</option>
         </select>
       </div>
     </div>`;
 }
-function evMonth(kind,id){const prefix=todayKey().slice(0,7);let n=0;for(const [k,v] of Object.entries(state[EVLOGS[kind].log])) if(k.startsWith(prefix)) for(const e of v) if(e.id===id) n++;return n}
-function monthCount(symId){
-  const prefix=todayKey().slice(0,7); let n=0;
-  for(const [k,v] of Object.entries(state.slog)) if(k.startsWith(prefix)&&v[symId]) n++;
-  return n;
+/* This month's counts for the Settings lists ("3 doses in Oct"), made in one pass over this month's days.
+   Scanning every saved day once per item made each tap slower the longer the app was used. */
+function monthTallies(){
+  const prefix=todayKey().slice(0,7), [y,mo]=prefix.split("-").map(Number), n=new Date(y,mo,0).getDate();
+  const T={xlog:new Map(),suplog:new Map(),smlog:new Map(),olog:new Map(),aclog:new Map(),alog:new Map(),sym:new Map(),food:new Map(),place:new Map(),mood:new Map()};
+  const inc=(M,id)=>M.set(id,(M.get(id)||0)+1);
+  for(let d=1;d<=n;d++){
+    const k=prefix+"-"+String(d).padStart(2,"0");
+    for(const log of ["xlog","suplog","smlog","olog","aclog","alog"]) for(const e of state[log][k]||[]) inc(T[log],e.id);
+    for(const [id,L] of Object.entries(state.slog[k]||{})) if(L) inc(T.sym,id);
+    const meals=Object.values(state.meals[k]||{});
+    for(const id of new Set(meals.flatMap(m=>m.foods||[]))) inc(T.food,id);   // days eaten
+    for(const m of meals) if(m.place) inc(T.place,m.place);                   // visits
+    for(const id of new Set(Object.values(state.mlog[k]||{}).flat())) inc(T.mood,id);
+  }
+  return (key,id)=>T[key].get(id)||0;
 }
 function render(){
   const tk=todayKey();
@@ -1173,11 +1319,13 @@ function render(){
     html+=`<div class="box l-${s.id}">
       <div class="lid">${s.label}<span class="st">${allDone?"Done":doneCount+"/"+list.length}</span>${list.length>1&&!allDone?`<button class="act" data-all="${s.id}">Take all</button>`:""}</div>
       ${list.map(m=>{
-        const k=m.id+"|"+s.id, ts=day[k];
-        const sub=[m.dose,m.notes].filter(Boolean).join(" · ");
-        return `<div class="medrow${ts?" has-t":""}"><button class="row med" role="checkbox" aria-checked="${ts?"true":"false"}" data-k="${esc(k)}">
+        const k=m.id+"|"+s.id, ts=day[k], det=ts?doseDet(viewDate,k):null, skip=!!(det&&det.skip);
+        /* A med with types shows the one taken once it's checked, and the choices before */
+        const tn=ts&&!skip?doseTypeName(m,viewDate,k):"", types=liveOpts(m).map(o=>o.name).join(" / ");
+        const sub=(tn?[tn,m.notes]:[m.dose,types,m.notes]).filter(Boolean).join(" · ");
+        return `<div class="medrow${ts?" has-t":""}${skip?" skipped":""}"><button class="row med" role="checkbox" aria-checked="${ts?"true":"false"}" data-k="${esc(k)}">
           <span class="pill">${CHECK}</span>
-          <span><span class="nm">${esc(m.name)}</span>${sub?`<span class="ds">${esc(sub)}</span>`:""}</span>
+          <span><span class="nm">${esc(m.name)}</span>${sub||skip?`<span class="ds">${skip?`<span class="sk">Skipped</span>`:""}${esc(sub)}</span>`:""}</span>
         </button>${ts?`<button class="when t" data-editk="${esc(k)}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(ts)}">${fmtTime(ts)}</button>`:""}</div>`}).join("")}
     </div>`;
   }
@@ -1186,11 +1334,13 @@ function render(){
   {
     const doses=(state.xlog[viewDate]||[]).map((e,i)=>({...e,i})).filter(e=>anyMed(e.id));
     const bySort=list=>[...list].sort((a,b)=>a.name.localeCompare(b.name));
-    const opt=m=>`<option value="${esc(m.id)}">${esc(m.name)}${m.dose?" · "+esc(m.dose):""}</option>`;
+    const opt=m=>`<option value="${esc(m.id)}">${esc(m.name)}${liveOpts(m).length?" ›":m.dose?" · "+esc(m.dose):""}</option>`;   // › = asks which type
     const xLive=state.extras.filter(m=>activeOn(m,viewDate)), mLive=state.meds.filter(m=>activeOn(m,viewDate));
     html+=`<div class="box l-extra">
       <div class="lid">Additional medication<span class="st">${doses.length?doses.length+(doses.length===1?" dose":" doses"):"None"}</span></div>
-      <div class="chips">${doses.length?doses.map(e=>{const m=anyMed(e.id);return `<span class="chip">${esc(m.name)}<button class="t" data-editx="${e.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-rmx="${e.i}" aria-label="Remove ${esc(m.name)} at ${fmtTime(e.t)}">×</button></span>`}).join(""):`<span class="none">Nothing extra taken</span>`}</div>
+      <div class="chips">${doses.length?doses.map(e=>{const m=anyMed(e.id), tn=optLabel(optOf(m,e.o));
+        /* Tap the name (or time) for the time, which type, a linked symptom and a comment */
+        return `<span class="chip"><button class="nm" data-editx="${e.i}" aria-label="${esc(m.name)}${tn?" "+esc(tn):""}. Tap for time, type, linked symptom and comment">${esc(m.name)}${tn?`<span class="typ">${esc(tn)}</span>`:""}${entryTags(e)}</button><button class="t" data-editx="${e.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-rmx="${e.i}" aria-label="Remove ${esc(m.name)} at ${fmtTime(e.t)}">×</button></span>`}).join(""):`<span class="none">Nothing extra taken</span>`}</div>
       <div class="pickers one">
         <select data-pick="xmed" aria-label="Add an additional medication">
           <option value="">Add medication…</option>
@@ -1227,6 +1377,9 @@ function render(){
         const L=sday[x.id], last=L.length-1, lb=symLabel(L[last].t), mx=symMax(L);
         const nb=`<button class="nm" data-symd="${esc(x.id)}" aria-label="${esc(x.name)}${mx?", intensity "+mx+" of 10":""}. Tap to set intensity and times">${esc(x.name)}${mx?`<span class="lvl" style="--i:${mx}">${mx}</span>`:""}</button>`;
         return `<span class="chip">${nb}${L.length>1?`<span class="qty">×${L.length}</span>`:""}${lb?`<button class="t" data-editsym="${esc(x.id)}" data-si="${last}" aria-label="Change time of ${esc(x.name)}, now ${lb}">${lb}</button>`:""}<button data-rmsym="${esc(x.id)}" data-si="${last}" aria-label="Remove ${L.length>1?"one ":""}${esc(x.name)}">×</button></span>`}).join(""):`<span class="none">No symptoms today</span>`}</div>
+      ${(()=>{const fl=isTrig(viewDate,"syms"), ft=state.flare[viewDate];
+        /* Flare-up: logs when a flare started, without naming symptoms (the same mark as Suspected Flare in the box's menu) */
+        return `<div class="flare"><label class="toggle"><input type="checkbox" data-flare ${fl?"checked":""}><span>Flare-up</span></label>${fl?`<button type="button" class="t" data-flaret aria-label="${realTime(ft)?"Change when the flare-up started, now "+fmtTime(ft):"Add when the flare-up started"}">${realTime(ft)?fmtTime(ft):CLOCK}</button>`:""}</div>`})()}
       <div class="pickers one">
         <select data-pick="sym" aria-label="Add a symptom">
           <option value="">Add symptom…</option>
@@ -1238,7 +1391,7 @@ function render(){
   }
 
   html+=noteBox("syms","l-sym","Symptom notes","Anything about how you felt…");
-  S.syms=html; SUM.syms=state.symptoms.filter(x=>(sday[x.id]||[]).length).length||"";
+  S.syms=html; SUM.syms=[state.symptoms.filter(x=>(sday[x.id]||[]).length).length||"",isTrig(viewDate,"syms")?"flare":""].filter(Boolean).join(" · ");
 
   /* Food */
   html="";
@@ -1257,13 +1410,13 @@ function render(){
           ? `<button class="t${own?"":" inh"}" data-editf="${esc(id)}" data-meal="${ml.id}" aria-label="Times of each ${esc(nm)} serving">${shown?fmtTime(shown):CLOCK}</button>`
           : `<button class="t${own?"":" inh"}" data-editf="${esc(id)}" data-meal="${ml.id}" aria-label="${shown?`Change time of ${esc(nm)}, now ${fmtTime(shown)}`:`Add a time for ${esc(nm)}`}">${shown?fmtTime(shown):CLOCK}</button>`;
         const fe=(m.fi||{})[id], vn=fe&&fe.v&&verOf(byId(state.foods,id),fe.v), hasI=fe&&(fe.ings||[]).length;
-        const nb=`<button class="nm" data-ings="${esc(id)}" data-meal="${ml.id}" aria-label="Ingredients of ${esc(nm)}">${esc(nm)}${vn?`<span class="ver">· ${esc(vn.name)}</span>`:hasI?`<span class="dot" aria-hidden="true"></span>`:""}</button>`;
+        const nb=`<button class="nm" data-ings="${esc(id)}" data-meal="${ml.id}" aria-label="Ingredients, linked symptom and comment for ${esc(nm)}">${esc(nm)}${vn?`<span class="ver">· ${esc(vn.name)}</span>`:hasI?`<span class="dot" aria-hidden="true"></span>`:""}${entryTags(fe)}</button>`;
         return `<span class="chip">${nb}${n>1?`<span class="qty">×${n}</span>`:""}${tb}<button data-rm="${esc(id)}" data-meal="${ml.id}" aria-label="Remove one ${esc(nm)}">×</button></span>`}).join(""):`<span class="none">Nothing added</span>`}</div>
       ${legacy[ml.id]?`<p class="legacy">${esc(legacy[ml.id])}</p>`:""}
       <div class="pickers">
         <select data-pick="food" data-meal="${ml.id}" aria-label="Add food to ${esc(ml.label)}">
           <option value="">Add food…</option>
-          ${foodsSorted.filter(f=>activeOn(f,viewDate)).map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`+(f.versions||[]).map(v=>`<option value="${esc(f.id)}|${esc(v.id)}">${esc(f.name)} · ${esc(v.name)}</option>`).join("")).join("")}
+          ${foodsSorted.filter(f=>activeOn(f,viewDate)).map(f=>`<option value="${esc(f.id)}">${esc(f.name)}${liveOpts(f).length?" ›":""}</option>`).join("")}
           <option value="__new">+ New food…</option>
         </select>
         <select data-pick="place" data-meal="${ml.id}" aria-label="Restaurant for ${esc(ml.label)}">
@@ -1343,6 +1496,7 @@ function render(){
   /* Each Settings list: active items first, then archived ones (greyed, hidden from Today) under their own heading.
      row(x,sub) draws the tappable row; sub is "archived Oct 16" for archived items, to show under the name. */
   const ds=(...p)=>{const t=p.filter(Boolean).join(" · ");return t?`<span class="ds">${esc(t)}</span>`:""};
+  const typeNames=x=>liveOpts(x).map(o=>o.name).join(" / ");
   const put=(id,kind,list,row,empty,every,sorted=true)=>{
     const L=sorted?[...list].sort((a,b)=>a.name.localeCompare(b.name)):[...list], live=L.filter(x=>!x.archived), arch=L.filter(x=>x.archived);
     const one=(x,a)=>`<div class="prow${a?" arch":""}">${row(x,a?(typeof x.archived==="string"?("archived "+parseKey(x.archived).toLocaleDateString([], {month:"short",day:"numeric"})).replace(/ /g,"\u00a0"):"archived"):"")}
@@ -1350,19 +1504,19 @@ function render(){
     document.getElementById(id).innerHTML=(live.length?live.map(x=>one(x,false)).join(""):`<div class="empty-row">${arch.length?every+" Tap Add for a new one.":empty}</div>`)
       +(arch.length?`<div class="psub">Archived · hidden from Today, history kept</div>`+arch.map(x=>one(x,true)).join(""):"");
   };
-  const inMonth=(log,id)=>{const prefix=todayKey().slice(0,7);let n=0;for(const [k,v] of Object.entries(log)) if(k.startsWith(prefix)) for(const e of v) if(e.id===id) n++;return n};
+  const inMonth=monthTallies();
   const times=(n,one,many)=>`${n} ${n===1?one:many} in ${esc(month)}`;
   put("medList","med",state.meds,(m,a)=>`<button class="row" data-edit-med="${esc(m.id)}">
-        <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,a)}</span>
+        <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,typeNames(m),a)}</span>
         <span class="side">${esc(SLOTS.filter(s=>m.slots.includes(s.id)).map(s=>s.label).join(", "))}</span></button>`,
     "No medications. Tap Add.","Every medication is archived.");
   put("extraList","extra",state.extras,(m,a)=>`<button class="row" data-edit-extra="${esc(m.id)}">
-        <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,a)}</span>
-        <span class="side">${times(inMonth(state.xlog,m.id),"dose","doses")}</span></button>`,
+        <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,typeNames(m),a)}</span>
+        <span class="side">${times(inMonth("xlog",m.id),"dose","doses")}</span></button>`,
     "As-needed meds like Tylenol. Tap Add.","Every additional medication is archived.");
   put("suppList","supp",state.supps,(m,a)=>`<button class="row" data-edit-supp="${esc(m.id)}">
-        <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,a)}</span>
-        <span class="side">${times(inMonth(state.suplog,m.id),"time","times")}</span></button>`,
+        <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,typeNames(m),a)}</span>
+        <span class="side">${times(inMonth("suplog",m.id),"time","times")}</span></button>`,
     "Vitamins, minerals and the like. Tap Add.","Every supplement is archived.");
   { const en=dayEnder(), bed=state.meds.filter(m=>Array.isArray(m.slots)&&m.slots.includes("bedtime")&&(!m.archived||m===en)).sort((a,b)=>a.name.localeCompare(b.name));
     const sel=document.getElementById("dayEnd");
@@ -1375,46 +1529,38 @@ function render(){
   document.getElementById("trackSmells").checked=state.trackSmells;
   document.getElementById("smellBox").hidden=!state.trackSmells;
   put("smellList","smell",state.smells,(m,a)=>`<button class="row" data-edit-smell="${esc(m.id)}">
-        <span><span class="nm">${esc(m.name)}</span>${ds(a)}</span>
-        <span class="side">${times(inMonth(state.smlog,m.id),"time","times")}</span></button>`,
+        <span><span class="nm">${esc(m.name)}</span>${ds(typeNames(m),a)}</span>
+        <span class="side">${times(inMonth("smlog",m.id),"time","times")}</span></button>`,
     "Perfume, smoke, cleaning products… Tap Add.","Every smell is archived.");
   document.getElementById("showYearCal").checked=state.showYearCal;
   document.getElementById("trackLoc").checked=state.trackLoc; trackText();
   document.getElementById("trackOther").checked=state.trackOther;
   document.getElementById("otherBox").hidden=!state.trackOther;
   put("otherList","other",state.others,(m,a)=>`<button class="row" data-edit-other="${esc(m.id)}">
-        <span><span class="nm">${esc(m.name)}</span>${ds(a)}</span>
-        <span class="side">${times(evMonth("other",m.id),"time","times")}</span></button>`,
+        <span><span class="nm">${esc(m.name)}</span>${ds(typeNames(m),a)}</span>
+        <span class="side">${times(inMonth("olog",m.id),"time","times")}</span></button>`,
     "Anything else worth tracking: air travel, a hot tub, a late night… Tap Add.","Everything here is archived.");
   put("actList","act",state.acts,(m,a)=>`<button class="row" data-edit-act="${esc(m.id)}">
-        <span><span class="nm">${esc(m.name)}</span>${ds(a)}</span>
-        <span class="side">${times(evMonth("act",m.id),"time","times")}</span></button>`,
+        <span><span class="nm">${esc(m.name)}</span>${ds(typeNames(m),a)}</span>
+        <span class="side">${times(inMonth("aclog",m.id),"time","times")}</span></button>`,
     "Walks, yoga, cleaning, errands… anything that takes effort. Tap Add.","Every activity is archived.");
   renderLayout();
   put("apptList","appt",state.appts,(m,a)=>`<button class="row" data-edit-appt="${esc(m.id)}">
         <span><span class="nm">${esc(m.name)}</span>${ds(whoLive(m).map(w=>w.name).join(", "),a)}</span>
-        <span class="side">${times(evMonth("appt",m.id),"visit","visits")}</span></button>`,
+        <span class="side">${times(inMonth("alog",m.id),"visit","visits")}</span></button>`,
     "Doctor visits, therapy, lab work… Tap Add.","Every appointment is archived.");
   put("symList","sym",state.symptoms,(x,a)=>`<button class="row" data-edit-sym="${esc(x.id)}">
-        <span><span class="nm">${esc(x.name)}</span>${ds(a)}</span><span class="side">${times(monthCount(x.id),"day","days")}</span></button>`,
+        <span><span class="nm">${esc(x.name)}</span>${ds(a)}</span><span class="side">${times(inMonth("sym",x.id),"day","days")}</span></button>`,
     "No symptoms. Tap Add.","Every symptom is archived.",false);
-  const mealCount=(field,id)=>{
-    const prefix=todayKey().slice(0,7); let days=0, times=0;
-    for(const [k,v] of Object.entries(state.meals)){ if(!k.startsWith(prefix)) continue;
-      let hit=0; for(const m of Object.values(v)) if(field==="foods"?(m.foods||[]).includes(id):m.place===id) hit++;
-      if(hit){days++;times+=hit} }
-    return field==="foods"?days:times;
-  };
   put("foodList","food",state.foods,(x,a)=>`<button class="row" data-edit-food="${esc(x.id)}">
-        <span><span class="nm">${esc(x.name)}</span>${ds(a)}</span><span class="side">${times(mealCount("foods",x.id),"day","days")}</span></button>`,
+        <span><span class="nm">${esc(x.name)}</span>${ds(typeNames(x),a)}</span><span class="side">${times(inMonth("food",x.id),"day","days")}</span></button>`,
     "No foods. Tap Add.","Every food is archived.");
-  const moodDays=id=>{const prefix=todayKey().slice(0,7);let n=0;for(const [k,v] of Object.entries(state.mlog)) if(k.startsWith(prefix)&&Object.values(v).some(a=>a.includes(id))) n++;return n};
   put("moodList","mood",state.moods,(x,a)=>`<button class="row" data-edit-mood="${esc(x.id)}">
-        <span><span class="nm">${esc(x.name)}</span>${ds(a)}</span><span class="side">${times(moodDays(x.id),"day","days")}</span></button>`,
+        <span><span class="nm">${esc(x.name)}</span>${ds(a)}</span><span class="side">${times(inMonth("mood",x.id),"day","days")}</span></button>`,
     "No moods. Tap Add.","Every mood is archived.");
   /* Archived restaurants (travel spots, places you don't go any more) keep their history but leave the Today picker */
   put("placeList","place",state.places,(x,a)=>`<button class="row" data-edit-place="${esc(x.id)}">
-        <span><span class="nm">${esc(x.name)}</span>${ds(a)}</span><span class="side">${times(mealCount("place",x.id),"visit","visits")}</span></button>`,
+        <span><span class="nm">${esc(x.name)}</span>${ds(a)}</span><span class="side">${times(inMonth("place",x.id),"visit","visits")}</span></button>`,
     "No restaurants. Tap Add.","Every restaurant is archived.");
 }
 
@@ -1490,8 +1636,10 @@ function renderSummary(){
     html+=`<div class="box l-list"><div class="lid">Top symptoms</div><div class="empty-row">Add symptoms in Settings to see them here.</div></div>`;
   } else {
     const ranked=[...state.symptoms].map(x=>({x,n:now.c[x.id]||0,p:before.c[x.id]||0})).sort((a,b)=>b.n-a.n||a.x.name.localeCompare(b.x.name));
+    let flares=0; for(const k of Object.keys(state.trig)) if(k>=from&&k<=upto&&isTrig(k,"syms")) flares++;
     html+=`<div class="box l-list"><div class="lid">Top symptoms<span class="st">${elapsed} ${elapsed===1?"day":"days"} tracked</span></div>
       <div class="big">${now.anyDays}<small>${now.anyDays===1?"day":"days"} with any symptom</small></div>
+      ${flares?`<div class="stat"><span class="nm">Flare-ups</span><span class="num">${flares} ${flares===1?"day":"days"} · outlined on the calendar</span></div>`:""}
       ${ranked.filter(r=>r.n>0).length?"":`<div class="empty-row">No symptoms logged this ${unit}.</div>`}
       ${ranked.filter(r=>r.n>0).map(r=>{
         const pct=elapsed?Math.round(r.n/elapsed*100):0, d=r.n-r.p;
@@ -1513,7 +1661,8 @@ function renderSummary(){
     for(let i=0;i<days;i++){
       const k=keyOf(new Date(first.getFullYear(),first.getMonth(),i+1));
       const n=state.symptoms.filter(x=>(state.slog[k]||{})[x.id]).length;
-      cells+=`<button data-goto="${k}" ${k>tk?"disabled":""} class="${k===tk?"today":""}" style="background:${k>tk?"var(--white)":shade(n)}" aria-label="${k}, ${n} symptoms">${i+1}</button>`;
+      const fl=isTrig(k,"syms");
+      cells+=`<button data-goto="${k}" ${k>tk?"disabled":""} class="${k===tk?"today":""}${fl?" fl":""}" style="background:${k>tk?"var(--white)":shade(n)}" aria-label="${k}, ${n} symptoms${fl?", flare-up":""}">${i+1}</button>`;
     }
     html+=`<div class="box l-list"><div class="lid">Calendar</div><div class="cal">${cells}</div>
       <div class="legend">Fewer <i style="background:var(--white)"></i><i style="background:${shade(Math.ceil(maxS/3))}"></i><i style="background:${shade(Math.ceil(maxS*2/3))}"></i><i style="background:${shade(maxS)}"></i> More symptoms · tap a day to open it</div></div>`;
@@ -1537,14 +1686,14 @@ function renderSummary(){
   /* Medication consistency */
   if(state.meds.length){
     const begin = from;
-    let expected=0, taken=0;
-    /* Day by day, so an archived med counts only on the days it was on your list */
-    if(begin<=upto) for(let k=begin;k<=upto;k=shiftKey(k,1)){ const v=state.log[k]||{};
-      for(const m of state.meds) for(const sl of m.slots||[]) if(dueOn(m,sl,k)){ expected++; if(v[m.id+"|"+sl]) taken++; } }
+    let expected=0, taken=0, skipped=0;
+    /* Day by day, so an archived med counts only on the days it was on your list. A skipped dose counts as checked off. */
+    if(begin<=upto) for(let k=begin;k<=upto;k=shiftKey(k,1)){ const v=state.log[k]||{}, det=state.ldet[k]||{};
+      for(const m of state.meds) for(const sl of m.slots||[]) if(dueOn(m,sl,k)){ const key=m.id+"|"+sl; expected++; if(v[key]){ taken++; if((det[key]||{}).skip) skipped++; } } }
     const pct=expected?Math.round(taken/expected*100):0;
     html+=`<div class="box l-list"><div class="lid">Medication</div>
       <div class="big">${expected?pct+"%":"–"}<small>of doses checked off</small></div>
-      <div class="stat"><span class="nm">Doses</span><span class="num">${taken} of ${expected}</span><div class="track"><i style="width:${pct}%"></i></div></div>
+      <div class="stat"><span class="nm">Doses</span><span class="num">${taken} of ${expected}${skipped?` · ${skipped} skipped`:""}</span><div class="track"><i style="width:${pct}%"></i></div></div>
       <p class="hint">Based on your medication list, counted from when you started using the app. Archived meds count only before the day you archived them.</p></div>`;
   }
   /* Additional (as-needed) medication */
@@ -1552,8 +1701,9 @@ function renderSummary(){
     const tally={};
     for(const [k,v] of Object.entries(state.xlog)){ if(k<from||k>upto) continue;
       const seen=new Set();
-      for(const e of v){ if(!anyMed(e.id)) continue; const t=tally[e.id]||(tally[e.id]={doses:0,days:0}); t.doses++; if(!seen.has(e.id)){seen.add(e.id);t.days++} } }
-    const rows=Object.entries(tally).map(([id,t])=>({m:anyMed(id),...t})).sort((a,b)=>b.doses-a.doses||a.m.name.localeCompare(b.m.name));
+      for(const e of v){ const m=anyMed(e.id); if(!m) continue; const key=e.id+"|"+(e.o||"");   // each type of a med on its own row
+        const t=tally[key]||(tally[key]={doses:0,days:0,name:m.name+(optOf(m,e.o)?" · "+optOf(m,e.o).name:"")}); t.doses++; if(!seen.has(key)){seen.add(key);t.days++} } }
+    const rows=Object.values(tally).map(t=>({m:{name:t.name},...t})).sort((a,b)=>b.doses-a.doses||a.m.name.localeCompare(b.m.name));
     if(rows.length||state.extras.length){
       const maxD=Math.max(1,...rows.map(r=>r.doses));
       html+=`<div class="box l-list"><div class="lid">Additional medication</div>
@@ -1566,8 +1716,9 @@ function renderSummary(){
     const tally={};
     for(const [k,v] of Object.entries(state.suplog)){ if(k<from||k>upto) continue;
       const seen=new Set();
-      for(const e of v){ if(!suppOf(e.id)) continue; const t=tally[e.id]||(tally[e.id]={doses:0,days:0}); t.doses++; if(!seen.has(e.id)){seen.add(e.id);t.days++} } }
-    const rows=Object.entries(tally).map(([id,t])=>({m:suppOf(id),...t})).sort((a,b)=>b.days-a.days||b.doses-a.doses||a.m.name.localeCompare(b.m.name));
+      for(const e of v){ const m=suppOf(e.id); if(!m) continue; const key=e.id+"|"+(e.o||"");
+        const t=tally[key]||(tally[key]={doses:0,days:0,name:m.name+(optOf(m,e.o)?" · "+optOf(m,e.o).name:"")}); t.doses++; if(!seen.has(key)){seen.add(key);t.days++} } }
+    const rows=Object.values(tally).map(t=>({m:{name:t.name},...t})).sort((a,b)=>b.days-a.days||b.doses-a.doses||a.m.name.localeCompare(b.m.name));
     if(rows.length||state.supps.length){
       const maxD=Math.max(1,...rows.map(r=>r.days));
       html+=`<div class="box l-list"><div class="lid">Supplements</div>
@@ -1595,7 +1746,7 @@ function renderSummary(){
     const E=EVLOGS[kind], tally={};
     for(const [k,v] of Object.entries(state[E.log])){ if(k<from||k>upto) continue;
       const seen=new Set();
-      for(const e of v){ if(!evOf(kind,e.id)) continue; const key=kind==="appt"?e.id+"|"+(e.w||""):e.id;   // appointments: per practitioner
+      for(const e of v){ if(!evOf(kind,e.id)) continue; const key=e.id+"|"+(kind==="appt"?e.w||"":e.o||"");   // appointments: per practitioner; others per type
         const t=tally[key]||(tally[key]={times:0,days:0,name:evName(kind,e)}); t.times++; if(!seen.has(key)){seen.add(key);t.days++} } }
     const rows=Object.values(tally).sort((a,b)=>b.days-a.days||b.times-a.times||a.name.localeCompare(b.name));
     if(!rows.length&&!on) continue;
@@ -1613,7 +1764,7 @@ function renderSummary(){
   /* Export for AI */
   const yr=P.start.slice(0,4);
   html+=`<div class="box l-list"><div class="lid">Export for AI</div>
-    <p class="hint">A spreadsheet with one row per day: each dose taken (with its time), doses missed, additional medication, supplements, symptoms (how many times and how strong), each meal's foods and restaurant, mood, smells and other things, activities (minutes and exertion), appointments, weather, air quality, pollen, and your notes. Upload it to AI or another AI and ask something like:</p>
+    <p class="hint">A spreadsheet with one row per day: each dose taken (with its time), doses missed, additional medication, supplements, symptoms (how many times and how strong), each meal's foods and restaurant, mood, smells and other things, activities (minutes and exertion), appointments, weather, air quality, pollen, and your notes. Upload it to an AI assistant and ask something like:</p>
     <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses, moods, harder activities, pressure changes, air quality or pollen line up with symptoms? The suspected_triggers column is what I thought set off my symptoms, and suspected_flare marks days I thought were a flare-up; does the data back that up?"</p>
     <div class="backup-btns"><button class="ghost" data-export="year">Download ${esc(yr)}</button><button class="ghost" data-export="all">Download everything</button></div>
     <p class="hint" id="exportMsg" role="status"></p></div>`;
@@ -1633,7 +1784,8 @@ function yearCal(y){
       const k=keyOf(new Date(y,m,i));
       if(k>tk){ cells+=`<span class="fut"></span>`; continue; }
       const n=state.symptoms.filter(x=>((state.slog[k]||{})[x.id]||[]).length).length;
-      cells+=`<button data-goto="${k}" class="${k===tk?"today":""}" style="background:${n?`hsl(${h} ${sat}% ${88-Math.round(n/maxS*30)}%)`:`hsl(${h} ${sat}% 97%)`}" aria-label="${k}, ${n} ${n===1?"symptom":"symptoms"}"></button>`;
+      const fl=isTrig(k,"syms");
+      cells+=`<button data-goto="${k}" class="${k===tk?"today":""}${fl?" fl":""}" style="background:${n?`hsl(${h} ${sat}% ${88-Math.round(n/maxS*30)}%)`:`hsl(${h} ${sat}% 97%)`}" aria-label="${k}, ${n} ${n===1?"symptom":"symptoms"}${fl?", flare-up":""}"></button>`;
     }
     months+=`<div class="ym" style="--mh:${h};--ms:${sat}%"><div class="ymt">${esc(first.toLocaleDateString([], {month:"short"}))}</div><div class="ycal">${cells}</div></div>`;
   }
@@ -1885,7 +2037,7 @@ function wxSummary(from,upto){
 }
 document.getElementById("sumBody").addEventListener("change",e=>{const s=e.target.closest("[data-wxsym]");if(s){wxSym=s.value;renderSummary()}});
 document.getElementById("sumBody").addEventListener("click",e=>{if(e.target.closest("[data-wxgeo]"))document.getElementById("wxGeo").click()});
-window.addEventListener("online",()=>{trackToday();fetchWeather(true)});
+window.addEventListener("online",()=>{trackToday();fetchWeather()});   // not forced: a flaky connection doesn't refetch every few seconds
 
 /* ---------- location tracking ----------
    With "Track location" on, the first time the app is opened each day it saves a rough position (rounded to about 1 km)
@@ -1893,7 +2045,7 @@ window.addEventListener("online",()=>{trackToday();fetchWeather(true)});
    have no position. Recap's Travel box looks for big moves and checks symptoms in the days after them. */
 const MOVE_MI=50, CLIMB_M=610;          // a big move: 50+ miles, or 2,000+ ft up or down
 const AFTER_DAYS=3;                      // symptoms are counted on the move day and the 3 days after
-let geoBusy=false, geoErr="";
+let geoBusy=false, geoErr="", geoFailAt=0;
 function miles(a,b){
   const R=3958.8, rad=x=>x*Math.PI/180, dLat=rad(b.lat-a.lat), dLon=rad(b.lon-a.lon);
   const h=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLon/2)**2;
@@ -1930,6 +2082,7 @@ async function trackToday(force){
     if(have.el==null&&navigator.onLine){ const el=await elevationAt(have); if(el!=null){ have.el=el; persist(); renderSummary(); } }
     return true;
   }
+  if(!force&&Date.now()-geoFailAt<3600000) return false;   // after a failed fix, wait an hour rather than retry on every open
   geoBusy=true;
   try{
     const L=await getPos();
@@ -1944,6 +2097,7 @@ async function trackToday(force){
     if(moved) fetchWeather(true);
     return true;
   }catch(e){
+    geoFailAt=Date.now();
     geoErr = e&&e.code===1 ? "Location permission is off for this app. Turn it back on in the browser's site settings, or uncheck Track location."
       : "Couldn't get your location just now. It will try again next time you open the app.";
     trackText(); return false;
@@ -2080,7 +2234,8 @@ todayCol.addEventListener("click",e=>{
   const symd=e.target.closest("[data-symd]");
   if(symd){ openSymDetail(viewDate,symd.dataset.symd); return; }
   const actd=e.target.closest("[data-actd]");
-  if(actd){ openActDetail(viewDate,actd.dataset.actd); return; }
+  if(actd){ openActDetail(viewDate,actd.dataset.actd,actd.dataset.o||""); return; }
+  if(e.target.closest("[data-flaret]")){ openFlareTime(viewDate); return; }
   const editx=e.target.closest("[data-editx]");
   if(editx){ openDoseTime(viewDate,+editx.dataset.editx); return; }
   if(rmx){ const list=state.xlog[viewDate]||[]; list.splice(+rmx.dataset.rmx,1); if(!list.length) delete state.xlog[viewDate]; commit(); return; }
@@ -2093,19 +2248,64 @@ todayCol.addEventListener("click",e=>{
   if(add){openEditor(add.dataset.add,null);return}
   if(rm){ const m=mealOf(viewDate,rm.dataset.meal), i=m.foods.lastIndexOf(rm.dataset.rm); if(i>=0){ m.foods.splice(i,1); const x=m.fx&&m.fx[rm.dataset.rm]; if(x) x.pop(); } tidyMeals(viewDate); commit(); return; }
   if(!med&&!all) return;
-  const day=state.log[viewDate]||(state.log[viewDate]={});
+  if(med&&lpFired){ lpFired=false; return; }   // the tap that ended a long press (Skip) isn't a check
+  const date=viewDate, day=state.log[date]||{};
   if(med){
-    const k=med.dataset.k;
-    if(day[k]) delete day[k]; else {day[k]=stampFor(viewDate); sweep();}
+    const k=med.dataset.k, m=anyMed(k.split("|")[0]);
+    if(day[k]){ delete day[k]; setDoseDet(date,k,null); }
+    else if(liveOpts(m).length){ checkWithType(date,k,m); return; }   // asks which one first
+    else {day[k]=stampFor(date); sweep();}
   } else {
-    const now=stampFor(viewDate);
-    for(const m of medsFor(all.dataset.all)){const k=m.id+"|"+all.dataset.all;if(!day[k])day[k]=now}
+    /* Take all: a med with types gets the one taken last time */
+    const now=stampFor(date);
+    for(const m of medsFor(all.dataset.all)){const k=m.id+"|"+all.dataset.all;if(!day[k]){day[k]=now; const o=defaultOpt(m); if(o) setDoseDet(date,k,{o});}}
     sweep();
   }
-  if(!Object.keys(day).length) delete state.log[viewDate];
+  if(Object.keys(day).length) state.log[date]=day; else delete state.log[date];
   commit();
   checkRollover();   // checking the day-ending dose after midnight starts the new day
 });
+/* Checking a med with types (Antihistamine): ask which one, then check it off with that one */
+function defaultOpt(m){const L=liveOpts(m);return L.length?(L.find(o=>o.id===m.lastOpt)||L[0]).id:""}
+async function checkWithType(date,k,m){
+  const o=await pickType(m,"med");
+  if(o===null) return;
+  const day=state.log[date]||(state.log[date]={});
+  if(!day[k]){ day[k]=stampFor(date); setDoseDet(date,k,o?{o}:null); rememberOpt(m,o); sweep(); }
+  commit(); checkRollover();
+}
+
+/* Long-press a medication (or right-click on a computer) to skip it: it's checked off, so it no longer waits to be
+   taken (and a skipped day-ending dose still ends the day), and it's marked as skipped in Recap and the export. */
+let lpTimer=null, lpFired=false, lpX=0, lpY=0;
+todayCol.addEventListener("pointerdown",e=>{
+  lpFired=false; clearTimeout(lpTimer);
+  const med=e.target.closest(".med"); if(!med||e.button>0) return;
+  lpX=e.clientX; lpY=e.clientY;
+  lpTimer=setTimeout(()=>{ lpFired=true; try{navigator.vibrate&&navigator.vibrate(12)}catch(_){} medMenu(med.dataset.k); },550);
+});
+todayCol.addEventListener("pointermove",e=>{ if(lpTimer&&Math.hypot(e.clientX-lpX,e.clientY-lpY)>10) clearTimeout(lpTimer); });
+for(const t of ["pointerup","pointercancel"]) todayCol.addEventListener(t,()=>clearTimeout(lpTimer));
+todayCol.addEventListener("contextmenu",e=>{
+  const med=e.target.closest(".med"); if(!med) return;
+  e.preventDefault(); clearTimeout(lpTimer);
+  if(!lpFired){ lpFired=e.pointerType==="touch"||e.button===undefined; medMenu(med.dataset.k); }
+});
+async function medMenu(k){
+  if(document.querySelector("dialog[open]")) return;
+  const date=viewDate, [id,sl]=k.split("|"), m=anyMed(id), slot=SLOTS.find(s=>s.id===sl); if(!m) return;
+  const nm=m.name+(slot?" ("+slot.label.toLowerCase()+")":""), det=doseDet(date,k);
+  if(det&&det.skip){
+    if(!await ask(`${nm} is marked as skipped.`,{ok:"Undo skip",title:"Skipped"})) return;
+    const day=state.log[date]||{}; delete day[k]; if(!Object.keys(day).length) delete state.log[date];
+    setDoseDet(date,k,null); commit(); return;
+  }
+  const taken=!!(state.log[date]||{})[k];
+  if(!await ask(`${taken?"Change "+nm+" to skipped?":"Skip "+nm+"?"} It counts as done, and Recap and the spreadsheet show it as skipped rather than taken.`,{ok:"Skip",title:"Skip dose"})) return;
+  const day=state.log[date]||(state.log[date]={});
+  if(!day[k]) day[k]=stampFor(date);
+  setDoseDet(date,k,{skip:true}); commit(); checkRollover();
+}
 /* Log on `date` at the current time. Today, and yesterday in the small hours (a late dose or symptom from that night),
    get the real time; an older day gets its own date at the current clock time. Kept in time order by the callers. */
 function stampFor(date){
@@ -2114,8 +2314,9 @@ function stampFor(date){
   const d=parseKey(date); d.setHours(now.getHours(),now.getMinutes(),now.getSeconds()); return d.getTime();
 }
 function realTime(t){ return typeof t==="number" && t>1e11; }
-function logExtra(date,id){
-  const list=state.xlog[date]||(state.xlog[date]=[]); list.push({id,t:stampFor(date)}); list.sort((a,b)=>a.t-b.t);
+function logExtra(date,id,o){
+  const list=state.xlog[date]||(state.xlog[date]=[]); list.push({id,t:stampFor(date),...(o?{o}:{})}); list.sort((a,b)=>a.t-b.t);
+  if(o) rememberOpt(anyMed(id),o);
 }
 /* Each time a symptom is logged it gets an entry {t,i}: t is a timestamp, or ALLDAY when it lasted the whole day;
    i is how strong it was, 1 (mild) to 10 (severe), if set. All-day entries sort first. */
@@ -2140,7 +2341,7 @@ function symText(name,list){
 const xdlg=document.getElementById("xdlg"); let xedit=null;
 function openTimeDialog(title,label,removeText,t,allDay){
   const d=new Date(realTime(t)?t:Date.now());
-  document.getElementById("xwhoRow").style.display="none";
+  for(const id of ["xwhoRow","xoptRow","xsymRow","xcRow"]) document.getElementById(id).style.display="none";
   document.getElementById("xnote").hidden=true;
   document.getElementById("xalldayRow").style.display = allDay===undefined ? "none" : "";
   document.getElementById("xallday").checked = !!allDay;
@@ -2155,12 +2356,42 @@ function openTimeDialog(title,label,removeText,t,allDay){
 function openDoseTime(date,i){
   const e=(state.xlog[date]||[])[i], m=e&&anyMed(e.id); if(!m) return;
   xedit={kind:"dose",date,i};
-  openTimeDialog(m.name+(m.dose?" · "+m.dose:""),"Time taken","Remove dose",e.t);
+  openTimeDialog(m.name+(m.dose&&!liveOpts(m).length?" · "+m.dose:""),"Time taken","Remove dose",e.t);
+  showEntryExtras(m,e);
+}
+/* The time pop-up for a logged entry also sets which type it was, a linked symptom (Tylenol → Headache) and a comment */
+function showEntryExtras(item,e,{type=true,link=true}={}){
+  const L=liveOpts(item), cur=optOf(item,e.o);
+  if(type&&(L.length||cur)){
+    const sel=document.getElementById("xopt"), list=cur&&cur.gone?[...L,cur]:L;
+    sel.innerHTML=(cur?"":`<option value="">Not set</option>`)+list.map(o=>`<option value="${esc(o.id)}">${esc(optLabel(o))}</option>`).join("");
+    sel.value=cur?cur.id:"";
+    document.getElementById("xoptRow").style.display="";
+  }
+  if(!link) return;
+  const sel=document.getElementById("xsym");
+  sel.innerHTML=symOptions(e.sym); sel.value=symName(e.sym)?e.sym:"";
+  document.getElementById("xc").value=e.c||"";
+  document.getElementById("xsymRow").style.display=""; document.getElementById("xcRow").style.display="";
+}
+function readEntryExtras(e){
+  if(!e) return;
+  if(document.getElementById("xoptRow").style.display!=="none"){ const v=document.getElementById("xopt").value; if(v) e.o=v; else delete e.o; }
+  if(document.getElementById("xsymRow").style.display==="none") return;
+  const v=document.getElementById("xsym").value, c=document.getElementById("xc").value.trim().slice(0,500);
+  if(v) e.sym=v; else delete e.sym;
+  if(c) e.c=c; else delete e.c;
+}
+function openFlareTime(date){
+  if(!isTrig(date,"syms")) return;
+  xedit={kind:"flare",date};
+  openTimeDialog("Flare-up","Started","Remove flare-up",state.flare[date]);
 }
 function openEvTime(kind,date,i){
   const E=EVLOGS[kind], e=(state[E.log][date]||[])[i], m=e&&evOf(kind,e.id); if(!m) return;
   xedit={kind:"ev",ev:kind,date,i};
-  openTimeDialog(kind==="appt"?m.name:m.name+(m.dose?" · "+m.dose:""),E.time,"Remove",e.t);
+  openTimeDialog(kind==="appt"||liveOpts(m).length?m.name:m.name+(m.dose?" · "+m.dose:""),E.time,"Remove",e.t);
+  showEntryExtras(m,e,{type:kind!=="appt"});
   /* An appointment's visit picks its own practitioner here (changing it never touches other visits).
      + Add practitioner… opens the appointment's editor with a new row; the one added there goes on this visit. */
   if(kind!=="appt") return;
@@ -2244,7 +2475,9 @@ function openMedTime(date,k){
   const t=(state.log[date]||{})[k], [id,slot]=k.split("|"), m=anyMed(id); if(!m||!t) return;
   const s=SLOTS.find(x=>x.id===slot);
   xedit={kind:"med",date,k};
-  openTimeDialog(m.name+(m.dose?" · "+m.dose:"")+(s?" · "+s.label:""),"Time taken","Uncheck",t);
+  const det=doseDet(date,k)||{};
+  openTimeDialog(m.name+(m.dose&&!liveOpts(m).length?" · "+m.dose:"")+(s?" · "+s.label:"")+(det.skip?" · skipped":""),"Time taken","Uncheck",t);
+  if(!det.skip) showEntryExtras(m,det,{link:false});   // a med with types: change which one it was
 }
 function openSymTime(date,id,si){
   const L=symList(date,id), e=L[si], x=state.symptoms.find(s=>s.id===id); if(!x||!e) return;
@@ -2263,11 +2496,12 @@ function openSymDetail(date,id){
 }
 /* The same pop-up for an activity: each time it was done gets a start time, minutes and a 1–10 exertion
    (kept in the pop-up's list as i, saved as x) */
-function openActDetail(date,id){
+function openActDetail(date,id,o=""){
   const x=evOf("act",id); if(!x) return;
-  sedit={kind:"act",date,id,list:(state.aclog[date]||[]).filter(e=>e.id===id).map(e=>({t:e.t,i:e.x,min:e.min}))};
+  /* An activity with types (Walk → hike, treadmill): this pop-up holds the times of one type */
+  sedit={kind:"act",date,id,o,list:(state.aclog[date]||[]).filter(e=>e.id===id&&(e.o||"")===o).map(e=>({t:e.t,i:e.x,min:e.min,c:e.c,sym:e.sym}))};
   if(!sedit.list.length) sedit.list.push({t:stampFor(date)});
-  document.getElementById("sdlgTitle").textContent=x.name;
+  document.getElementById("sdlgTitle").textContent=x.name+(optOf(x,o)?" · "+optLabel(optOf(x,o)):"");
   renderSymDetail(); sdlg.showModal(); sdlg.querySelector('[type="submit"]').focus();
 }
 function renderSymDetail(){
@@ -2281,6 +2515,8 @@ function renderSymDetail(){
     <p class="ilabel">${act?"Exertion":"Intensity"}${e.i?": <b>"+e.i+"</b> of 10":""}</p>
     <div class="scale" role="group" aria-label="${act?"Exertion, 1 easy to 10 all-out":"Intensity, 1 mild to 10 severe"}">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button type="button" style="--i:${n}" data-oi="${i}" data-lv="${n}" aria-pressed="${e.i===n}">${n}</button>`).join("")}</div>
     <div class="scalelab">${act?"<span>Easy</span><span>All-out</span>":"<span>Mild</span><span>Severe</span>"}</div>
+    ${act?`<label class="f occf">Linked symptom<select data-osym="${i}">${symOptions(e.sym)}</select></label>
+    <label class="f occf">Comment<input data-oc="${i}" value="${esc(e.c||"")}" maxlength="500" autocomplete="off" placeholder="Where, how it went…"></label>`:""}
   </div>`).join("") || `<p class="hint" style="margin:0 0 12px">All removed. Save to clear this ${act?"activity":"symptom"} from the day.</p>`;
 }
 function readSymTimes(){
@@ -2292,6 +2528,8 @@ function readSymTimes(){
     const e=sedit.list[+inp.dataset.omin], n=Math.round(+inp.value); if(!e) continue;
     if(n>=1&&n<=1440) e.min=n; else delete e.min;
   }
+  for(const sel of sdlg.querySelectorAll("[data-osym]")){ const e=sedit.list[+sel.dataset.osym]; if(e){ if(sel.value) e.sym=sel.value; else delete e.sym; } }
+  for(const inp of sdlg.querySelectorAll("[data-oc]")){ const e=sedit.list[+inp.dataset.oc], c=inp.value.trim().slice(0,500); if(e){ if(c) e.c=c; else delete e.c; } }
 }
 sdlg.addEventListener("click",e=>{
   if(!sedit) return;
@@ -2312,8 +2550,8 @@ document.getElementById("sform").addEventListener("submit",ev=>{
   ev.preventDefault(); if(!sedit) return;
   readSymTimes();
   if(sedit.kind==="act"){
-    const {date,id}=sedit, rest=(state.aclog[date]||[]).filter(e=>e.id!==id);
-    const L=[...rest,...sedit.list.map(e=>({id,t:e.t,...(e.i?{x:e.i}:{}),...(e.min?{min:e.min}:{})}))].sort((a,b)=>a.t-b.t);
+    const {date,id,o}=sedit, rest=(state.aclog[date]||[]).filter(e=>!(e.id===id&&(e.o||"")===o));
+    const L=[...rest,...sedit.list.map(e=>({id,t:e.t,...(o?{o}:{}),...(e.i?{x:e.i}:{}),...(e.min?{min:e.min}:{}),...(e.sym?{sym:e.sym}:{}),...(e.c?{c:e.c}:{})}))].sort((a,b)=>a.t-b.t);
     if(L.length) state.aclog[date]=L; else delete state.aclog[date];
     sdlg.close(); commit(); return;
   }
@@ -2340,12 +2578,19 @@ document.getElementById("xform").addEventListener("submit",ev=>{
     const e=(state.alog[xedit.date]||[])[xedit.i], w=document.getElementById("xwho").value;
     if(e){ if(w) e.w=w; else delete e.w; }
   }
+  /* Type, linked symptom and comment go on the entry before its time changes (and the list is re-sorted) */
+  if(xedit.kind==="ev"||xedit.kind==="dose") readEntryExtras(((xedit.kind==="ev"?state[EVLOGS[xedit.ev].log]:state.xlog)[xedit.date]||[])[xedit.i]);
+  if(xedit.kind==="med"&&(state.log[xedit.date]||{})[xedit.k]&&document.getElementById("xoptRow").style.display!=="none"){
+    const det={...(doseDet(xedit.date,xedit.k)||{})}; readEntryExtras(det); setDoseDet(xedit.date,xedit.k,det);
+    if(det.o) rememberOpt(anyMed(xedit.k.split("|")[0]),det.o);
+  }
   const se=xedit.kind==="sym"&&symList(xedit.date,xedit.id)[xedit.si];
   if(se&&document.getElementById("xallday").checked){ se.t=ALLDAY; sortSym(symList(xedit.date,xedit.id)); }
   else if(/^\d\d:\d\d/.test(v)){
     const at=old=>timeOn(xedit.date,v,old);   // a small-hours time can belong to that night (see "end of day")
     if(xedit.kind==="sym"){ if(se){ se.t=at(se.t); sortSym(symList(xedit.date,xedit.id)); } }
     else if(xedit.kind==="med"){ const day=state.log[xedit.date]; if(day&&day[xedit.k]) day[xedit.k]=at(day[xedit.k]); }
+    else if(xedit.kind==="flare"){ if(isTrig(xedit.date,"syms")) state.flare[xedit.date]=at(state.flare[xedit.date]); }
     else if(xedit.kind==="mood"){ if((((state.mlog[xedit.date]||{})[xedit.mt])||[]).includes(xedit.id)){ const day=state.mtlog[xedit.date]||(state.mtlog[xedit.date]={}), o=day[xedit.mt]||(day[xedit.mt]={}); o[xedit.id]=at(o[xedit.id]); } }
     else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&(m.foods||[]).includes(xedit.id)){ const ft=m.ft||(m.ft={}); ft[xedit.id]=at(ft[xedit.id]); } }
     else { const list=(xedit.kind==="ev"?state[EVLOGS[xedit.ev].log]:state.xlog)[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=at(e.t); list.sort((a,b)=>a.t-b.t); } }
@@ -2356,7 +2601,8 @@ document.getElementById("xcancel").onclick=()=>xdlg.close();
 document.getElementById("xremove").onclick=()=>{
   if(xedit.kind==="copy") copyRestore(xedit);
   else if(xedit.kind==="sym"){ symList(xedit.date,xedit.id).splice(xedit.si,1); tidySyms(xedit.date); }
-  else if(xedit.kind==="med"){ const day=state.log[xedit.date]||{}; delete day[xedit.k]; if(!Object.keys(day).length) delete state.log[xedit.date]; }
+  else if(xedit.kind==="med"){ const day=state.log[xedit.date]||{}; delete day[xedit.k]; if(!Object.keys(day).length) delete state.log[xedit.date]; setDoseDet(xedit.date,xedit.k,null); }
+  else if(xedit.kind==="flare") setFlare(xedit.date,false);
   else if(xedit.kind==="mood"){ delete moodTimes(xedit.date,xedit.mt)[xedit.id]; tidyMoods(xedit.date); }
   else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&m.ft){ delete m.ft[xedit.id]; tidyMeals(xedit.date); } }
   else { const log=xedit.kind==="ev"?state[EVLOGS[xedit.ev].log]:state.xlog, list=log[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete log[xedit.date]; }
@@ -2380,7 +2626,7 @@ function evCopier(kind,what,q){
     pick(from,to){ return {e:(state[E.log][from]||[]).filter(e=>liveOn(state[E.items],e.id,to))}; },
     size:p=>p.e.length, preview:p=>tallyNames(p.e.map(e=>evName(kind,e))),
     has:to=>evHits(kind,to).length>0,
-    put(p,to,k,t){ const L=state[E.log]; if(p.e.length) L[to]=p.e.map(e=>({id:e.id,t,...(e.x?{x:e.x}:{}),...(e.min?{min:e.min}:{}),...(e.w?{w:e.w}:{})})); else delete L[to]; return p.e.length; }};   // an activity keeps its exertion and minutes, an appointment its practitioner
+    put(p,to,k,t){ const L=state[E.log]; if(p.e.length) L[to]=p.e.map(e=>({id:e.id,t,...(e.o?{o:e.o}:{}),...(e.x?{x:e.x}:{}),...(e.min?{min:e.min}:{}),...(e.w?{w:e.w}:{})})); else delete L[to]; return p.e.length; }};   // keeps each entry's type; an activity its exertion and minutes, an appointment its practitioner (not comments or linked symptoms)
 }
 const COPY={
   meal:{what:"Meal", word:k=>MEALS.find(x=>x.id===k).what, q:"When did you eat?", time:"Time eaten", logs:["meals"], box:k=>MEALS.find(x=>x.id===k).label,
@@ -2393,7 +2639,7 @@ const COPY={
       const d=state.meals[to]||(state.meals[to]={}), m={foods:[...p.foods]};
       if(p.place) m.place=p.place;
       if(p.foods.length) m.ft=Object.fromEntries(p.foods.map(id=>[id,t]));
-      const fi={}; for(const id of new Set(p.foods)) if(p.fi[id]) fi[id]=JSON.parse(JSON.stringify(p.fi[id]));
+      const fi={}; for(const id of new Set(p.foods)) if(p.fi[id]){ const {c,sym,...rest}=JSON.parse(JSON.stringify(p.fi[id])); if(rest.v||(rest.ings||[]).length) fi[id]=rest; }   // comments and linked symptoms stay with their day
       if(Object.keys(fi).length) m.fi=fi;
       d[k]=m; tidyMeals(to); return p.foods.length; }},
   mood:{what:"Moods", q:"When did you feel this way?", time:"Time felt", logs:["mlog","mtlog","mxlog"], box:k=>MOODTIMES.find(x=>x.id===k).label,
@@ -2441,6 +2687,11 @@ function setTrig(date,key,on){
   if(on) d[key]=true; else delete d[key];
   if(!Object.keys(d).length) delete state.trig[date];
 }
+/* A flare-up: the Symptoms box's mark, plus when it started (state.flare[date]) */
+function setFlare(date,on){
+  setTrig(date,"syms",on);
+  if(on){ if(!realTime(state.flare[date])) state.flare[date]=stampFor(date); } else delete state.flare[date];
+}
 /* Every box whose mark is exported as a suspected trigger, in Today's order, with a label for the export.
    Symptoms isn't here: its mark means a suspected flare and has its own suspected_flare column. */
 function trigBoxes(){
@@ -2482,7 +2733,9 @@ function openCopyMenu(btn){
 cmenu.addEventListener("click",e=>{ if(e.target===cmenu) cmenu.close(); });
 cmenu.addEventListener("close",()=>{cpick=null});
 /* Ticking Suspected trigger saves straight away and leaves the menu open */
-document.getElementById("cmTrig").addEventListener("change",e=>{ if(!cpick) return; setTrig(cpick.date,trigKey(cpick.ck,cpick.k),e.target.checked); commit(); });
+document.getElementById("cmTrig").addEventListener("change",e=>{ if(!cpick) return;
+  if(cpick.ck==="syms") setFlare(cpick.date,e.target.checked); else setTrig(cpick.date,trigKey(cpick.ck,cpick.k),e.target.checked);
+  commit(); });
 /* The menu sits by its box, so it closes if the page actually scrolls (not on a stray scroll event as it opens) */
 addEventListener("scroll",()=>{ if(cmenu.open&&Math.abs(scrollY-cmenu._y)>8) cmenu.close(); },{passive:true});
 document.getElementById("cmCopy").onclick=()=>{ const c=cpick; cmenu.close(); if(c) copyBox(c); };
@@ -2576,10 +2829,14 @@ function openIngredients(date,meal,id){
   const cur=verOf(f,fedit.v);
   fdlg.querySelector('[name="fmode"][value="once"]').checked=true;
   document.getElementById("fverName").value=cur?cur.name:"";
+  /* This food in this meal can be linked to a symptom and carry a comment */
+  document.getElementById("fsym").innerHTML=symOptions(fe.sym);
+  document.getElementById("fsym").value=symName(fe.sym)?fe.sym:"";
+  document.getElementById("fc").value=fe.c||"";
   renderIngs(); fdlg.showModal();
 }
 function renderIngs(){
-  const f=state.foods.find(x=>x.id===fedit.id), vers=(f&&f.versions)||[];
+  const f=state.foods.find(x=>x.id===fedit.id), vers=((f&&f.versions)||[]).filter(v=>!v.gone||v.id===fedit.v);
   document.getElementById("fversWrap").style.display=vers.length?"":"none";
   document.getElementById("fvers").innerHTML=[{id:"",name:"Plain"},...vers].map(v=>{const on=v.id?fedit.v===v.id:!fedit.v;
     return `<span class="chip${on?" on":""}"><button type="button" class="vp" data-ver="${esc(v.id)}" aria-pressed="${on}">${esc(v.name)}</button>${v.id?`<button type="button" data-delver="${esc(v.id)}" aria-label="Delete version ${esc(v.name)}">×</button>`:""}</span>`}).join("");
@@ -2604,7 +2861,9 @@ fdlg.addEventListener("click",e=>{
   if(dv){ const v=verOf(f,dv.dataset.delver); if(!v) return;
     ask(`Delete the version "${v.name}"? Meals already logged keep their ingredients.`,{ok:"Delete"}).then(yes=>{
       if(!yes||!fedit) return;
-      f.versions=(f.versions||[]).filter(x=>x.id!==v.id); if(!f.versions.length) delete f.versions;
+      /* A version past meals name is kept, hidden (gone), so the export still says which one they were */
+      if(optUsed("food",f,v.id)) v.gone=true; else f.versions=(f.versions||[]).filter(x=>x.id!==v.id);
+      if(!(f.versions||[]).length) delete f.versions;
       if(fedit.v===v.id) fedit.v=null; persist(); renderIngs(); });
     return; }
   const vp=e.target.closest("[data-ver]");
@@ -2624,50 +2883,62 @@ document.getElementById("fform").addEventListener("submit",ev=>{
     if(!fedit.ings.length){err.textContent="Add at least one ingredient.";return}
     const vers=f.versions||(f.versions=[]);
     let v=vers.find(x=>x.name.toLowerCase()===name.toLowerCase());
-    if(v){ v.name=name; v.ings=[...fedit.ings]; } else vers.push(v={id:uid(),name,ings:[...fedit.ings]});
+    if(v){ v.name=name; v.ings=[...fedit.ings]; delete v.gone; } else vers.push(v={id:uid(),name,ings:[...fedit.ings]});
     vid=v.id;
   } else {
     /* Logged once: still counts as the chosen version if its ingredients weren't changed */
     const v=verOf(f,vid); if(!v||!sameIngs(v.ings,fedit.ings)) vid=null;
   }
-  const fi=m.fi||(m.fi={});
-  if(fedit.ings.length||vid) fi[fedit.id]=vid?{v:vid,ings:[...fedit.ings]}:{ings:[...fedit.ings]}; else delete fi[fedit.id];
+  const fi=m.fi||(m.fi={}), c=document.getElementById("fc").value.trim().slice(0,500), sym=document.getElementById("fsym").value;
+  if(fedit.ings.length||vid||sym||c) fi[fedit.id]={...(vid?{v:vid}:{}),ings:[...fedit.ings],...(sym?{sym}:{}),...(c?{c}:{})}; else delete fi[fedit.id];
   tidyMeals(fedit.date); fdlg.close(); commit();
 });
-todayCol.addEventListener("change",e=>{
+todayCol.addEventListener("change",async e=>{
+  /* Flare-up checkbox in Symptoms: logs when it started (the same mark as Suspected Flare in the box's menu) */
+  const fl=e.target.closest("[data-flare]");
+  if(fl){ setFlare(viewDate,fl.checked); commit(); return; }
   const sel=e.target.closest("select[data-pick]"); if(!sel) return;
+  const date=viewDate;
+  /* An item with types asks which one before it's logged; Cancel logs nothing */
+  const typeOf=async(item,kind,plain)=>{ if(!liveOpts(item).length) return ""; const o=await pickType(item,kind,plain); if(o===null) sel.value=""; return o; };
   if(sel.dataset.pick==="xmed"){
     const v=sel.value;
-    if(v==="__new"){ sel.value=""; openEditor("extra",null,{date:viewDate,xmed:true}); return; }
-    if(v){ logExtra(viewDate,v); commit(); }
+    if(v==="__new"){ sel.value=""; openEditor("extra",null,{date,xmed:true}); return; }
+    if(v){ const m=anyMed(v), o=await typeOf(m,state.extras.includes(m)?"extra":"med"); if(o===null) return; logExtra(date,v,o); commit(); }
     return;
   }
   if(sel.dataset.pick==="ev"){
     const v=sel.value, kind=sel.dataset.ev;
-    if(v==="__new"){ sel.value=""; openEditor(kind,null,{date:viewDate,ev:kind}); return; }
-    if(v){ const [id,w]=v.split("|"); logEv(kind,viewDate,id,w); commit(); }
+    if(v==="__new"){ sel.value=""; openEditor(kind,null,{date,ev:kind}); return; }
+    if(v){ const [id,w]=v.split("|"), o=kind==="appt"?"":await typeOf(evOf(kind,id),kind); if(o===null) return; logEv(kind,date,id,w,o); commit(); }
     return;
   }
   if(sel.dataset.pick==="mood"){
     const v=sel.value, mt=sel.dataset.mt;
-    if(v==="__new"){ sel.value=""; openEditor("mood",null,{date:viewDate,mt,mood:true}); return; }
-    if(v){ logMood(viewDate,mt,v); commit(); }
+    if(v==="__new"){ sel.value=""; openEditor("mood",null,{date,mt,mood:true}); return; }
+    if(v){ logMood(date,mt,v); commit(); }
     return;
   }
   if(sel.dataset.pick==="sym"){
     const v=sel.value;
-    if(v==="__new"){ sel.value=""; openEditor("sym",null,{date:viewDate,sym:true}); return; }
-    if(v){ logSym(viewDate,v); commit(); }
+    if(v==="__new"){ sel.value=""; openEditor("sym",null,{date,sym:true}); return; }
+    if(v){ logSym(date,v); commit(); }
     return;
   }
   const meal=sel.dataset.meal, v=sel.value, kind=sel.dataset.pick;
-  if(v==="__new"){ sel.value=kind==="food"?"":(mealOf(viewDate,meal).place||""); openEditor(kind==="food"?"food":"place",null,{date:viewDate,meal}); return; }
-  const m=mealOf(viewDate,meal);
-  if(kind==="food"){ if(v){ const [fid,vid]=v.split("|"); logFood(viewDate,meal,fid);
-      const ver=vid&&verOf(state.foods.find(x=>x.id===fid),vid); if(ver) (m.fi||(m.fi={}))[fid]={v:ver.id,ings:[...ver.ings]}; } }
-  else { if(v) m.place=v; else delete m.place; }
-  tidyMeals(viewDate); commit();
+  if(v==="__new"){ sel.value=kind==="food"?"":(mealOf(date,meal).place||""); openEditor(kind==="food"?"food":"place",null,{date,meal}); return; }
+  if(kind==="food"){ if(v){ const [fid,vid0]=v.split("|"), f=state.foods.find(x=>x.id===fid);
+      const vid=vid0||await typeOf(f,"food",true); if(vid===null) return;   // a food's types are its versions; "Just Rice" = none
+      logFoodVer(date,meal,fid,vid); } }
+  else { const m=mealOf(date,meal); if(v) m.place=v; else delete m.place; }
+  tidyMeals(date); commit();
 });
+/* Adds a food to a meal; with a version (type), that version's ingredients come along */
+function logFoodVer(date,meal,fid,vid){
+  logFood(date,meal,fid);
+  const f=state.foods.find(x=>x.id===fid), ver=vid&&verOf(f,vid), m=mealOf(date,meal);
+  if(ver){ const fi=m.fi||(m.fi={}), old=fi[fid]||{}; fi[fid]={...old,v:ver.id,ings:[...(ver.ings||[])]}; rememberOpt(f,ver.id); }
+}
 
 document.getElementById("dayTitle").addEventListener("click",()=>{ if(viewDate!==todayKey()){flushText();viewDate=todayKey();render();} });
 function flushText(){ if(textTimer){clearTimeout(textTimer);textTimer=null;persist()} if(document.activeElement&&document.activeElement.tagName==="TEXTAREA") document.activeElement.blur() }
@@ -2702,7 +2973,6 @@ function goDay(n){
   },{passive:true});
   document.addEventListener("touchcancel",()=>{on=false},{passive:true});
 }
-for(const ta of document.querySelectorAll("textarea")) ta.addEventListener("input",()=>onTextInput(ta));
 todayCol.addEventListener("input",e=>{ if(e.target.matches("textarea[data-note]")) onTextInput(e.target); });
 window.addEventListener("pagehide",()=>{ if(textTimer){clearTimeout(textTimer);persist()} });
 document.addEventListener("visibilitychange",()=>{ if(document.hidden&&textTimer){clearTimeout(textTimer);textTimer=null;persist()} });
@@ -2802,6 +3072,8 @@ function openEditor(kind,id,pending){
   form.classList.toggle("is-extra",isExtra);
   form.classList.toggle("is-appt",kind==="appt");
   if(kind==="appt") whoRowsFill(item?whoLive(item):[],pending&&pending.addWho);
+  form.classList.toggle("no-types",!TYPED.includes(kind));
+  if(TYPED.includes(kind)) optRowsFill(kind,item,pending&&pending.newType);
   document.getElementById("dlgTitle").textContent=(item?"Edit ":"Add ")+K.word;
   document.getElementById("saveItem").textContent=item?"Save":"Add";
   document.getElementById("delItem").style.visibility=item?"visible":"hidden";
@@ -2814,50 +3086,107 @@ function openEditor(kind,id,pending){
   dlg.showModal();
   if(!item) F("name").focus();
   else if(pending&&pending.addWho) document.querySelector("#whoRows .whorow:last-child input").focus();
+  else if(pending&&pending.newType) document.querySelector("#optRows .optrow:last-child input").focus();
+}
+/* ---------- types in the editor ----------
+   One row per type: its name and details (a dose for meds and supplements; ingredients for foods). */
+const TYPED=["med","extra","supp","food","smell","other","act"];
+const TYPE_HINT={
+  med:"For a medication you switch between, like Antihistamine → Allegra, Zyrtec. Checking it off asks which one.",
+  extra:"For one you switch between, like Antihistamine → Allegra, Zyrtec. Logging it asks which one.",
+  supp:"For one that comes in kinds, like Magnesium → glycinate, citrate. Logging it asks which one.",
+  food:"For a food that comes in kinds, like Rice → jasmine, brown. Adding it to a meal asks which one; details are its ingredients.",
+  smell:"For a smell that comes in kinds, like Smoke → wood, cigarette. Logging it asks which one.",
+  other:"For something that comes in kinds. Logging it asks which one.",
+  act:"For an activity that comes in kinds, like Walk → hike, treadmill. Logging it asks which one."
+};
+function optRow(kind,o){
+  const food=kind==="food", det=o?(food?(o.ings||[]).join(", "):o.dose||""):"";
+  return `<div class="whorow optrow"><input data-oid="${esc(o?o.id:"")}" value="${esc(o?o.name:"")}" placeholder="${food?"e.g. jasmine":"e.g. Allegra"}" autocomplete="off" aria-label="Type">`
+    +`<input class="od" value="${esc(det)}" placeholder="${food?"ingredients":kind==="med"||kind==="extra"||kind==="supp"?"e.g. 180 mg":"details"}" autocomplete="off" aria-label="${food?"Ingredients":"Details"}">`
+    +`<button type="button" class="whorm" aria-label="Remove type">×</button></div>`;
+}
+function optRowsFill(kind,item,blank){
+  document.getElementById("typeHint").textContent=TYPE_HINT[kind]||"";
+  const L=liveOpts(item);
+  document.getElementById("optRows").innerHTML=L.map(o=>optRow(kind,o)).join("")+(blank?optRow(kind,null):"");
+}
+document.getElementById("addOpt").onclick=()=>{
+  const box=document.getElementById("optRows");
+  box.insertAdjacentHTML("beforeend",optRow(editing.kind,null));
+  box.lastElementChild.querySelector("input").focus();
+};
+document.getElementById("optRows").addEventListener("click",e=>{const b=e.target.closest(".whorm"); if(b) b.closest(".optrow").remove();});
+/* Saves the editor's type rows onto the item. A row taken out is kept, hidden (gone), when past entries name it.
+   Returns the first type typed into a new row, if any. */
+function saveOpts(kind,item){
+  const rows=[...document.querySelectorAll("#optRows .optrow")].map(r=>{const [n,d]=r.querySelectorAll("input");return {id:n.dataset.oid||"",name:n.value.trim(),det:d.value.trim()}}).filter(x=>x.name);
+  const food=kind==="food", key=food?"versions":"opts", old=item[key]||[], keep=[]; let fresh=null;
+  for(const r of rows){
+    let o=(r.id&&old.find(x=>x.id===r.id))||old.find(x=>!keep.includes(x)&&x.name.toLowerCase()===r.name.toLowerCase());
+    if(o){ o.name=r.name; delete o.gone; } else old.push(o={id:uid(),name:r.name});
+    if(food) o.ings=splitIngs(r.det); else if(r.det) o.dose=r.det.slice(0,80); else delete o.dose;
+    if(!r.id&&!fresh) fresh=o;
+    if(!keep.includes(o)) keep.push(o);
+  }
+  const out=[...keep,...old.filter(o=>!keep.includes(o)&&(o.gone||optUsed(kind,item,o.id))).map(o=>(o.gone=true,o))];
+  if(out.length) item[key]=out; else delete item[key];
+  if(item.lastOpt&&!liveOpts(item).some(o=>o.id===item.lastOpt)) delete item.lastOpt;
+  return fresh;
+}
+/* Does any logged entry name this type? */
+function optUsed(kind,item,oid){
+  const inLog=log=>Object.values(log).some(L=>Array.isArray(L)&&L.some(e=>e&&e.id===item.id&&e.o===oid));
+  if(kind==="food") return Object.values(state.meals).some(d=>Object.values(d).some(m=>((m.fi||{})[item.id]||{}).v===oid));
+  if(kind==="med") return inLog(state.xlog)||Object.values(state.ldet).some(d=>Object.entries(d).some(([k,v])=>k.split("|")[0]===item.id&&v.o===oid));
+  if(kind==="extra") return inLog(state.xlog);
+  return !!EVLOGS[kind]&&inLog(state[EVLOGS[kind].log]);
 }
 document.getElementById("cancel").onclick=()=>dlg.close();
-dlg.addEventListener("close",render);
+/* Closing the editor without saving a new type answers Which one? with Cancel */
+dlg.addEventListener("close",()=>{ const p=editing&&editing.pending; if(p&&p.thenType&&!p.typeDone){ p.typeDone=true; p.thenType(null); } render(); });
 form.addEventListener("submit",e=>{
   e.preventDefault();
   const err=document.getElementById("formErr");
   const name=F("name").value.trim();
   if(!name){err.textContent="Enter a name.";F("name").focus();return}
-  const K=KINDS[editing.kind];
-  if(editing.kind==="med"){
+  const K=KINDS[editing.kind], kind=editing.kind, p=editing.pending;
+  let item=null;
+  if(kind==="med"){
     const slots=[...form.querySelectorAll('[name="slot"]:checked')].map(c=>c.value);
     if(!slots.length){err.textContent="Pick at least one time.";return}
     const data={name,dose:F("dose").value.trim(),notes:F("notes").value.trim(),slots};
     /* Adding a med with the name of an archived one restarts that med, so its history stays together */
     const back=!editing.id&&state.meds.find(x=>x.archived&&x.name.toLowerCase()===name.toLowerCase());
-    if(editing.id) Object.assign(state.meds.find(x=>x.id===editing.id),data);
-    else if(back){ Object.assign(back,data); setArchived(back,false); }
-    else state.meds.push({id:uid(),...data});
-  } else if(editing.kind==="extra"){
-    const dose=F("dose").value.trim();
-    let item=editing.id ? state.extras.find(x=>x.id===editing.id) : state.extras.find(x=>x.name.toLowerCase()===name.toLowerCase());
-    if(item){ Object.assign(item,{name,dose}); if(!editing.id&&item.archived) setArchived(item,false); } else state.extras.push(item={id:uid(),name,dose});
-    if(editing.pending&&editing.pending.xmed) logExtra(editing.pending.date,item.id);
-  } else if(editing.kind==="appt"){
-    saveAppt(name);
-  } else if(editing.kind==="supp"){
+    if(editing.id) item=Object.assign(state.meds.find(x=>x.id===editing.id),data);
+    else if(back){ item=Object.assign(back,data); setArchived(back,false); }
+    else state.meds.push(item={id:uid(),...data});
+  } else if(kind==="extra"||kind==="supp"){
     const dose=F("dose").value.trim(), list=K.list();
-    let item=editing.id ? list.find(x=>x.id===editing.id) : list.find(x=>x.name.toLowerCase()===name.toLowerCase());
+    item=editing.id ? list.find(x=>x.id===editing.id) : list.find(x=>x.name.toLowerCase()===name.toLowerCase());
     if(item){ Object.assign(item,{name,dose}); if(!editing.id&&item.archived) setArchived(item,false); } else list.push(item={id:uid(),name,dose});
-    if(editing.pending&&editing.pending.ev) logEv(editing.kind,editing.pending.date,item.id);
+  } else if(kind==="appt"){
+    saveAppt(name);
   } else if(editing.id){
-    K.list().find(x=>x.id===editing.id).name=name;
+    item=K.list().find(x=>x.id===editing.id); item.name=name;
   } else {
     /* Reuse an existing entry with the same name instead of making a duplicate */
-    let item=K.list().find(x=>x.name.toLowerCase()===name.toLowerCase());
+    item=K.list().find(x=>x.name.toLowerCase()===name.toLowerCase());
     if(!item){item={id:uid(),name};K.list().push(item)}
     else if(item.archived) setArchived(item,false);   // adding an archived item's name again brings it back
-    const p=editing.pending;
-    if(p&&p.sym){ logSym(p.date,item.id); }
-    else if(p&&p.mood){ logMood(p.date,p.mt,item.id); }
-    else if(p&&p.ev){ logEv(p.ev,p.date,item.id); }
-    else if(p){ const m=mealOf(p.date,p.meal);
-      if(editing.kind==="food"){ logFood(p.date,p.meal,item.id) } else m.place=item.id; }
   }
+  /* Types; a new one typed here is the answer when the editor was opened from Which one? → + New type… */
+  const fresh=item&&TYPED.includes(kind)?saveOpts(kind,item):null;
+  /* Started from Today's "+ New…": log it there too (an item with types gets the first one) */
+  if(item&&p&&!editing.id){
+    const o=defaultOpt(item);
+    if(p.xmed) logExtra(p.date,item.id,o);
+    else if(p.sym) logSym(p.date,item.id);
+    else if(p.mood) logMood(p.date,p.mt,item.id);
+    else if(p.ev) logEv(p.ev,p.date,item.id,undefined,o);
+    else if(p.meal){ if(kind==="food") logFoodVer(p.date,p.meal,item.id,o); else mealOf(p.date,p.meal).place=item.id; }
+  }
+  if(p&&p.thenType&&!p.typeDone){ p.typeDone=true; p.thenType(fresh?fresh.id:null); }
   dlg.close(); commit();
 });
 document.getElementById("delItem").onclick=async()=>{
@@ -2959,8 +3288,17 @@ async function saveFile(name,text,mime){
 function evCols(kinds,k){
   /* Appointments are listed per practitioner: "Therapy (Dr. Lee) at 10:00 AM; Therapy (Dr. Kim) at 3:00 PM" */
   return kinds.flatMap(kind=>{const sm=evHits(kind,k), by=new Map();
-    for(const e of sm){ const n=evName(kind,e,true); (by.get(n)||by.set(n,[]).get(n)).push(fmtTime(e.t)); }
+    for(const e of sm){ const n=evName(kind,e,true); (by.get(n)||by.set(n,[]).get(n)).push(fmtTime(e.t)+entryNote(e)); }   // "9:00 AM (linked to Cough; note: …)"
     return [[...by].map(([n,ts])=>n+(ts.length>1?" x"+ts.length:"")+" at "+ts.join(", ")).join("; "),sm.length]});
+}
+/* "Tylenol → Headache; Rice · jasmine → Bloating": everything linked to a symptom on day k */
+function linkedText(k){
+  const out=[];
+  for(const e of state.xlog[k]||[]){ const m=anyMed(e.id), sn=symName(e.sym); if(m&&sn) out.push(m.name+(optOf(m,e.o)?" · "+optOf(m,e.o).name:"")+" → "+sn); }
+  for(const kind of ["supp","smell","other","act","appt"]) for(const e of evHits(kind,k)){ const sn=symName(e.sym); if(sn) out.push(evName(kind,e)+" → "+sn); }
+  for(const ml of MEALS){ const m=(state.meals[k]||{})[ml.id]; if(!m) continue;
+    for(const [id,fe] of Object.entries(m.fi||{})){ const f=state.foods.find(x=>x.id===id), sn=symName(fe.sym), v=f&&verOf(f,fe.v); if(f&&sn) out.push(f.name+(v?" · "+v.name:"")+" ("+ml.label+") → "+sn); } }
+  return [...new Set(out)].join("; ");
 }
 function buildCSV(start,end){
   const q=v=>{v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
@@ -2969,11 +3307,13 @@ function buildCSV(start,end){
   const places=[...state.places].sort((a,b)=>a.name.localeCompare(b.name));
   const acts=[...state.acts].sort((a,b)=>a.name.localeCompare(b.name));
   /* "Walk x2 at 2:00 PM (30 min, exertion 6/10), 6:15 PM" */
-  const actText=(m,L)=>m.name+(L.length>1?" x"+L.length:"")+" at "+L.map(e=>{const d=[e.min?e.min+" min":"",e.x?"exertion "+e.x+"/10":""].filter(Boolean).join(", ");return fmtTime(e.t)+(d?" ("+d+")":"")}).join(", ");
+  const actText=(m,L)=>m.name+(optOf(m,L[0].o)?" ("+optLabel(optOf(m,L[0].o))+")":"")+(L.length>1?" x"+L.length:"")+" at "+L.map(e=>{const sn=symName(e.sym), d=[e.min?e.min+" min":"",e.x?"exertion "+e.x+"/10":"",sn?"linked to "+sn:"",e.c?"note: "+e.c:""].filter(Boolean).join(", ");return fmtTime(e.t)+(d?" ("+d+")":"")}).join(", ");
+  /* "Antihistamine (Allegra 180 mg)": a med or supplement with its type, else its own dose */
+  const withDose=(m,o)=>m.name+(o?" ("+optLabel(o)+")":m.dose?" ("+m.dose+")":"");
   const schedAll=state.meds.flatMap(m=>m.slots.map(sl=>({m,sl,key:m.id+"|"+sl,label:m.name+" ("+(SLOTS.find(x=>x.id===sl)||{}).label+")"})));
   const slotLabel=sl=>(SLOTS.find(x=>x.id===sl)||{}).label||sl;
   const tk=todayKey();
-  const head=["date","weekday","doses_taken","doses_scheduled","doses_taken_list","missed_doses","doses_not_yet_taken","additional_meds","additional_med_count","supplements","supplement_count","symptoms","symptom_count",
+  const head=["date","weekday","doses_taken","doses_scheduled","doses_taken_list","missed_doses","skipped_doses (checked off as skipped, not taken)","doses_not_yet_taken","additional_meds","additional_med_count","supplements","supplement_count","symptoms","symptom_count",
     ...syms.map(x=>"symptom: "+x.name),...syms.map(x=>"intensity: "+x.name),
     ...MEALS.flatMap(m=>{const b=m.label.toLowerCase().replace(/[^a-z0-9]+/g,"_");return [b+"_time",b+"_foods",b+"_restaurant"]}),
     "restaurants_today",...places.map(x=>"ate at: "+x.name),
@@ -2984,31 +3324,34 @@ function buildCSV(start,end){
     "weather","high_"+(US_UNITS?"F":"C"),"low_"+(US_UNITS?"F":"C"),"precip_"+(US_UNITS?"in":"mm"),"humidity_pct","pressure_hpa","pressure_change_hpa","us_aqi","pm2_5","pollen_tree","pollen_grass","pollen_weed","latitude","longitude","elevation_"+(US_UNITS?"ft":"m"),"distance_from_last_"+(US_UNITS?"mi":"km"),"elevation_change_"+(US_UNITS?"ft":"m"),"big_move",
     "suspected_triggers (what the user marked as possibly triggering their condition that day)",
     "suspected_flare (1 = the user marked this day as a possible flare-up of their condition)",
+    "flare_time (when the flare-up started)",
+    "linked_symptoms (things the user connected to a symptom that day: item → symptom)",
     "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells_other","notes_activity","notes_appointments"];
   if(state.name) head.unshift("name");
   const rows=[head.map(q).join(",")];
   for(let k=start;k<=end;k=shiftKey(k,1)){
     const log=state.log[k]||{}, sl=state.slog[k]||{}, meals=state.meals[k]||{}, typed=state.food[k]||{};
     const sched=schedAll.filter(x=>dueOn(x.m,x.sl,k));   // archived meds drop out from the day they were archived
-    const taken=sched.filter(x=>log[x.key]), notTaken=sched.filter(x=>!log[x.key]);
+    const det=state.ldet[k]||{}, isSkip=key=>!!(det[key]||{}).skip;
+    const taken=sched.filter(x=>log[x.key]&&!isSkip(x.key)), notTaken=sched.filter(x=>!log[x.key]), skipped=sched.filter(x=>log[x.key]&&isSkip(x.key));
     /* Today isn't over, so untaken doses are "not yet taken" rather than missed */
     const missed=k===tk?[]:notTaken, pending=k===tk?notTaken:[];
     /* Every dose logged that day, by name and time — read from the log itself so doses of
        meds since removed from the list still show up */
-    const takenList=Object.entries(log).filter(([,t])=>t).map(([key,t])=>{const [id,sl]=key.split("|"), m=anyMed(id)||{};
-        return {t:realTime(t)?t:0, s:(m.name||"Removed medication")+(m.dose?" "+m.dose:"")+" ("+slotLabel(sl)+")"+(realTime(t)?" at "+fmtTime(t):"")}})
+    const takenList=Object.entries(log).filter(([key,t])=>t&&!isSkip(key)).map(([key,t])=>{const [id,sl]=key.split("|"), m=anyMed(id)||{}, o=optOf(m,(det[key]||{}).o);
+        return {t:realTime(t)?t:0, s:(m.name||"Removed medication")+(o?": "+optLabel(o):m.dose?" "+m.dose:"")+" ("+slotLabel(sl)+")"+(realTime(t)?" at "+fmtTime(t):"")}})
       .sort((a,b)=>a.t-b.t).map(x=>x.s).join("; ");
     const had=syms.filter(x=>sl[x.id]), xd=xdoses(k), sd=sdoses(k);
     const placesToday=[...new Set(MEALS.map(m=>(meals[m.id]||{}).place).filter(Boolean))];
     const row=[k,parseKey(k).toLocaleDateString("en-US",{weekday:"long"}),
-      taken.length,sched.length,takenList,missed.map(x=>x.label).join("; "),pending.map(x=>x.label).join("; "),
-      xd.map(e=>{const m=anyMed(e.id);return m.name+(m.dose?" ("+m.dose+")":"")+" at "+fmtTime(e.t)}).join("; "),xd.length,
-      [...new Set(sd.map(e=>e.id))].map(id=>{const m=suppOf(id), ts=sd.filter(e=>e.id===id).map(e=>fmtTime(e.t));return m.name+(m.dose?" ("+m.dose+")":"")+(ts.length>1?" x"+ts.length:"")+" at "+ts.join(", ")}).join("; "),sd.length,
+      taken.length,sched.length,takenList,missed.map(x=>x.label).join("; "),skipped.map(x=>x.label).join("; "),pending.map(x=>x.label).join("; "),
+      xd.map(e=>{const m=anyMed(e.id);return withDose(m,optOf(m,e.o))+" at "+fmtTime(e.t)+entryNote(e)}).join("; "),xd.length,
+      [...new Set(sd.map(e=>e.id+"|"+(e.o||"")))].map(key=>{const L=sd.filter(e=>e.id+"|"+(e.o||"")===key), m=suppOf(L[0].id), ts=L.map(e=>fmtTime(e.t)+entryNote(e));return withDose(m,optOf(m,L[0].o))+(ts.length>1?" x"+ts.length:"")+" at "+ts.join(", ")}).join("; "),sd.length,
       [...had].sort((a,b)=>symSortKey(sl[a.id][0].t)-symSortKey(sl[b.id][0].t)).map(x=>symText(x.name,sl[x.id])).join("; "),had.length,
       ...syms.map(x=>(sl[x.id]||[]).length),...syms.map(x=>symMax(sl[x.id]||[])||""),
       ...MEALS.flatMap(m=>{const e=meals[m.id]||{}, mt=mealTime(e);return [mt?fmtTime(mt):"",[...countFoods(e.foods)].map(([id,n])=>{const nm=nameOf(state.foods,id), ft=foodTime(e,id);const ts=[ft||mt,...((e.fx||{})[id]||[]).filter(realTime)].filter(Boolean).sort((a,b)=>a-b);
         const fe=(e.fi||{})[id], fv=fe&&fe.v&&verOf(state.foods.find(x=>x.id===id),fe.v), ing=fe&&(fe.ings||[]).length?" ("+fe.ings.join(", ")+")":"";
-        return nm&&(n>1?nm+(fv?" · "+fv.name:"")+ing+" x"+n:nm+(fv?" · "+fv.name:"")+ing)+(ts.length>1?" at "+ts.map(fmtTime).join(", "):ft&&ft!==mt?" at "+fmtTime(ft):"")}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
+        return nm&&(n>1?nm+(fv?" · "+fv.name:"")+ing+" x"+n:nm+(fv?" · "+fv.name:"")+ing)+(ts.length>1?" at "+ts.map(fmtTime).join(", "):ft&&ft!==mt?" at "+fmtTime(ft):"")+entryNote(fe)}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
       placesToday.map(id=>nameOf(state.places,id)).filter(Boolean).join("; "),
       ...places.map(x=>placesToday.includes(x.id)?1:0),
       ...MOODTIMES.flatMap(m=>{const all=(state.mlog[k]||{})[m.id]||[], c=countFoods(all), ids=[...c.keys()], tt=moodTimes(k,m.id), gt=groupTime(tt,ids);
@@ -3017,7 +3360,7 @@ function buildCSV(start,end){
           return nm+(n>1?" x"+n:"")+(ts.length>1||(ts.length&&ts[0]!==gt)?" at "+ts.map(fmtTime).join(", "):"")}).filter(Boolean).join("; ")]}),
       ...evCols(["smell","other"],k),
       ...(()=>{const L=evHits("act",k), by=id=>L.filter(e=>e.id===id), mx=l=>Math.max(0,...l.map(e=>+e.x||0))||"";
-        return [[...new Set(L.map(e=>e.id))].map(id=>actText(evOf("act",id),by(id))).join("; "),L.length,actMins(L)||"",mx(L),
+        return [[...new Set(L.map(e=>e.id+"|"+(e.o||"")))].map(key=>{const G=L.filter(e=>e.id+"|"+(e.o||"")===key);return actText(evOf("act",G[0].id),G)}).join("; "),L.length,actMins(L)||"",mx(L),
           ...acts.map(x=>by(x.id).length),...acts.map(x=>mx(by(x.id)))]})(),
       ...evCols(["appt"],k),
       ...(()=>{const w=state.weather[k], pw=state.weather[shiftKey(k,-1)];
@@ -3030,6 +3373,8 @@ function buildCSV(start,end){
         return [g.lat,g.lon,el(g.el),m?(US_UNITS?m.mi:m.mi*1.609344).toFixed(0):"",m&&m.de!=null?el(m.de):"",m&&(m.far||m.high)?1:0]})(),
       trigText(k),
       isTrig(k,"syms")?1:0,
+      isTrig(k,"syms")&&realTime(state.flare[k])?fmtTime(state.flare[k]):"",
+      linkedText(k),
       MEALS.filter(m=>typed[m.id]).map(m=>m.label+": "+typed[m.id]).join(" | "),
       state.notes[k]||"",...["food","meds","syms","mood","smell","act","appt"].map(n=>(state.pnotes[n]||{})[k]||"")];
     if(state.name) row.unshift(state.name);
@@ -3078,8 +3423,11 @@ function checkRollover(){
   const tk=todayKey();
   if(tk!==lastToday){ flushText(); if(viewDate===lastToday) viewDate=tk; lastToday=tk; render(); }
 }
-setInterval(checkRollover,60000);
-document.addEventListener("visibilitychange",()=>{if(!document.hidden){checkRollover();trackToday();fetchWeather()}});
+/* Checked once a minute only while the app is on screen; coming back to it checks straight away */
+let rollTimer=null;
+function rollWatch(){ clearInterval(rollTimer); rollTimer=document.hidden?null:setInterval(checkRollover,60000); }
+rollWatch();
+document.addEventListener("visibilitychange",()=>{rollWatch(); if(!document.hidden){checkRollover();trackToday();fetchWeather()}});
 
 /* ---------- offline support ---------- */
 if("serviceWorker" in navigator){
@@ -3120,8 +3468,11 @@ function updBanner(){
   b.id="updB"; b.className="updb"; b.type="button"; b.textContent="New version ready · tap to update";
   b.addEventListener("click",applyUpdate); document.body.append(b);
 }
+let updLast=0;
 async function checkUpdate(){
   if(!navigator.serviceWorker||location.protocol!=="https:") return;
+  if(Date.now()-updLast<3600000) return;   // at most once an hour, not on every switch back to the app
+  updLast=Date.now();
   try{ const r=await navigator.serviceWorker.getRegistration(); if(r) await r.update(); }catch(e){}
 }
 if(navigator.serviceWorker) navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(hadSW) updBanner(); });
