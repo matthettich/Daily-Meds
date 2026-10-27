@@ -57,7 +57,7 @@ b{font-weight:500}
 
   <nav class="toc" aria-label="Sections">
     <a href="#today">Today</a><a href="#meals">Meals</a><a href="#meds">Meds</a><a href="#symptoms">Symptoms</a>
-    <a href="#food">Food</a><a href="#mood">Mood</a><a href="#smells">Smells &amp; Other</a><a href="#activity">Activity</a><a href="#appts">Appointments</a><a href="#weather">Weather</a><a href="#summary">Recap</a><a href="#data">Your data</a><a href="#install">Install &amp; updates</a><a href="privacy.html">Privacy</a>
+    <a href="#food">Food</a><a href="#mood">Mood</a><a href="#night">Overnight</a><a href="#smells">Smells &amp; Other</a><a href="#activity">Activity</a><a href="#appts">Appointments</a><a href="#weather">Weather</a><a href="#summary">Recap</a><a href="#data">Your data</a><a href="#install">Install &amp; updates</a><a href="privacy.html">Privacy</a>
   </nav>
 
   <section class="box" id="today">
@@ -73,7 +73,7 @@ b{font-weight:500}
         <li>The bar at the top shows how many of today's doses are checked off.</li>
         <li>Use the <b>‹ ›</b> arrows, or <b>swipe</b> across the page, to look at or fill in past days: swipe right to go back a day, left to go forward. Tap the date, or <b>Back to today</b>, to return.</li>
         <li><b>Notes</b> at the bottom is for anything about the day. It saves as you type.</li>
-        <li>Today runs in the order of the day's story: medications, food, smells &amp; other, mood, symptoms, appointments, notes. <b>Tap a section's heading</b> to fold it away; folded, it shows a quick count, and it stays folded until you tap it again.</li>
+        <li>Today runs in the order of the day's story: medications, food, smells &amp; other, mood, symptoms, appointments, notes, then overnight &amp; dreams. <b>Tap a section's heading</b> to fold it away; folded, it shows a quick count, and it stays folded until you tap it again.</li>
         <li>In <b>Settings</b>, under <b>Today page</b>, untick <b>Show …</b> to hide a section, or use the arrows to move it up or down. <b>Reset order</b> puts them back in the usual order.</li>
         <li>Same as yesterday? <b>Tap a box's name</b> (Supplements, Breakfast, Snacks &amp; Other Meals, Morning, Symptoms, Smells, Other, Activity, Appointments, or any notes box such as Food notes or Notes) and choose <b>Copy Yesterday's Meal</b> (or Moods, Symptoms, Notes and so on). It copies what you logged in that box the day before, servings, ingredients, restaurant and intensity included, then asks what time it was. <b>Undo copy</b> in that pop-up puts the box back. Notes copy yesterday's text and don't ask a time. If the box already has something in it, it asks before replacing it. Medications, Additional medication and Medication notes don't have this, since doses are a checklist. Looking at a past day, it copies the day before that one.</li>
         <li>Think something set off your symptoms? In the same menu, tick <b>Suspected trigger</b>. The box gets a <span class="chip">Trigger?</span> tag for that day, and the spreadsheet's <b>suspected_triggers</b> column lists the box and what was in it, so your doctor (or AI) can check whether the data backs it up. On Symptoms the checkbox is <b>Suspected Flare</b> instead: tick it on a day you think was a flare-up, the box gets a <span class="chip">Flare?</span> tag, and the spreadsheet's <b>suspected_flare</b> column shows a 1 for that day. Untick it to take the mark off. Don't want it? Untick <b>Suspected triggers</b> in Settings, under Today page; marks you've already made are kept.</li>
@@ -111,6 +111,8 @@ b{font-weight:500}
         <li><b>Tap a medication</b> to change it after a doctor visit, or to delete it.</li>
         <li>Switch between a few? Give it <b>types</b>: say a medication called <b>Antihistamine</b> with types Allegra 180 mg, Zyrtec 10 mg and Claritin. Tap <b>+ Add type</b> in its editor for each, with its dose in the second box. On Today, checking it off asks <b>which one</b> (the one you took last time is marked), and the row shows it. Tap the time to change which one it was. <b>+ New type…</b> in that pop-up adds one on the spot. Additional medications, supplements, foods, smells, Other things and activities can have types too; picking one asks which. A type you remove that past days used is kept for history.</li>
         <li>Up past midnight? Under <b>End of day</b>, pick the bedtime dose you take last. Until you check it off, the app stays on that day, so late doses, food and symptoms land there with their real times. If it's still unchecked at 3 AM, the new day starts. Choose <b>At midnight</b> to turn this off.</li>
+        <li>Every dose you check off keeps the <b>time you tapped it</b>, not just the part of the day. That's what lets Recap, the export and the Overnight section work out how long after a dose something happened. Took it earlier than you checked it? Tap the time to fix it.</li>
+        <li>Doctor changed something? Under <b>Medication changes</b>, tap <b>Add</b>, pick the day and write what changed, like "Started montelukast 10 mg". That day's Today page shows it above the doses (tap it to edit), the Recap calendar marks the day, and Recap's <b>Medication changes</b> box compares the 14 days before with the days after: days with symptoms, flare-ups, wake-ups a night and nightmares. The spreadsheet has a <b>medication_changes</b> column.</li>
         <li>Stopped taking one? Tap <b>Archive</b> instead of deleting it. It leaves the checklist from that day on and stops counting as missed, but every dose you took stays in Recap and the export. <b>Unarchive</b> (or adding a med with the same name) puts it back, and the days it was archived still aren't counted as missed.</li>
       </ul>
       <h3>Additional medications</h3>
@@ -168,6 +170,21 @@ b{font-weight:500}
         <li>The Mood section of <b>Settings</b> holds your list. It starts with a few common ones; tap one to rename or delete it, or <b>Add</b> your own.</li>
         <li><b>Tap the clock</b> on a mood to add when you felt it. If only one mood in the morning, afternoon or evening has a time, the rest of that group gets it too. Tap a time and choose <b>Clear time</b> to remove it.</li>
         <li>Recap shows which moods came up most, and the export has a column for each time of day.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="box" id="night">
+    <div class="lid"><h2>Overnight &amp; dreams</h2></div>
+    <div class="body">
+      <p>The last section on Today is for the night: wake-ups and dreams. Want it nearer the top? Move it up in <b>Settings</b>, under Today page.</p>
+      <ul>
+        <li>Woke up? Tap <b>+ Woke up now</b>. It's saved straight away with the time, then a pop-up asks <b>what woke you</b> (a dream, a symptom, nothing, not sure), what was going on <b>in your body</b> (racing heart, shaking, nausea, stomach or gut…), your <b>feelings</b> (anxious, teary, agitated…), <b>how hard</b> it was from 1 to 5, and a comment. All optional: <b>Cancel</b> keeps the wake-up with just its time, and you can fill the rest in the morning by tapping it.</li>
+        <li>The pop-up shows <b>Since last dose</b>: how long before the wake-up you last took each thing that evening, like "Cromolyn 4h 40m · Montelukast 9h 30m". The box also lists that evening's doses with their times.</li>
+        <li><b>Dreams</b>: rate how vivid they were from 1 to 5, tick <b>Disturbing</b> or <b>Nightmare</b>, or <b>None remembered</b>, and jot down what it was about if you like. Tap a number again to clear it.</li>
+        <li>Which night? Until 6 PM the section shows <b>last night</b>. From 6 PM it switches to <b>tonight</b>, with a line about last night at the top. A past day shows the night before it, and there <b>+ Add a wake-up</b> starts at 3 AM so you can set the time.</li>
+        <li>Recap's <b>Overnight &amp; dreams</b> box counts nights with a wake-up, wake-ups a night, the usual time, what woke you, your feelings and body, and vivid, disturbing and nightmare nights. It counts from the first night you logged, and a night with nothing logged counts as no wake-ups.</li>
+        <li>The spreadsheet puts each night on the row of the <b>evening before it</b>, next to that evening's doses, in the <b>night_after_…</b> columns: how many wake-ups, each one's details and time since each dose, and the dream ratings.</li>
       </ul>
     </div>
   </section>

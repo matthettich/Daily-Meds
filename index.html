@@ -387,6 +387,41 @@ label.f textarea{display:block;width:100%;margin-top:4px;padding:10px;border:1px
   text-decoration:underline dotted;text-underline-offset:3px}
 .flare .t svg{width:14px;height:14px;display:block}
 .cal button.fl,.ycal button.fl{box-shadow:inset 0 0 0 2px var(--ink)}
+/* ---------- Overnight & dreams ----------
+   Same boxes, chips and scales as the rest of Today, in the section's own hue */
+.pg-white .box.night{--H:calc(var(--h) - 88);--l:86%}
+.pg-white .box.night.l-dream{--l:82%}
+#changeList .row:first-child{border-top:0}
+.box.night .lvl,.box.night .scale button,#ndlg .scale button{background:hsl(calc(var(--h) - 88) var(--s) calc(95% - var(--i,0) * 3.7%))}
+.box.night .scale button[aria-pressed="true"],#ndlg .scale button[aria-pressed="true"]{background:var(--ink);color:var(--white)}
+.scale.five{grid-template-columns:repeat(5,1fr)}
+.nwhen{margin:10px 10px 0;font-size:13px;color:var(--muted)}
+.nwhen b{font-weight:500;color:var(--ink)}
+.nadd{display:flex;padding:10px}
+.nadd button{flex:1}
+.ndream{padding:10px 10px 0}
+.ndream .ilabel{margin-bottom:6px}
+.ntog{display:flex;flex-wrap:wrap;gap:0 18px;padding:6px 10px 0}
+.ntog .toggle{min-height:44px;padding:0;font-size:15px}
+.ntog .toggle + .toggle{border-top:0}
+.lastn{margin:0 0 12px;padding:8px 10px;border:1px solid var(--rule);background:var(--white);font-size:13px;color:var(--muted)}
+.lastn b{font-weight:500;color:var(--ink)}
+#nsince{margin:-4px 0 12px;font-size:13px;color:var(--muted)}
+.nwhy span{padding:8px 4px}
+.tagpick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.tagpick button{border:1px solid var(--rule);background:var(--white);padding:4px 10px;min-height:36px;font-size:14px}
+.tagpick button[aria-pressed="true"]{background:var(--ink);color:var(--white);border-color:var(--ink)}
+/* Medication changes: a line on Today on the day of a change, a mark on the Recap calendar, before/after on Recap */
+.chgb{display:block;width:100%;margin:0;padding:8px 10px;border:1px solid var(--rule);background:var(--white);text-align:left;font-size:14px}
+.chgb + .chgb{margin-top:6px}
+.chgb .k{font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+.cal button{position:relative}
+.cal button.chg::after{content:"";position:absolute;right:3px;bottom:3px;width:6px;height:6px;background:var(--ink)}
+.legend .chgk{width:6px;height:6px;background:var(--ink);border:0}
+.chgr{padding:10px 0 0;border-top:1px solid var(--hair)}
+.lid + .chgr{border-top:0}
+.chgt{padding:0 10px;font-size:15px}
+.chgt b{font-weight:500}
 
 /* ---------- Summary ---------- */
 .sumbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
@@ -531,6 +566,11 @@ body{display:flex;flex-direction:column}
       <div class="box l-list">
         <div class="lid"><h2>Medications</h2><button class="act add" id="addMed">Add</button></div>
         <div id="medList"></div>
+      </div>
+      <div class="box l-list">
+        <div class="lid"><h2>Medication changes</h2><button class="act add" id="addChange">Add</button></div>
+        <div id="changeList"></div>
+        <p class="hint">Mark the day a medication started, stopped or changed dose. It shows on that day, Recap compares the two weeks before and after it, and the spreadsheet lists it.</p>
       </div>
       <div class="box l-list">
         <div class="lid"><h2>End of day</h2></div>
@@ -751,6 +791,47 @@ body{display:flex;flex-direction:column}
     </div>
   </form>
 </dialog>
+<!-- Woke up: one wake-up in the night, with what woke you, how your body and mood were, and how hard it was -->
+<dialog id="ndlg">
+  <form method="dialog" id="nform">
+    <h3 id="ndlgTitle">Woke up</h3>
+    <div class="body">
+      <label class="f"><span>Time</span><input type="time" id="ntime"></label>
+      <p id="nsince"></p>
+      <p class="ilabel">What woke you?</p>
+      <div class="imode nwhy" role="radiogroup" aria-label="What woke you" id="nwhy"></div>
+      <p class="ilabel">In your body</p>
+      <div class="tagpick" id="nbody" role="group" aria-label="In your body"></div>
+      <p class="ilabel">Feelings</p>
+      <div class="tagpick" id="nfeel" role="group" aria-label="Feelings"></div>
+      <p class="ilabel" id="nlvlLab">How hard was it</p>
+      <div class="scale five" id="nlvl" role="group" aria-label="How hard, 1 mild to 5 severe"></div>
+      <div class="scalelab"><span>Mild</span><span>Severe</span></div>
+      <label class="f" style="margin-top:12px">Comment<textarea id="nc" rows="2" maxlength="500" placeholder="How long you were up, what helped…"></textarea></label>
+      <div class="actions">
+        <button type="button" class="danger" id="nremove">Remove</button>
+        <button type="button" class="ghost" id="ncancel">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+<!-- A medication change: the day it happened and what changed -->
+<dialog id="chdlg">
+  <form method="dialog" id="chform" novalidate>
+    <h3 id="chdlgTitle">Medication change</h3>
+    <div class="body">
+      <label class="f">Date<input type="date" id="chdate"></label>
+      <label class="f">What changed<input id="chtxt" maxlength="120" placeholder="e.g. Started montelukast 10 mg" autocomplete="off"></label>
+      <p class="err" id="chErr" role="alert"></p>
+      <div class="actions">
+        <button type="button" class="danger" id="chdel">Delete</button>
+        <button type="button" class="ghost" id="chcancel">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </div>
+  </form>
+</dialog>
 <!-- Servings: a food eaten more than once in a meal (Coffee ×2), each serving with its own time -->
 <dialog id="pdlg">
   <form method="dialog" id="pform">
@@ -838,6 +919,13 @@ function mealShown(ml){return !ml.opt||state[ml.opt]!==false}
 const MOODTIMES = [
   {id:"morning",label:"Morning",l:"l-mmorning"},{id:"afternoon",label:"Afternoon",l:"l-mafternoon"},{id:"evening",label:"Evening",l:"l-mevening"}
 ];
+/* Overnight & dreams: what woke you, how your body felt, and feelings, for each wake-up in the night (keys stay fixed;
+   the labels are what's shown and exported) */
+const NIGHT_FROM = 18;   // 6 PM: from here on, a time belongs to the coming night (see "Overnight & dreams")
+const NIGHT_WHY  = [["dream","Dream"],["sym","Symptom"],["none","Nothing"],["unsure","Not sure"]];
+const NIGHT_BODY = [["heart","Racing heart"],["shake","Shaking"],["flush","Flushing"],["itch","Itching"],["nausea","Nausea"],["gut","Stomach or gut"],["sweat","Sweating"],["temp","Too hot or cold"],["breath","Short of breath"]];
+const WHY_RECAP  = {dream:"Woken by a dream",sym:"Woken by a symptom",none:"Nothing woke me",unsure:"Not sure what woke me"};
+const NIGHT_FEEL = [["anx","Anxious"],["teary","Teary"],["agit","Agitated"],["panic","Panicky"],["low","Low"],["scared","Scared"],["confused","Confused"],["calm","Calm"]];
 /* A starter list of moods; edit or delete any of them on the Mood page */
 const DEFAULT_MOODS = ["Happy","Calm","Content","Energetic","Tired","Anxious","Stressed","Irritable","Sad","Low","Overwhelmed","Hopeful"];
 function defaultMoods(){return DEFAULT_MOODS.map(name=>({id:uid(),name}))}
@@ -885,7 +973,10 @@ const LATE_CUTOFF = 3;       // 3 AM: the latest a day can run past midnight whi
    so can a meal's food (m.fi[foodId].c / .sym).
    ldet: {date:{"medId|slot":{o?,skip?}}} — for a checked dose: which type was taken, or skip:true when it was skipped
    (long-press). A skipped dose is checked (it counts as done) but exported as skipped.
-   flare: {date:t} — when a flare-up started (the Flare-up checkbox in Symptoms; the flag itself is trig[date].syms) */
+   flare: {date:t} — when a flare-up started (the Flare-up checkbox in Symptoms; the flag itself is trig[date].syms)
+   nlog: {night:{w:[{t,why?,body?:[],feel?:[],i?,c?}],d:{v?,dis?,nm?,none?,c?}}} — wake-ups and dreams, each night keyed by
+   the morning it leads into (see "Overnight & dreams")
+   changes: [{id,d,txt}] — medication changes the user marked: the day (YYYY-MM-DD) and what changed */
 /* ---------- Today page sections ----------
    Default order tells the day's story: what you took, ate and were around, then how you felt. */
 const SECTIONS=[
@@ -896,7 +987,8 @@ const SECTIONS=[
   {id:"mood",  label:"Mood & emotions"},
   {id:"syms",  label:"Symptoms"},
   {id:"appts", label:"Appointments"},
-  {id:"notes", label:"Notes"}
+  {id:"notes", label:"Notes"},
+  {id:"night", label:"Overnight & dreams"}   // added last, so the sections above keep their look; move it in Settings
 ];
 /* Keeps a saved layout valid: known sections only, each once; any missing (e.g. added in an update) go in their default spot */
 function normLayout(saved,hidden){
@@ -911,7 +1003,7 @@ function secShown(id){ const e=state.layout.find(x=>x.id===id); return !e||e.sho
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{},
   moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:defaultOthers(), olog:{}, trackOther:true, hotAdded:true, acts:[], aclog:{}, showSnacks:true, showAfter:true, trig:{}, trackTrig:true, altLook:true,
   appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, trackLoc:false, geo:{}, pollenKey:"", name:"", updated:0,
-  ldet:{}, flare:{}};
+  ldet:{}, flare:{}, nlog:{}, changes:[]};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
 
@@ -1031,6 +1123,7 @@ function normalize(s){
           name:typeof s.name==="string"?s.name.trim().slice(0,60):"",
           dayEnd:typeof s.dayEnd==="string"?s.dayEnd:undefined,
           ldet:obj(s.ldet), flare:obj(s.flare),
+          nlog:normNlog(obj(s.nlog)), changes:normChanges(s.changes),
           updated:Number(s.updated)||0};
   normAppts(n); return n;
 }
@@ -1063,6 +1156,28 @@ function normSlog(slog){
     if(Object.keys(d).length) out[k]=d;
   }
   return out;
+}
+/* Overnight entries from a backup or an older save: only known keys and sensible values are kept */
+function normNlog(nlog){
+  const out={}, ok=(L,k)=>L.some(x=>x[0]===k), lv=v=>{const n=Math.round(+v);return n>=1&&n<=5?n:0}, txt=v=>typeof v==="string"&&v.trim()?v.slice(0,500):"";
+  for(const [n,x] of Object.entries(nlog)){
+    if(!/^\d{4}-\d\d-\d\d$/.test(n)||!x||typeof x!=="object") continue;
+    const o={};
+    const w=(Array.isArray(x.w)?x.w:[]).filter(e=>e&&realTime(e.t)).map(e=>{const r={t:e.t};
+      if(ok(NIGHT_WHY,e.why)) r.why=e.why;
+      for(const [f,L] of [["body",NIGHT_BODY],["feel",NIGHT_FEEL]]){ const a=(Array.isArray(e[f])?e[f]:[]).filter(k=>ok(L,k)); if(a.length) r[f]=[...new Set(a)]; }
+      if(lv(e.i)) r.i=lv(e.i); if(txt(e.c)) r.c=txt(e.c); return r}).sort((a,b)=>a.t-b.t);
+    if(w.length) o.w=w;
+    if(x.d&&typeof x.d==="object"){ const d={};
+      if(lv(x.d.v)) d.v=lv(x.d.v); for(const f of ["dis","nm","none"]) if(x.d[f]===true) d[f]=true; if(txt(x.d.c)) d.c=txt(x.d.c);
+      if(Object.keys(d).length) o.d=d; }
+    if(Object.keys(o).length) out[n]=o;
+  }
+  return out;
+}
+function normChanges(L){
+  return (Array.isArray(L)?L:[]).filter(c=>c&&/^\d{4}-\d\d-\d\d$/.test(c.d)&&typeof c.txt==="string"&&c.txt.trim())
+    .map(c=>({id:typeof c.id==="string"&&c.id?c.id:uid(),d:c.d,txt:c.txt.trim().slice(0,120)}));
 }
 function loadLocal(){
   try{const raw=localStorage.getItem(LS_KEY);if(raw){const s=JSON.parse(raw);if(s&&Array.isArray(s.meds))state=normalize(s)}}catch(e){}
@@ -1126,6 +1241,7 @@ function fillTexts(){
     if(document.activeElement!==ta) ta.value=noteStore(ta.dataset.note)[viewDate]||"";
     autosize(ta);
   }
+  for(const ta of document.querySelectorAll("textarea[data-dreamc]")) autosize(ta);
   const short=parseKey(viewDate).toLocaleDateString([], {weekday:"short",month:"short",day:"numeric"});
   for(const el of document.querySelectorAll(".notedate")) el.textContent=short;
 }
@@ -1271,6 +1387,117 @@ function actBox(){
       </div>
     </div>`;
 }
+/* ---------- Overnight & dreams ----------
+   Each night is kept under the morning it leads into: a wake-up at 3 AM on the 28th and a dream noted at breakfast are
+   both nlog["…-28"]. A time from 6 PM (NIGHT_FROM) on belongs to the coming night. On Today the section shows last night
+   until 6 PM, then tonight (with a line about last night); an earlier day shows the night before it. Recap counts nights
+   from the first one logged, and the export puts each night on the row of the evening before it, next to that evening's
+   doses. */
+function nightOf(t){const d=new Date(t);return d.getHours()>=NIGHT_FROM?shiftKey(keyOf(d),1):keyOf(d)}
+function nightShown(){ if(viewDate!==todayKey()) return viewDate; const n=nightOf(Date.now()); return n>viewDate?n:viewDate; }
+function nightName(n){ return n>viewDate?"Tonight":viewDate===todayKey()?"Last night":"Night before"; }
+function wakes(n){ return ((state.nlog[n]||{}).w)||[]; }
+function dreamOf(n){ return ((state.nlog[n]||{}).d)||{}; }
+function nightRec(n){ return state.nlog[n]||(state.nlog[n]={}); }
+function tidyNight(n){ const x=state.nlog[n]; if(!x) return; if(x.w&&!x.w.length) delete x.w; if(x.d&&!Object.keys(x.d).length) delete x.d; if(!Object.keys(x).length) delete state.nlog[n]; }
+function firstNight(){ let f=""; for(const k of Object.keys(state.nlog)) if(!f||k<f) f=k; return f; }
+/* "HH:MM" typed for night n: 6 PM or later is the evening before, earlier is that morning */
+function nightTime(n,v){ const h=+v.slice(0,2), mi=+v.slice(3,5), d=parseKey(h>=NIGHT_FROM?shiftKey(n,-1):n); d.setHours(h,mi,0,0); return d.getTime(); }
+/* A new wake-up in night n: now, during that night; otherwise 3 AM that night, ready to be changed */
+function wakeStamp(n){ const now=Date.now(); return nightOf(now)===n?now:nightTime(n,"03:00"); }
+function nlabel(L,k){ return (L.find(x=>x[0]===k)||[])[1]||""; }
+function wakeTags(e){ return [...(e.feel||[]).map(k=>nlabel(NIGHT_FEEL,k)),...(e.body||[]).map(k=>nlabel(NIGHT_BODY,k))]; }
+/* "Dream, Teary +2" on a wake-up's chip; the pop-up and export have everything */
+function wakeShort(e){
+  const why=e.why==="dream"||e.why==="sym"?nlabel(NIGHT_WHY,e.why):"", tags=wakeTags(e), room=why?1:2;
+  const p=[why,...tags.slice(0,room)].filter(Boolean), more=tags.length-room;
+  return p.length?p.join(", ")+(more>0?" +"+more:""):"Woke up";
+}
+/* What was taken from 3 PM the evening before night n until `upto` (5 AM that morning unless given): regular doses
+   (not skipped), additional medication and supplements, with their times, in time order */
+function nightDoses(n,upto){
+  const k=shiftKey(n,-1), from=parseKey(k).setHours(15,0,0,0), to=upto||parseKey(n).setHours(5,0,0,0), out=[];
+  const inside=t=>realTime(t)&&t>=from&&t<to;
+  for(const day of [k,n]){
+    const log=state.log[day]||{}, det=state.ldet[day]||{};
+    for(const [key,t] of Object.entries(log)){ if(!inside(t)||(det[key]||{}).skip) continue;
+      const m=anyMed(key.split("|")[0]), o=m&&optOf(m,(det[key]||{}).o); if(m) out.push({t,name:o?o.name:m.name}); }
+    for(const e of state.xlog[day]||[]){ const m=anyMed(e.id), o=m&&optOf(m,e.o); if(m&&inside(e.t)) out.push({t:e.t,name:o?o.name:m.name}); }
+    for(const e of state.suplog[day]||[]){ const m=suppOf(e.id), o=m&&optOf(m,e.o); if(m&&inside(e.t)) out.push({t:e.t,name:o?o.name:m.name}); }
+  }
+  return out.sort((a,b)=>a.t-b.t);
+}
+/* "Cromolyn 4h 40m · Zyrtec 6h 55m": how long before time t each thing taken that evening was last taken, latest first */
+function sinceText(n,t){
+  const last=new Map(); for(const d of nightDoses(n,t+1)) last.set(d.name,d.t);
+  return [...last].sort((a,b)=>b[1]-a[1]).map(([nm,dt])=>nm+" "+fmtMins(Math.max(0,Math.round((t-dt)/60000)))).join(" · ");
+}
+function dreamText(d){
+  if(d.none) return "no dreams remembered";
+  const f=[d.dis?"disturbing":"",d.nm?"nightmare":""].filter(Boolean);
+  if(d.v) return "dream "+d.v+"/5"+(f.length?" ("+f.join(", ")+")":"");
+  return d.nm?(d.dis?"disturbing nightmare":"nightmare"):d.dis?"disturbing dream":"";
+}
+/* "woke 2× (3:10 AM, 4:45 AM) · dream 4/5 (nightmare)" */
+function nightLine(n){
+  const W=wakes(n), p=[];
+  if(W.length) p.push((W.length===1?"woke once":"woke "+W.length+"×")+" ("+W.map(e=>fmtTime(e.t)).join(", ")+")");
+  const dr=dreamText(dreamOf(n)); if(dr) p.push(dr);
+  return p.join(" · ");
+}
+function nightSect(){
+  const n=nightShown(), W=wakes(n), d=dreamOf(n), nm=nightName(n), tonight=n>viewDate, doses=nightDoses(n);
+  const last=tonight?nightLine(viewDate):"", now=nightOf(Date.now())===n;
+  const dst=d.none?"None":[d.v?d.v+"/5":"",d.nm?"nightmare":d.dis?"disturbing":""].filter(Boolean).join(" · ")||"Not logged";
+  return (last?`<p class="lastn"><b>Last night:</b> ${esc(last)}</p>`:"")
+  +`<div class="box night" data-n="${n}">
+      <div class="lid">Woke up<span class="mtime">${esc(nm)}</span><span class="st">${W.length?W.length+(W.length===1?" time":" times"):"None"}</span></div>
+      ${doses.length?`<p class="nwhen">Evening doses: ${doses.map(x=>`<b>${esc(x.name)}</b> ${fmtTime(x.t)}`).join(" · ")}</p>`:""}
+      <div class="chips">${W.length?W.map((e,i)=>{const s=wakeShort(e), lab=esc(s)+" at "+fmtTime(e.t);
+        return `<span class="chip"><button class="nm" data-wake="${i}" aria-label="${lab}. Tap for what woke you, how you felt and how hard it was">${esc(s)}${e.i?`<span class="lvl" style="--i:${e.i*2}">${e.i}</span>`:""}${e.c?`<span class="cmt" title="${esc(e.c)}">${esc(e.c)}</span>`:""}</button><button class="t" data-wake="${i}" aria-label="Change time of ${lab}">${fmtTime(e.t)}</button><button data-rmwake="${i}" aria-label="Remove the wake-up at ${fmtTime(e.t)}">×</button></span>`}).join("")
+        :`<span class="none">${tonight?"No wake-ups yet":"No wake-ups logged"}</span>`}</div>
+      <div class="nadd"><button type="button" class="ghost" data-wakeadd>${now?"+ Woke up now":"+ Add a wake-up"}</button></div>
+    </div>
+    <div class="box night l-dream" data-n="${n}">
+      <div class="lid">Dreams<span class="mtime">${esc(nm)}</span><span class="st">${esc(dst)}</span></div>
+      <div class="ndream">
+        <p class="ilabel">Vividness${d.v?": <b>"+d.v+"</b> of 5":""}</p>
+        <div class="scale five" role="group" aria-label="Vividness, 1 faint to 5 very vivid">${[1,2,3,4,5].map(v=>`<button type="button" style="--i:${v*2}" data-dv="${v}" aria-pressed="${d.v===v}">${v}</button>`).join("")}</div>
+        <div class="scalelab"><span>Faint</span><span>Very vivid</span></div>
+      </div>
+      <div class="ntog">
+        <label class="toggle"><input type="checkbox" data-dflag="dis" ${d.dis?"checked":""}><span>Disturbing</span></label>
+        <label class="toggle"><input type="checkbox" data-dflag="nm" ${d.nm?"checked":""}><span>Nightmare</span></label>
+        <label class="toggle"><input type="checkbox" data-dflag="none" ${d.none?"checked":""}><span>None remembered</span></label>
+      </div>
+      <textarea data-dreamc rows="2" maxlength="500" placeholder="What was it about? (optional)" aria-label="Dream notes">${esc(d.c||"")}</textarea>
+    </div>`;
+}
+/* ---------- medication changes ----------
+   state.changes: [{id,d,txt}], added and edited in Settings → Medication changes, or from the line on Today that day */
+function changesOn(k){ return state.changes.filter(c=>c.d===k); }
+/* Days a..b (clipped to the days you've used the app, up to today): how many had any symptom and how many were flare-ups,
+   and the nights after them (counted from the first night logged): wake-ups and nightmares */
+function windowStats(a,b){
+  const fu=firstUse(), tk=todayKey(), f0=firstNight();
+  if(a<fu) a=fu; if(b>tk) b=tk; if(a>b) return null;
+  let days=0, symDays=0, flares=0, nights=0, wk=0, nmr=0;
+  for(let k=a;k<=b;k=shiftKey(k,1)){ days++;
+    const sl=state.slog[k]||{}; if(state.symptoms.some(x=>(sl[x.id]||[]).length)) symDays++;
+    if(isTrig(k,"syms")) flares++;
+    const n=shiftKey(k,1); if(f0&&n>=f0&&n<=tk){ nights++; wk+=wakes(n).length; if(dreamOf(n).nm) nmr++; } }
+  return {days,symDays,flares,nights,wk,nmr};
+}
+function changeCmp(c){
+  const B=windowStats(shiftKey(c.d,-14),shiftKey(c.d,-1)), A=windowStats(c.d,shiftKey(c.d,13));
+  const dl=s=>s?s.days+(s.days===1?" day":" days"):"none";
+  const pct=s=>s?Math.round(s.symDays/s.days*100)+"%":"–", fl=s=>s?String(s.flares):"–";
+  const wk=s=>s&&s.nights?String(Math.round(s.wk/s.nights*10)/10):"–", nm=s=>s&&s.nights?String(s.nmr):"–";
+  const line=(k,f)=>`<span class="k">${k}</span><span class="v">${f(B)}</span><span class="v">${f(A)}</span>`;
+  return `<div class="chgr"><div class="chgt"><b>${esc(parseKey(c.d).toLocaleDateString([], {month:"short",day:"numeric"}))}</b> · ${esc(c.txt)}</div>
+    <div class="wxt"><span class="h k"></span><span class="h">Before<br>${dl(B)}</span><span class="h">After<br>${dl(A)}</span>
+      ${line("Days with symptoms",pct)}${line("Flare-ups",fl)}${line("Wake-ups a night",wk)}${line("Nightmares",nm)}</div></div>`;
+}
 /* This month's counts for the Settings lists ("3 doses in Oct"), made in one pass over this month's days.
    Scanning every saved day once per item made each tap slower the longer the app was used. */
 function monthTallies(){
@@ -1310,6 +1537,8 @@ function render(){
   /* Medications & supplements: timed doses, additional medication, supplements */
   const day=state.log[viewDate]||{};
   let total=0, taken=0, html="";
+  /* A medication change marked for this day: a line above the doses (tap to edit it) */
+  html+=changesOn(viewDate).map(c=>`<button type="button" class="chgb" data-edit-change="${esc(c.id)}"><span class="k">Medication change</span>${esc(c.txt)}</button>`).join("");
   for(const s of SLOTS){
     const list=medsFor(s.id);
     if(!list.length) continue;
@@ -1476,6 +1705,10 @@ function render(){
   S.notes=noteBox("today","","Notes","How was today?");
   SUM.notes=(state.notes[viewDate]||"").trim()?"written":"";
 
+  /* Overnight & dreams: last night until 6 PM, then tonight */
+  S.night=nightSect();
+  { const n=nightShown(), w=wakes(n).length; SUM.night=[w?w+(w===1?" wake-up":" wake-ups"):"",dreamOf(n).v?"dream "+dreamOf(n).v+"/5":""].filter(Boolean).join(" · "); }
+
   html="";
   let nth=0;   // sections alternate inverted / regular down the page, starting inverted
   for(const e of state.layout) if(e.show&&S[e.id]) html+=todaySect(e.id,S[e.id],SUM[e.id],nth++%2?"reg":"inv");
@@ -1510,6 +1743,9 @@ function render(){
         <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,typeNames(m),a)}</span>
         <span class="side">${esc(SLOTS.filter(s=>m.slots.includes(s.id)).map(s=>s.label).join(", "))}</span></button>`,
     "No medications. Tap Add.","Every medication is archived.");
+  { const L=[...state.changes].sort((a,b)=>b.d.localeCompare(a.d));
+    document.getElementById("changeList").innerHTML=L.length?L.map(c=>`<button class="row" data-edit-change="${esc(c.id)}"><span><span class="nm">${esc(c.txt)}</span></span><span class="side">${esc(parseKey(c.d).toLocaleDateString([], {month:"short",day:"numeric",year:"numeric"}))}</span></button>`).join("")
+      :`<div class="empty-row">None yet. Tap Add when a doctor changes a medication.</div>`; }
   put("extraList","extra",state.extras,(m,a)=>`<button class="row" data-edit-extra="${esc(m.id)}">
         <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,typeNames(m),a)}</span>
         <span class="side">${times(inMonth("xlog",m.id),"dose","doses")}</span></button>`,
@@ -1582,7 +1818,7 @@ function daysBetween(a,b){return Math.round((parseKey(b)-parseKey(a))/86400000)+
 function firstUse(){
   let first=todayKey();
   const scan=o=>{for(const k of Object.keys(o||{})) if(k<first) first=k};
-  scan(state.log);scan(state.slog);scan(state.food);scan(state.notes);scan(state.xlog);scan(state.suplog);scan(state.smlog);scan(state.olog);scan(state.alog);scan(state.aclog);scan(state.meals);scan(state.mlog);
+  scan(state.log);scan(state.slog);scan(state.food);scan(state.notes);scan(state.xlog);scan(state.suplog);scan(state.smlog);scan(state.olog);scan(state.alog);scan(state.aclog);scan(state.meals);scan(state.mlog);scan(state.nlog);
   for(const v of Object.values(state.pnotes)) scan(v);
   return first;
 }
@@ -1661,11 +1897,13 @@ function renderSummary(){
     for(let i=0;i<days;i++){
       const k=keyOf(new Date(first.getFullYear(),first.getMonth(),i+1));
       const n=state.symptoms.filter(x=>(state.slog[k]||{})[x.id]).length;
-      const fl=isTrig(k,"syms");
-      cells+=`<button data-goto="${k}" ${k>tk?"disabled":""} class="${k===tk?"today":""}${fl?" fl":""}" style="background:${k>tk?"var(--white)":shade(n)}" aria-label="${k}, ${n} symptoms${fl?", flare-up":""}">${i+1}</button>`;
+      const fl=isTrig(k,"syms"), ch=changesOn(k).length>0;
+      cells+=`<button data-goto="${k}" ${k>tk?"disabled":""} class="${k===tk?"today":""}${fl?" fl":""}${ch?" chg":""}" style="background:${k>tk?"var(--white)":shade(n)}" aria-label="${k}, ${n} symptoms${fl?", flare-up":""}${ch?", medication change":""}">${i+1}</button>`;
     }
+    const anyChg=state.changes.some(c=>c.d>=P.start&&c.d<=P.end);
     html+=`<div class="box l-list"><div class="lid">Calendar</div><div class="cal">${cells}</div>
-      <div class="legend">Fewer <i style="background:var(--white)"></i><i style="background:${shade(Math.ceil(maxS/3))}"></i><i style="background:${shade(Math.ceil(maxS*2/3))}"></i><i style="background:${shade(maxS)}"></i> More symptoms · tap a day to open it</div></div>`;
+      <div class="legend">Fewer <i style="background:var(--white)"></i><i style="background:${shade(Math.ceil(maxS/3))}"></i><i style="background:${shade(Math.ceil(maxS*2/3))}"></i><i style="background:${shade(maxS)}"></i> More symptoms · tap a day to open it</div>
+      ${anyChg?`<div class="legend"><i class="chgk"></i> Medication change</div>`:""}</div>`;
     if(state.showYearCal) html+=yearCal(first.getFullYear());
   } else {
     const y=+P.start.slice(0,4);
@@ -1695,6 +1933,12 @@ function renderSummary(){
       <div class="big">${expected?pct+"%":"–"}<small>of doses checked off</small></div>
       <div class="stat"><span class="nm">Doses</span><span class="num">${taken} of ${expected}${skipped?` · ${skipped} skipped`:""}</span><div class="track"><i style="width:${pct}%"></i></div></div>
       <p class="hint">Based on your medication list, counted from when you started using the app. Archived meds count only before the day you archived them.</p></div>`;
+  }
+  /* Medication changes in this period: the two weeks before each one against the change day and up to 13 days after */
+  {
+    const L=state.changes.filter(c=>c.d>=P.start&&c.d<=upto).sort((a,b)=>a.d.localeCompare(b.d));
+    if(L.length) html+=`<div class="box l-list"><div class="lid">Medication changes</div>${L.map(changeCmp).join("")}
+      <p class="hint">Before is the 14 days up to the change. After is the day of the change and up to 13 days after it, so far. Days before you started using the app aren't counted, and wake-ups and nightmares only count from the first night you logged.</p></div>`;
   }
   /* Additional (as-needed) medication */
   {
@@ -1741,6 +1985,36 @@ function renderSummary(){
         :`<div class="empty-row">No moods logged this ${unit}.</div>`}</div>`;
   }
 
+  /* Overnight & dreams: each night is the morning it led into, counted from the first night logged;
+     a night with nothing logged counts as no wake-ups */
+  {
+    const f0=firstNight();
+    if(f0&&f0<=upto){
+      const a=from>f0?from:f0, hours=new Map(), tags=new Map(), why={};
+      let nights=0, withW=0, total=0, vivid=0, dis=0, nmr=0;
+      for(let k=a;k<=upto;k=shiftKey(k,1)){
+        nights++; const W=wakes(k), d=dreamOf(k);
+        if(W.length) withW++; total+=W.length;
+        for(const e of W){ const h=new Date(e.t).getHours(); hours.set(h,(hours.get(h)||0)+1); if(e.why) why[e.why]=(why[e.why]||0)+1;
+          for(const t of wakeTags(e)) tags.set(t,(tags.get(t)||0)+1); }
+        if(d.v>=4) vivid++; if(d.dis) dis++; if(d.nm) nmr++;
+      }
+      const pct=x=>nights?Math.round(x/nights*100):0, top=[...hours].sort((x,y)=>y[1]-x[1]||x[0]-y[0])[0];
+      const times=c=>c+(c===1?" time":" times"), nts=c=>c+(c===1?" night":" nights");
+      const row=(nm,num,w)=>`<div class="stat"><span class="nm">${esc(nm)}</span><span class="num">${num}</span>${w==null?"":`<div class="track"><i style="width:${w}%"></i></div>`}</div>`;
+      html+=`<div class="box l-list"><div class="lid">Overnight &amp; dreams<span class="st">${nts(nights)}</span></div>
+        <div class="big">${withW}<small>${withW===1?"night":"nights"} with a wake-up</small></div>
+        ${row("Wake-ups",total+(nights?" · "+(Math.round(total/nights*10)/10)+" a night":""),pct(withW))}
+        ${top?row("Most often","around "+esc(new Date(2024,0,1,top[0]).toLocaleTimeString([], {hour:"numeric"}))+" · "+times(top[1])):""}
+        ${NIGHT_WHY.filter(([k])=>why[k]).map(([k])=>row(WHY_RECAP[k],times(why[k]),Math.round(why[k]/Math.max(1,total)*100))).join("")}
+        ${[...tags].sort((x,y)=>y[1]-x[1]||x[0].localeCompare(y[0])).slice(0,8).map(([t,c])=>row(t,times(c),Math.round(c/Math.max(1,total)*100))).join("")}
+        ${row("Vivid dreams (4–5)",nts(vivid),pct(vivid))}
+        ${row("Disturbing dreams",nts(dis),pct(dis))}
+        ${row("Nightmares",nts(nmr),pct(nmr))}
+        <p class="hint">Counted from the first night you logged. A night with nothing logged counts as no wake-ups.</p></div>`;
+    }
+  }
+
   /* Smells, other and appointments: days and times in this period */
   for(const [kind,on,title,empty] of [["smell",state.trackSmells,"Smells","No smells logged"],["other",state.trackOther,"Other","Nothing else logged"],["act",secShown("activity"),"Activity","No activity logged"],["appt",secShown("appts"),"Appointments","No appointments logged"]]){
     const E=EVLOGS[kind], tally={};
@@ -1764,8 +2038,8 @@ function renderSummary(){
   /* Export for AI */
   const yr=P.start.slice(0,4);
   html+=`<div class="box l-list"><div class="lid">Export for AI</div>
-    <p class="hint">A spreadsheet with one row per day: each dose taken (with its time), doses missed, additional medication, supplements, symptoms (how many times and how strong), each meal's foods and restaurant, mood, smells and other things, activities (minutes and exertion), appointments, weather, air quality, pollen, and your notes. Upload it to an AI assistant and ask something like:</p>
-    <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses, moods, harder activities, pressure changes, air quality or pollen line up with symptoms? The suspected_triggers column is what I thought set off my symptoms, and suspected_flare marks days I thought were a flare-up; does the data back that up?"</p>
+    <p class="hint">A spreadsheet with one row per day: each dose taken (with its time), doses missed, additional medication, supplements, symptoms (how many times and how strong), each meal's foods and restaurant, mood, smells and other things, activities (minutes and exertion), appointments, weather, air quality, pollen, your notes, medication changes, and the night after each day (wake-ups, how you felt, dreams). Upload it to an AI assistant and ask something like:</p>
+    <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses, moods, harder activities, pressure changes, air quality or pollen line up with symptoms? Do night-time wake-ups or nightmares follow certain evening doses, or change after a medication change? The suspected_triggers column is what I thought set off my symptoms, and suspected_flare marks days I thought were a flare-up; does the data back that up?"</p>
     <div class="backup-btns"><button class="ghost" data-export="year">Download ${esc(yr)}</button><button class="ghost" data-export="all">Download everything</button></div>
     <p class="hint" id="exportMsg" role="status"></p></div>`;
   body.innerHTML=html;
@@ -2216,6 +2490,23 @@ todayCol.addEventListener("click",e=>{
     document.querySelector(`[data-fold="${id}"]`)?.focus(); return; }
   const cpn=e.target.closest("[data-copy]");
   if(cpn){ openCopyMenu(cpn); return; }
+  /* Overnight & dreams: each box carries the night it shows (data-n), so a tap acts on that night */
+  const nbox=e.target.closest("[data-n]"), nn=nbox&&nbox.dataset.n;
+  if(nn){
+    const wk=e.target.closest("[data-wake]"), rmw=e.target.closest("[data-rmwake]"), dv=e.target.closest("[data-dv]");
+    if(wk){ openWake(nn,+wk.dataset.wake); return; }
+    if(rmw){ wakes(nn).splice(+rmw.dataset.rmwake,1); tidyNight(nn); commit(); return; }
+    if(e.target.closest("[data-wakeadd]")){
+      const r=nightRec(nn), L=r.w||(r.w=[]), t=wakeStamp(nn);
+      L.push({t}); L.sort((a,b)=>a.t-b.t); commit();
+      openWake(nn,L.findIndex(x=>x.t===t)); return;   // logged already; the pop-up is for details, and Cancel keeps it
+    }
+    if(dv){ const r=nightRec(nn), d=r.d||(r.d={}), v=+dv.dataset.dv;
+      if(d.v===v) delete d.v; else { d.v=v; delete d.none; }
+      tidyNight(nn); commit(); return; }
+  }
+  const ech=e.target.closest("[data-edit-change]");
+  if(ech){ openChange(ech.dataset.editChange); return; }
   const med=e.target.closest(".med"), all=e.target.closest("[data-all]"), add=e.target.closest("[data-add]");
   const rm=e.target.closest("[data-rm]"), rmsym=e.target.closest("[data-rmsym]"), rmx=e.target.closest("[data-rmx]");
   const editmood=e.target.closest("[data-editmood]");
@@ -2897,6 +3188,11 @@ todayCol.addEventListener("change",async e=>{
   /* Flare-up checkbox in Symptoms: logs when it started (the same mark as Suspected Flare in the box's menu) */
   const fl=e.target.closest("[data-flare]");
   if(fl){ setFlare(viewDate,fl.checked); commit(); return; }
+  /* Dreams: Disturbing, Nightmare, None remembered (which clears the rest) */
+  const df=e.target.closest("[data-dflag]");
+  if(df){ const n=df.closest("[data-n]").dataset.n, r=nightRec(n), d=r.d||(r.d={}), f=df.dataset.dflag;
+    if(df.checked){ d[f]=true; if(f==="none"){ delete d.v; delete d.dis; delete d.nm; } else delete d.none; } else delete d[f];
+    tidyNight(n); commit(); return; }
   const sel=e.target.closest("select[data-pick]"); if(!sel) return;
   const date=viewDate;
   /* An item with types asks which one before it's logged; Cancel logs nothing */
@@ -2973,7 +3269,102 @@ function goDay(n){
   },{passive:true});
   document.addEventListener("touchcancel",()=>{on=false},{passive:true});
 }
-todayCol.addEventListener("input",e=>{ if(e.target.matches("textarea[data-note]")) onTextInput(e.target); });
+todayCol.addEventListener("input",e=>{ if(e.target.matches("textarea[data-note]")) onTextInput(e.target); else if(e.target.matches("textarea[data-dreamc]")) onDreamInput(e.target); });
+/* Dream notes save as you type, like the notes boxes */
+function onDreamInput(ta){
+  const n=ta.closest("[data-n]").dataset.n, r=nightRec(n), d=r.d||(r.d={});
+  if(ta.value.trim()) d.c=ta.value.slice(0,500); else delete d.c;
+  tidyNight(n); autosize(ta);
+  clearTimeout(textTimer); textTimer=setTimeout(()=>{ textTimer=null; persist(); },400);
+}
+
+/* Woke up pop-up: time, what woke you, body, feelings, how hard (1–5) and a comment. Edited on a copy; Save keeps it. */
+const ndlg=document.getElementById("ndlg"); let nedit=null;
+function nsince(){ const s=sinceText(nedit.n,nedit.e.t); document.getElementById("nsince").textContent=s?"Since last dose: "+s:""; }
+function nlvlLabel(){ const i=nedit.e.i; document.getElementById("nlvlLab").innerHTML="How hard was it"+(i?": <b>"+i+"</b> of 5":""); }
+function openWake(n,i){
+  const e=wakes(n)[i]; if(!e) return;
+  nedit={n,i,e:{...e,body:[...(e.body||[])],feel:[...(e.feel||[])]}};
+  document.getElementById("ndlgTitle").textContent="Woke up · "+nightName(n);
+  document.getElementById("ntime").value=hhmm(e.t);
+  document.getElementById("nwhy").innerHTML=NIGHT_WHY.map(([k,l])=>`<label><input type="radio" name="nwhy" value="${k}" ${e.why===k?"checked":""}><span>${esc(l)}</span></label>`).join("");
+  document.getElementById("nbody").innerHTML=NIGHT_BODY.map(([k,l])=>`<button type="button" data-nb="${k}" aria-pressed="${nedit.e.body.includes(k)}">${esc(l)}</button>`).join("");
+  document.getElementById("nfeel").innerHTML=NIGHT_FEEL.map(([k,l])=>`<button type="button" data-nf="${k}" aria-pressed="${nedit.e.feel.includes(k)}">${esc(l)}</button>`).join("");
+  document.getElementById("nlvl").innerHTML=[1,2,3,4,5].map(v=>`<button type="button" style="--i:${v*2}" data-nl="${v}" aria-pressed="${e.i===v}">${v}</button>`).join("");
+  document.getElementById("nc").value=e.c||"";
+  nlvlLabel(); nsince();
+  ndlg.showModal();
+  ndlg.querySelector('[type="submit"]').focus();
+}
+ndlg.addEventListener("click",ev=>{
+  if(!nedit) return;
+  const b=ev.target.closest("[data-nb],[data-nf],[data-nl]"); if(!b) return;
+  const e=nedit.e;
+  if(b.dataset.nl){ const v=+b.dataset.nl; if(e.i===v) delete e.i; else e.i=v;
+    for(const x of ndlg.querySelectorAll("[data-nl]")) x.setAttribute("aria-pressed",String(+x.dataset.nl===e.i));
+    nlvlLabel(); return; }
+  const f=b.dataset.nb?"body":"feel", k=b.dataset.nb||b.dataset.nf, a=e[f], j=a.indexOf(k);
+  if(j>=0) a.splice(j,1); else a.push(k);
+  b.setAttribute("aria-pressed",String(j<0));
+});
+document.getElementById("ntime").addEventListener("change",()=>{
+  const v=document.getElementById("ntime").value;
+  if(nedit&&/^\d\d:\d\d/.test(v)){ nedit.e.t=nightTime(nedit.n,v); nsince(); }
+});
+document.getElementById("nform").addEventListener("submit",ev=>{
+  ev.preventDefault(); if(!nedit) return;
+  const {n,i,e}=nedit, L=wakes(n), v=document.getElementById("ntime").value;
+  if(!L[i]){ ndlg.close(); return; }
+  if(/^\d\d:\d\d/.test(v)) e.t=nightTime(n,v);
+  const why=(ndlg.querySelector('[name="nwhy"]:checked')||{}).value, c=document.getElementById("nc").value.trim().slice(0,500);
+  const out={t:e.t};
+  if(why) out.why=why;
+  /* kept in the order the pop-up lists them */
+  const body=NIGHT_BODY.map(x=>x[0]).filter(k=>e.body.includes(k)), feel=NIGHT_FEEL.map(x=>x[0]).filter(k=>e.feel.includes(k));
+  if(body.length) out.body=body; if(feel.length) out.feel=feel;
+  if(e.i) out.i=e.i; if(c) out.c=c;
+  L[i]=out; L.sort((a,b)=>a.t-b.t);
+  ndlg.close(); commit();
+});
+document.getElementById("ncancel").onclick=()=>ndlg.close();
+document.getElementById("nremove").onclick=()=>{
+  if(nedit){ const {n,i}=nedit; wakes(n).splice(i,1); tidyNight(n); }
+  ndlg.close(); commit();
+};
+ndlg.addEventListener("close",()=>{nedit=null});
+
+/* Medication change pop-up: Settings → Medication changes → Add, or tap a change (in Settings or on its day on Today) */
+const chdlg=document.getElementById("chdlg"); let chEdit=null;
+function openChange(id){
+  const c=id&&state.changes.find(x=>x.id===id);
+  chEdit=c?c.id:null;
+  document.getElementById("chdlgTitle").textContent=c?"Medication change":"Add a medication change";
+  document.getElementById("chdate").value=c?c.d:todayKey();
+  document.getElementById("chtxt").value=c?c.txt:"";
+  document.getElementById("chErr").textContent="";
+  document.getElementById("chdel").style.display=c?"":"none";
+  chdlg.showModal();
+  if(!c) document.getElementById("chtxt").focus();
+}
+document.getElementById("chform").addEventListener("submit",ev=>{
+  ev.preventDefault();
+  const d=document.getElementById("chdate").value, txt=document.getElementById("chtxt").value.trim().slice(0,120), err=document.getElementById("chErr");
+  if(!/^\d{4}-\d\d-\d\d$/.test(d)){ err.textContent="Pick the day it changed."; return; }
+  if(!txt){ err.textContent="Say what changed, like \"Started montelukast 10 mg\"."; document.getElementById("chtxt").focus(); return; }
+  const c=chEdit&&state.changes.find(x=>x.id===chEdit);
+  if(c){ c.d=d; c.txt=txt; } else state.changes.push({id:uid(),d,txt});
+  state.changes.sort((a,b)=>a.d.localeCompare(b.d));
+  chdlg.close(); commit();
+});
+document.getElementById("chcancel").onclick=()=>chdlg.close();
+document.getElementById("chdel").onclick=async()=>{
+  const c=chEdit&&state.changes.find(x=>x.id===chEdit); if(!c) return;
+  chdlg.close();
+  if(!await ask(`Delete "${c.txt}"?`,{ok:"Delete"})) return;
+  state.changes=state.changes.filter(x=>x.id!==c.id); commit();
+};
+document.getElementById("addChange").onclick=()=>openChange(null);
+document.getElementById("changeList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-change]");if(b)openChange(b.dataset.editChange)});
 window.addEventListener("pagehide",()=>{ if(textTimer){clearTimeout(textTimer);persist()} });
 document.addEventListener("visibilitychange",()=>{ if(document.hidden&&textTimer){clearTimeout(textTimer);textTimer=null;persist()} });
 document.getElementById("medList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-med]");if(b)openEditor("med",b.dataset.editMed)});
@@ -3326,7 +3717,13 @@ function buildCSV(start,end){
     "suspected_flare (1 = the user marked this day as a possible flare-up of their condition)",
     "flare_time (when the flare-up started)",
     "linked_symptoms (things the user connected to a symptom that day: item → symptom)",
-    "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells_other","notes_activity","notes_appointments"];
+    "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells_other","notes_activity","notes_appointments",
+    "medication_changes (changes the user marked on this day)",
+    "night_after_wakeups (times the user woke in the night after this day; blank before night tracking started)",
+    "night_after_wake_details (each wake-up: time, what woke them, body, feelings, how hard 1-5, time since each dose taken that evening, comment)",
+    "night_after_dream_vividness (1 faint to 5 very vivid)","night_after_disturbing_dream (1 = yes)","night_after_nightmare (1 = yes)",
+    "night_after_no_dreams_remembered (1 = yes)","night_after_dream_note"];
+  const f0=firstNight();
   if(state.name) head.unshift("name");
   const rows=[head.map(q).join(",")];
   for(let k=start;k<=end;k=shiftKey(k,1)){
@@ -3376,7 +3773,15 @@ function buildCSV(start,end){
       isTrig(k,"syms")&&realTime(state.flare[k])?fmtTime(state.flare[k]):"",
       linkedText(k),
       MEALS.filter(m=>typed[m.id]).map(m=>m.label+": "+typed[m.id]).join(" | "),
-      state.notes[k]||"",...["food","meds","syms","mood","smell","act","appt"].map(n=>(state.pnotes[n]||{})[k]||"")];
+      state.notes[k]||"",...["food","meds","syms","mood","smell","act","appt"].map(n=>(state.pnotes[n]||{})[k]||""),
+      changesOn(k).map(c=>c.txt).join("; "),
+      /* The night after this day, next to this evening's doses */
+      ...(()=>{const n=shiftKey(k,1), W=wakes(n), d=dreamOf(n), on=f0&&n>=f0&&n<=tk;
+        const det=e=>{const s=sinceText(n,e.t), p=[e.why?"woke from: "+nlabel(NIGHT_WHY,e.why).toLowerCase():"",
+            (e.body||[]).length?"body: "+e.body.map(x=>nlabel(NIGHT_BODY,x)).join(", "):"",(e.feel||[]).length?"felt: "+e.feel.map(x=>nlabel(NIGHT_FEEL,x)).join(", "):"",
+            e.i?"how hard "+e.i+"/5":"",s?"since last dose: "+s:"",e.c?"note: "+e.c:""].filter(Boolean);
+          return fmtTime(e.t)+(p.length?" ("+p.join("; ")+")":"")};
+        return [on||W.length?W.length:"",W.map(det).join("; "),d.v||"",d.dis?1:"",d.nm?1:"",d.none?1:"",d.c||""]})()];
     if(state.name) row.unshift(state.name);
     rows.push(row.map(q).join(","));
   }

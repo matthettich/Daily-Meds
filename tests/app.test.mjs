@@ -208,7 +208,7 @@ await test("same mood logs twice in one part of the day and shows ×2", async pa
 /* ---------- 5. Appointments ---------- */
 await test("appointments: at the bottom of Today, log one, hide from Settings", async page => {
   const order = await page.$$eval("[data-sec]", l => l.map(x => x.dataset.sec));
-  eq(order.slice(-2), ["appts", "notes"], "appointments near the bottom, above Notes");
+  eq(order.slice(-3), ["appts", "notes", "night"], "appointments near the bottom, above Notes (Overnight & dreams comes last)");
   await page.selectOption('select[data-pick="ev"][data-ev="appt"]', "__new");
   await page.fill('#itemForm [name="name"]', "GI follow-up");
   await page.fill("#whoRows input", "Dr. Lee");
@@ -362,7 +362,7 @@ await test("backup restore keeps new data and uses the in-app pop-up", async pag
 
 /* ---------- Today page sections: order, fold, reorder, hide ---------- */
 await test("Today sections default to the day's story order", async page => {
-  eq(await page.$$eval("[data-sec]", l => l.map(x => x.dataset.sec)), ["meds", "food", "smells", "activity", "mood", "syms", "appts", "notes"], "order");
+  eq(await page.$$eval("[data-sec]", l => l.map(x => x.dataset.sec)), ["meds", "food", "smells", "activity", "mood", "syms", "appts", "notes", "night"], "order");
   eq(await page.textContent('[data-fold="syms"] .sl'), "Symptoms", "heading");
 }, base);
 await test("tap a heading to fold a section; it stays folded and shows a count", async page => {
@@ -378,21 +378,21 @@ await test("tap a heading to fold a section; it stays folded and shows a count",
 }, base);
 await test("Settings reorders and hides Today sections", async page => {
   await page.click('[data-tab="set"][role="tab"]');
-  eq(await page.locator("#layoutList .lrow").count(), 8, "one row per section");
+  eq(await page.locator("#layoutList .lrow").count(), 9, "one row per section");
   assert(await page.isDisabled('[data-move="meds"][data-dir="-1"]'), "first can't move up");
   await page.click('[data-move="syms"][data-dir="-1"]');
   await page.click('[data-move="syms"][data-dir="-1"]');
-  eq((await page.state()).layout.map(e => e.id), ["meds", "food", "smells", "syms", "activity", "mood", "appts", "notes"], "moved up twice");
+  eq((await page.state()).layout.map(e => e.id), ["meds", "food", "smells", "syms", "activity", "mood", "appts", "notes", "night"], "moved up twice");
   await page.uncheck('[data-show="food"]');
-  eq(await page.$$eval("[data-sec]", l => l.map(x => x.dataset.sec)), ["meds", "smells", "syms", "activity", "mood", "appts", "notes"], "Today follows");
+  eq(await page.$$eval("[data-sec]", l => l.map(x => x.dataset.sec)), ["meds", "smells", "syms", "activity", "mood", "appts", "notes", "night"], "Today follows");
   await page.click("#layoutReset");
   const L = (await page.state()).layout;
-  eq(L.map(e => e.id), ["meds", "food", "smells", "activity", "mood", "syms", "appts", "notes"], "reset order");
+  eq(L.map(e => e.id), ["meds", "food", "smells", "activity", "mood", "syms", "appts", "notes", "night"], "reset order");
   eq(L.find(e => e.id === "food").show, false, "reset keeps what's hidden");
 }, base);
 await test("older saved data gets the new layout; hidden appointments stay hidden", async page => {
   const L = (await page.state()).layout;
-  eq(L.length, 8, "all sections"); eq(L.find(e => e.id === "appts").show, false, "carried over");
+  eq(L.length, 9, "all sections"); eq(L[8].id, "night", "the new section goes last"); eq(L.find(e => e.id === "appts").show, false, "carried over");
   eq(await page.locator('[data-sec="appts"]').count(), 0, "not on Today");
 }, { ...base, trackAppts: false });
 
@@ -783,7 +783,7 @@ await test("Suspected triggers setting (Settings → Today page): off hides the 
 
 await test("Today's sections alternate inverted / regular, and keep alternating when one is hidden", async page => {
   const looks = () => page.$$eval(".tsec", l => l.map(x => x.dataset.sec + ":" + (x.classList.contains("inv") ? "inv" : x.classList.contains("reg") ? "reg" : "?")));
-  eq(await looks(), ["meds:inv", "food:reg", "smells:inv", "activity:reg", "mood:inv", "syms:reg", "appts:inv", "notes:reg"], "default order");
+  eq(await looks(), ["meds:inv", "food:reg", "smells:inv", "activity:reg", "mood:inv", "syms:reg", "appts:inv", "notes:reg", "night:inv"], "default order (the sections above Overnight keep their look)");
   const bg = sel => page.$eval(sel, e => getComputedStyle(e).backgroundColor);
   eq(await bg('.tsec[data-sec="food"] .box .lid'), "rgb(255, 255, 255)", "regular: white title bar");
   assert(await bg('.tsec[data-sec="food"] .box') !== "rgb(255, 255, 255)", "regular: colored box");
@@ -792,7 +792,7 @@ await test("Today's sections alternate inverted / regular, and keep alternating 
   await page.click('[data-tab="set"][role="tab"]');
   await page.uncheck('#layoutList [data-show="smells"]');
   await page.click('[role="tab"][data-tab="today"]');
-  eq(await looks(), ["meds:inv", "food:reg", "activity:inv", "mood:reg", "syms:inv", "appts:reg", "notes:inv"], "re-alternates without Smells");
+  eq(await looks(), ["meds:inv", "food:reg", "activity:inv", "mood:reg", "syms:inv", "appts:reg", "notes:inv", "night:reg"], "re-alternates without Smells");
 }, { ...base, trackSmells: true });
 
 await test("Recap and Settings alternate like Today, and one switch in Personalize brings the old look back", async page => {
@@ -1215,6 +1215,143 @@ await test("Flare-up checkbox in Symptoms logs a time with no symptoms; same mar
   assert(await page.isChecked("[data-flare]"), "Suspected Flare in the menu ticks the box");
   assert((await page.state()).flare[today] > 1e11, "and gives it a time");
 }, base);
+
+/* ---------- Overnight & dreams ---------- */
+const EVE = "2026-10-26", MORN = "2026-10-27", NEXTN = "2026-10-28";   // Monday evening, Tuesday morning, Wednesday morning
+const nightSeed = { ...base,
+  meds: [{ id: "mo", name: "Montelukast", dose: "10 mg", slots: ["evening"] }, { id: "z", name: "Zyrtec", slots: ["evening"] }, { id: "c", name: "Cromolyn", slots: ["waking", "bedtime"] }],
+  supps: [{ id: "lu", name: "Luteolin" }],
+  log: { [EVE]: { "mo|evening": at(EVE, 17, 40), "z|evening": at(EVE, 20, 15), "c|bedtime": at(EVE, 22, 30) } },
+  suplog: { [EVE]: [{ id: "lu", t: at(EVE, 22, 35) }] } };
+const hm = t => { const d = new Date(t); return [keyOf(d), d.getHours(), d.getMinutes()]; };
+
+await test("Overnight: Woke up now at 3:10 AM goes on last night with what woke you, body, feelings and how hard; the export puts it after Monday's evening doses", async page => {
+  eq(await page.$$eval("[data-sec]", l => l.map(x => x.dataset.sec)).then(a => a[a.length - 1]), "night", "Overnight & dreams is the last section");
+  eq(await page.textContent('.box.night .lid .mtime'), "Last night", "shows last night before 6 PM");
+  const when = await page.textContent(".box.night .nwhen");
+  assert(/Montelukast 5:40 PM/.test(when) && /Cromolyn 10:30 PM/.test(when) && /Luteolin 10:35 PM/.test(when), "evening doses listed: " + when);
+  eq(await page.textContent("[data-wakeadd]"), "+ Woke up now", "button");
+  await page.click("[data-wakeadd]");
+  await page.waitForSelector("#ndlg[open]");
+  let s = await page.state();
+  eq(hm(s.nlog[MORN].w[0].t), [MORN, 3, 10], "logged at once, on Tuesday's night");
+  eq(await page.textContent("#nsince"), "Since last dose: Luteolin 4h 35m · Cromolyn 4h 40m · Zyrtec 6h 55m · Montelukast 9h 30m", "time since each evening dose");
+  await page.check('#nwhy input[value="dream"]');
+  await page.click('#ndlg [data-nb="shake"]'); await page.click('#ndlg [data-nf="teary"]'); await page.click('#ndlg [data-nf="anx"]');
+  await page.click('#ndlg [data-nl="4"]');
+  eq(await page.textContent("#nlvlLab"), "How hard was it: 4 of 5", "level shown");
+  await page.fill("#nc", "up 40 min");
+  await page.click('#nform button[type="submit"]');
+  const w = (await page.state()).nlog[MORN].w[0];
+  eq([w.why, w.body, w.feel, w.i, w.c], ["dream", ["shake"], ["anx", "teary"], 4, "up 40 min"], "details saved, in list order");
+  eq(await page.textContent(".box.night .chip .nm"), "Dream, Anxious +24up 40 min", "chip: what woke you, a feeling, +2 more, the level and the comment");
+  eq(await page.textContent(".box.night .lid .st"), "1 time", "count");
+  const col = csvCols(await page.evaluate(k => buildCSV(k, k), EVE));
+  eq(col("night_after_wakeups (times the user woke in the night after this day; blank before night tracking started)"), "1", "Monday's row has the night after it");
+  eq(col("night_after_wake_details (each wake-up: time, what woke them, body, feelings, how hard 1-5, time since each dose taken that evening, comment)"),
+    "3:10 AM (woke from: dream; body: Shaking; felt: Anxious, Teary; how hard 4/5; since last dose: Luteolin 4h 35m · Cromolyn 4h 40m · Zyrtec 6h 55m · Montelukast 9h 30m; note: up 40 min)", "details");
+  await page.click("[data-wakeadd]"); await page.click("#ncancel");
+  eq((await page.state()).nlog[MORN].w.length, 2, "Cancel keeps a quick wake-up with just its time");
+  await page.click('.box.night [data-rmwake="1"]');
+  eq((await page.state()).nlog[MORN].w.length, 1, "× removes one");
+  await page.click('.box.night [data-wake="0"].t'); await page.click("#nremove");
+  eq((await page.state()).nlog[MORN], undefined, "Remove in the pop-up clears the night");
+}, nightSeed, { clock: new Date(2026, 9, 27, 3, 10) });
+
+await test("Overnight after 6 PM shows Tonight and logs into the coming night; last night stays as a line; a past day shows the night before it", async page => {
+  eq(await page.textContent('.box.night .lid .mtime'), "Tonight", "evening switches to tonight");
+  eq(await page.textContent(".lastn"), "Last night: woke once (3:10 AM) · dream 4/5 (nightmare)", "last night's line");
+  await page.click("[data-wakeadd]");
+  eq(hm((await page.state()).nlog[NEXTN].w[0].t), [MORN, 21, 0], "now, filed under Wednesday morning's night");
+  await page.fill("#ntime", "02:30"); await page.click('#nform button[type="submit"]');
+  eq(hm((await page.state()).nlog[NEXTN].w[0].t), [NEXTN, 2, 30], "2:30 AM is in the small hours of Wednesday");
+  await page.click('.box.night [data-wake="0"].t'); await page.fill("#ntime", "22:15"); await page.click('#nform button[type="submit"]');
+  eq(hm((await page.state()).nlog[NEXTN].w[0].t), [MORN, 22, 15], "10:15 PM is that evening");
+  await page.click("#prevDay");
+  eq(await page.textContent('.box.night .lid .mtime'), "Night before", "a past day shows the night before it");
+  eq(await page.textContent("[data-wakeadd]"), "+ Add a wake-up", "button for a past night");
+  await page.click("[data-wakeadd]"); await page.click("#ncancel");
+  eq(hm((await page.state()).nlog[EVE].w[0].t), [EVE, 3, 0], "a past night starts at 3 AM, ready to change");
+}, { ...nightSeed, nlog: { [MORN]: { w: [{ t: at(MORN, 3, 10), why: "dream", i: 3 }], d: { v: 4, nm: true } } } }, { clock: new Date(2026, 9, 27, 21, 0) });
+
+await test("Dreams: vividness 1–5, Disturbing and Nightmare; None remembered clears them; notes save as you type; Recap and export count them", async page => {
+  await page.click('.box.night [data-dv="4"]');
+  eq((await page.state()).nlog[MORN].d.v, 4, "vividness");
+  await page.click('.box.night [data-dv="4"]');
+  eq((await page.state()).nlog[MORN], undefined, "tapping it again clears it");
+  await page.click('.box.night [data-dv="5"]'); await page.check('[data-dflag="nm"]');
+  await page.check('[data-dflag="none"]');
+  eq((await page.state()).nlog[MORN].d, { none: true }, "None remembered clears vividness and flags");
+  await page.click('.box.night [data-dv="4"]');
+  eq((await page.state()).nlog[MORN].d, { v: 4 }, "a vividness takes None remembered off");
+  await page.check('[data-dflag="dis"]');
+  eq(await page.textContent(".box.night.l-dream .lid .st"), "4/5 · disturbing", "box status");
+  await page.fill("textarea[data-dreamc]", "falling");
+  await page.waitForTimeout(600);
+  eq((await page.saved()).nlog[MORN].d, { v: 4, dis: true, c: "falling" }, "notes saved");
+  await page.click('[data-tab="sum"][role="tab"]');
+  const box = await page.locator("#sumBody .box", { hasText: "Overnight & dreams" }).textContent();
+  assert(/Vivid dreams \(4–5\)1 night/.test(box) && /Disturbing dreams1 night/.test(box) && /Nightmares0 nights/.test(box), "Recap: " + box);
+  const col = csvCols(await page.evaluate(k => buildCSV(k, k), EVE));
+  eq([col("night_after_dream_vividness (1 faint to 5 very vivid)"), col("night_after_disturbing_dream (1 = yes)"), col("night_after_nightmare (1 = yes)"), col("night_after_dream_note")], ["4", "1", "", "falling"], "export");
+}, nightSeed, { clock: new Date(2026, 9, 27, 8, 0) });
+
+await test("Recap counts wake-ups per night, the usual time, what woke you and how you felt", async page => {
+  await page.click('[data-tab="sum"][role="tab"]');
+  const box = await page.locator("#sumBody .box", { hasText: "Overnight & dreams" }).textContent();
+  assert(/3 nights/.test(box), "nights since the first one logged: " + box);
+  assert(/2nights with a wake-up/.test(box), "nights with a wake-up");
+  assert(/Wake-ups3 · 1 a night/.test(box), "total and per night");
+  assert(/Most oftenaround 3 AM · 2 times/.test(box), "usual time");
+  assert(/Woken by a dream2 times/.test(box) && /Woken by a symptom1 time/.test(box), "what woke you");
+  assert(/Teary2 times/.test(box), "feelings");
+}, { ...nightSeed, nlog: {
+  "2026-10-25": { w: [{ t: at("2026-10-25", 3, 5), why: "dream", feel: ["teary"] }] },
+  [MORN]: { w: [{ t: at(MORN, 3, 40), why: "dream", feel: ["teary"] }, { t: at(MORN, 5, 10), why: "sym", body: ["gut"] }] } } },
+  { clock: new Date(2026, 9, 27, 9, 0) });
+
+await test("overnight data from a backup keeps only known keys and sensible values", async page => {
+  eq((await page.state()).nlog, { [MORN]: { w: [{ t: at(MORN, 3), body: ["shake"] }] } }, "cleaned");
+}, { ...base, nlog: { bad: {}, [MORN]: { w: [{ t: "x" }, { t: at(MORN, 3), why: "zzz", body: ["shake", "nope", "shake"], i: 9 }], d: { v: 7, nm: "yes", c: "  " } } } });
+
+/* ---------- Medication changes ---------- */
+const chgSeed = { ...base, log: { "2026-10-01": { "m1|morning": at("2026-10-01", 8) } },
+  slog: { "2026-10-08": { s1: [{ t: at("2026-10-08", 9) }] }, "2026-10-12": { s1: [{ t: at("2026-10-12", 9) }] }, "2026-10-16": { s2: [{ t: at("2026-10-16", 9) }] },
+    "2026-10-22": { s1: [{ t: at("2026-10-22", 9) }] } },
+  trig: { "2026-10-16": { syms: true } } };
+await test("Medication changes: add in Settings; shown on its day and the Recap calendar; Recap compares before and after; exported; deleted", async page => {
+  await page.click('[data-tab="set"][role="tab"]');
+  await page.click("#addChange");
+  await page.fill("#chdate", "2026-10-20");
+  await page.click('#chform button[type="submit"]');
+  eq(await page.textContent("#chErr"), 'Say what changed, like "Started montelukast 10 mg".', "needs what changed");
+  await page.fill("#chtxt", "Started montelukast 10 mg");
+  await page.click('#chform button[type="submit"]');
+  let s = await page.state();
+  eq(s.changes.map(c => [c.d, c.txt]), [["2026-10-20", "Started montelukast 10 mg"]], "saved");
+  assert((await page.textContent("#changeList")).includes("Oct 20, 2026"), "listed with its date");
+  await page.evaluate(() => { viewDate = "2026-10-20"; render(); selectTab("today"); });
+  eq(await page.textContent(".chgb"), "Medication changeStarted montelukast 10 mg", "shown above the doses that day");
+  await page.click(".chgb");
+  await page.fill("#chtxt", "Started montelukast 10 mg at dinner"); await page.click('#chform button[type="submit"]');
+  eq((await page.state()).changes[0].txt, "Started montelukast 10 mg at dinner", "edited from Today");
+  await page.evaluate(() => { viewDate = todayKey(); render(); });
+  eq(await page.locator(".chgb").count(), 0, "not on other days");
+  await page.click('[data-tab="sum"][role="tab"]');
+  assert(await page.locator('.cal button[data-goto="2026-10-20"].chg').count() === 1, "marked on the calendar");
+  const box = await page.locator("#sumBody .box").filter({ has: page.locator(".lid", { hasText: /^Medication changes$/ }) }).textContent();
+  assert(/Before14 days/.test(box) && /After8 days/.test(box), "window lengths: " + box);
+  assert(/Days with symptoms21%13%/.test(box), "3 of 14 days before, 1 of 8 after");
+  assert(/Flare-ups10/.test(box), "flare-ups");
+  assert(/Wake-ups a night––/.test(box), "no night tracking yet");
+  const col = csvCols(await page.evaluate(k => buildCSV(k, k), "2026-10-20"));
+  eq(col("medication_changes (changes the user marked on this day)"), "Started montelukast 10 mg at dinner", "export");
+  await page.click('[data-tab="set"][role="tab"]');
+  await page.click('#changeList [data-edit-change]'); await page.click("#chdel");
+  assert((await askText(page)).includes('Delete "Started montelukast 10 mg at dinner"?'), "asks first");
+  await page.click("#askYes");
+  eq((await page.state()).changes, [], "deleted");
+}, chgSeed, { clock: new Date(2026, 9, 27, 9, 0) });
 
 /* ---------- Existing features still work ---------- */
 await test("checking off a med and adding a food still work", async page => {
