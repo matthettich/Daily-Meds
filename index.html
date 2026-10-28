@@ -548,23 +548,9 @@ body{display:flex;flex-direction:column}
     </section>
 
     <!-- Settings: one long page, a band per section in that section's color -->
-    <!-- Today page: which sections show, and in what order -->
-    <section class="view pg-white sset lk-inv" data-tab="set" style="display:none">
-      <div class="sect first" role="heading" aria-level="2">Today page</div>
-      <div class="box l-list">
-        <div class="lid"><h2>Sections</h2></div>
-        <p class="hint">Choose which sections show on Today and put them in the order you like. On Today, tap a section's heading to fold it away.</p>
-        <div id="layoutList"></div>
-        <div class="backup-btns"><button class="ghost" id="layoutReset">Reset order</button></div>
-      </div>
-      <div class="box l-list">
-        <label class="toggle"><input type="checkbox" id="trackTrig"><span>Suspected triggers</span></label>
-        <p class="hint">On Today, tap a box's name (Breakfast, Morning, Symptoms, Smells…) and tick <b>Suspected trigger</b> when you think it set off your symptoms. It's marked on the box and listed in the spreadsheet export.</p>
-      </div>
-    </section>
-
-    <section class="view pg-white pg-meds sset lk-reg" data-tab="set" style="display:none">
-      <div class="sect" role="heading" aria-level="2">Medications and Supplements</div>
+    <!-- Medications first: setting up your meds is the first thing to do -->
+    <section class="view pg-white pg-meds sset lk-inv" data-tab="set" style="display:none">
+      <div class="sect first" role="heading" aria-level="2">Medications and Supplements</div>
       <div class="box l-list">
         <div class="lid"><h2>Medications</h2><button class="act add" id="addMed">Add</button></div>
         <div id="medList"></div>
@@ -586,6 +572,21 @@ body{display:flex;flex-direction:column}
       <div class="box l-list">
         <div class="lid"><h2>Supplements</h2><button class="act add" id="addSupp">Add</button></div>
         <div id="suppList"></div>
+      </div>
+    </section>
+
+    <!-- Today page: which sections show, and in what order -->
+    <section class="view pg-white sset lk-reg" data-tab="set" style="display:none">
+      <div class="sect" role="heading" aria-level="2">Today page</div>
+      <div class="box l-list">
+        <div class="lid"><h2>Sections</h2></div>
+        <p class="hint">Choose which sections show on Today and put them in the order you like. On Today, tap a section's heading to fold it away.</p>
+        <div id="layoutList"></div>
+        <div class="backup-btns"><button class="ghost" id="layoutReset">Reset order</button></div>
+      </div>
+      <div class="box l-list">
+        <label class="toggle"><input type="checkbox" id="trackTrig"><span>Suspected triggers</span></label>
+        <p class="hint">On Today, tap a box's name (Breakfast, Morning, Symptoms, Smells…) and tick <b>Suspected trigger</b> when you think it set off your symptoms. It's marked on the box and listed in the spreadsheet export.</p>
       </div>
     </section>
 
