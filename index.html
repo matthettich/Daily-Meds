@@ -88,7 +88,9 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
 .tabs button+button{border-left:1px solid var(--rule)}
 .tabs button[aria-selected="true"]{background:var(--ink);color:var(--white)}
 
-.wrap{max-width:1100px;margin:0 auto;padding:16px 12px 24px}
+/* Clipped sideways so a day's slide-in (swipe to change day) never makes the page wider than the screen:
+   on a phone that widened the page mid-swipe, leaving the colors stale and taps landing off target */
+.wrap{max-width:1100px;margin:0 auto;padding:16px 12px 24px;overflow-x:clip}
 .cols{display:grid;gap:12px 24px;align-items:start}
 .col{display:flex;flex-direction:column;gap:12px;min-width:0}
 @media (min-width:720px){

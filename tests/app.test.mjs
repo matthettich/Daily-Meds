@@ -151,6 +151,18 @@ await test("swiping right goes back a day, left goes forward, never past today",
   eq(await page.evaluate(() => viewDate), shift(today, -1), "no day change from other pages");
 }, base);
 
+await test("swiping forward to today keeps the page screen-width, today's color and tappable box names", async page => {
+  await swipe(page, 150); eq(await page.evaluate(() => viewDate), shift(today, -1), "back a day");
+  // Mid-slide (the column starts 36px to the right) the page must not get wider than the screen
+  const w = await page.evaluate(() => { goDay(1); return [document.documentElement.scrollWidth, innerWidth]; });
+  eq(w, [412, 412], "page width while today slides in");
+  eq(await page.evaluate(() => document.body.dataset.day), String(new Date().getDay()), "today's color");
+  await page.waitForTimeout(300);
+  await page.locator('[data-evbox="supp"] .cpn').tap();
+  assert(await page.evaluate(() => cmenu.open), "Supplements name opens the copy menu");
+  assert((await page.textContent("#cmText")).startsWith("Copy Yesterday's"), "copies from yesterday");
+}, base);
+
 /* ---------- 3. Symptoms: repeats and intensity ---------- */
 await test("same symptom logs twice with two timestamps and shows ×2", async page => {
   await page.selectOption('select[data-pick="sym"]', "s1");
