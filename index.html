@@ -166,6 +166,41 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
 .updb{position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top,0px));z-index:50;
   font:inherit;font-size:15px;font-weight:500;white-space:nowrap;padding:12px 18px;cursor:pointer;
   background:hsl(var(--h) var(--s) 84%);color:var(--tx);border:3px solid var(--rule)}
+/* Doctor summary: only #printDoc prints; on screen it's hidden */
+#printDoc{display:none}
+@media print{
+  @page{margin:14mm}
+  body>*:not(#printDoc){display:none!important}
+  body{padding:0!important;background:#fff!important}
+  #printDoc{display:block;color:#111;font-size:11pt;line-height:1.35}
+  #printDoc header{border-bottom:2px solid #111;padding-bottom:6px;margin-bottom:10px}
+  #printDoc h1{font-size:18pt;font-weight:500;margin:0}
+  #printDoc header p{margin:2px 0 0}
+  #printDoc .sm{font-size:9pt;color:#555}
+  #printDoc section{margin:12px 0 0;break-inside:avoid-page}
+  #printDoc h2{font-size:12pt;font-weight:500;margin:0 0 4px}
+  #printDoc table{width:100%;border-collapse:collapse}
+  #printDoc th,#printDoc td{border:1px solid #999;padding:3px 6px;text-align:left;vertical-align:top}
+  #printDoc th{background:#eee;font-weight:500}
+  #printDoc tr{break-inside:avoid}
+  #printDoc .none{color:#555;margin:0}
+}
+/* Settings: a row of links at the top that jump to each section */
+.jump{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 14px}
+.jump button{border:1px solid var(--rule);background:var(--white);color:var(--ink);font:inherit;font-size:13px;padding:5px 10px;min-height:34px}
+.jump button:active{background:var(--ink);color:var(--white)}
+.sset .sect{scroll-margin-top:72px}
+/* Undo: a bar above the tabs for a few seconds after something is removed */
+.undo{position:fixed;left:12px;right:12px;bottom:16px;z-index:20;display:flex;align-items:center;gap:10px;max-width:480px;margin:0 auto;
+  padding:0 0 0 14px;border:3px solid var(--rule);background:var(--white);color:var(--ink);font-size:15px;box-shadow:0 5px 0 hsl(var(--h) var(--s) 78%)}
+.undo[hidden]{display:none}
+.undo span{flex:1;min-width:0;padding:10px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.undo button{flex:none;min-height:46px;padding:0 18px;border:0;border-left:3px solid var(--rule);background:var(--ink);color:var(--white);font:inherit;font-weight:500}
+@media (max-width:719px){.undo{bottom:calc(84px + env(safe-area-inset-bottom,0px))}}
+/* An empty notes box: one tappable line, with the box's prompt after it */
+.noteadd{display:flex;align-items:baseline;gap:10px;width:100%;min-height:46px;padding:10px;border:0;background:transparent;text-align:left;font:inherit;font-size:15px;font-weight:500;color:var(--ink);cursor:pointer}
+.noteadd span{font-size:13px;font-weight:400;color:rgba(17,17,17,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.noteadd:focus-visible{outline:2px solid var(--ink);outline-offset:-4px}
 /* Notes: ruled lines */
 .box.l-notes textarea{line-height:26px;padding:6px 10px 0;min-height:110px;
   background-image:linear-gradient(to bottom,transparent 25px,rgba(17,17,17,.22) 25px,rgba(17,17,17,.22) 26px,transparent 26px);
@@ -523,6 +558,8 @@ body{display:flex;flex-direction:column}
 </style>
 </head>
 <body class="l-page" data-page="today">
+<div id="printDoc" aria-hidden="true"></div>
+<div class="undo" id="undoBar" role="status" aria-live="polite" hidden><span id="undoMsg"></span><button type="button" id="undoBtn">Undo</button></div>
 <header class="top">
   <span class="brand">Daily meds</span>
   <div class="tabs" role="tablist">
@@ -568,6 +605,7 @@ body{display:flex;flex-direction:column}
     <!-- Settings: one long page, a band per section in that section's color -->
     <!-- Medications first: setting up your meds is the first thing to do -->
     <section class="view pg-white pg-meds sset lk-inv" data-tab="set" style="display:none">
+      <nav class="jump" id="setJump" aria-label="Settings sections"></nav>
       <div class="sect first" role="heading" aria-level="2">Medications and Supplements</div>
       <div class="box l-list">
         <div class="lid"><h2>Medications</h2><button class="act add" id="addMed">Add</button></div>
@@ -685,6 +723,7 @@ body{display:flex;flex-direction:column}
       <div class="box l-list">
         <div class="lid"><h2>Backup</h2></div>
         <p class="hint">Stored on this device only. Save a backup before switching phones or clearing browser data.</p>
+        <p class="hint bwhen" id="backupWhen"></p>
         <div class="backup-btns">
           <button class="ghost" id="exportBtn">Save backup</button>
           <button class="ghost" id="importBtn">Restore from backup</button>
@@ -989,6 +1028,9 @@ const SUPP_TIMES = [
   {id:"once",label:"Once a day"},{id:"waking",label:"Waking"},{id:"morning",label:"Morning"},{id:"lunch",label:"Lunch"},
   {id:"afternoon",label:"Afternoon"},{id:"evening",label:"Evening"},{id:"bedtime",label:"Bedtime"}
 ];
+/* "550mg" → "550 mg": a space between a number and its unit, as doses are usually written */
+function tidyDose(d){ return typeof d==="string"?d.replace(/(\d)\s*(mg|mcg|µg|g|kg|iu|IU|ml|mL|units?|tabs?|caps?)\b/g,"$1 $2").trim():d; }
+function tidyDoses(list){ for(const m of list||[]){ if(!m||typeof m!=="object") continue; if(m.dose) m.dose=tidyDose(m.dose); for(const o of m.opts||[]) if(o&&o.dose) o.dose=tidyDose(o.dose); } }
 function normSuppTimes(v){const L=Array.isArray(v)?SUPP_TIMES.map(s=>s.id).filter(id=>v.includes(id)):[];return L.length?L:["once"]}
 const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
@@ -1032,6 +1074,7 @@ const LATE_CUTOFF = 3;       // 3 AM: the latest a day can run past midnight whi
    the morning it leads into (see "Overnight & dreams")
    changes: [{id,d,txt}] — medication changes the user marked: the day (YYYY-MM-DD) and what changed
    medsOffSince: the day the medication checklist was turned off (Settings → Medications → On Today), unset while it's on.
+   lastBackup: when Save backup last saved a file (ms). backupSnooze: the day the backup reminder was put off until
    medsOffSpells: finished off spells [[from,to)], kept so those days aren't counted as missed doses (see dueOn) */
 /* ---------- Today page sections ----------
    Default order tells the day's story: what you took, ate and were around, then how you felt. */
@@ -1059,7 +1102,7 @@ function secShown(id){ const e=state.layout.find(x=>x.id===id); return !e||e.sho
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{}, suppMode:"list", suppTimes:["once"],
   moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:defaultOthers(), olog:{}, trackOther:true, hotAdded:true, acts:[], aclog:{}, showSnacks:true, showAfter:true, trig:{}, trackTrig:true, altLook:true,
   appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, trackLoc:false, geo:{}, pollenKey:"", name:"", updated:0,
-  ldet:{}, flare:{}, nlog:{}, changes:[], medsOffSpells:[]};
+  ldet:{}, flare:{}, nlog:{}, changes:[], medsOffSpells:[], lastBackup:0, backupSnooze:""};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
 
@@ -1181,11 +1224,12 @@ function normalize(s){
           name:typeof s.name==="string"?s.name.trim().slice(0,60):"",
           dayEnd:typeof s.dayEnd==="string"?s.dayEnd:undefined,
           ldet:obj(s.ldet), flare:obj(s.flare),
+          lastBackup:Number(s.lastBackup)||0, backupSnooze:typeof s.backupSnooze==="string"?s.backupSnooze:"",
           medsOffSince:/^\d{4}-\d\d-\d\d$/.test(s.medsOffSince||"")?s.medsOffSince:undefined,
           medsOffSpells:(Array.isArray(s.medsOffSpells)?s.medsOffSpells:[]).filter(x=>Array.isArray(x)&&x.length===2&&x.every(d=>/^\d{4}-\d\d-\d\d$/.test(d))),
           nlog:normNlog(obj(s.nlog)), changes:normChanges(s.changes),
           updated:Number(s.updated)||0};
-  normAppts(n); return n;
+  normAppts(n); tidyDoses(n.meds); tidyDoses(n.extras); tidyDoses(n.supps); return n;
 }
 /* Appointments used to hold one Who or where (appt.dose), shared by every visit, so two therapists under one Therapy
    overwrote each other. Now each appointment lists its people or places (appt.who) and each visit keeps its own (e.w).
@@ -1266,12 +1310,37 @@ function persist(){
 let saveWarned=false;
 function commit(){ persist(); render(); }
 
+/* ---------- undo ----------
+   Removing something on Today (a × on a chip, or Remove in the time pop-up) shows "Removed Oatmeal · Undo" for a few
+   seconds. Undo puts the whole saved state back as it was just before. */
+let undoSnap=null, undoTimer=null;
+function offerUndo(msg,snap){
+  undoSnap=snap; clearTimeout(undoTimer);
+  document.getElementById("undoMsg").textContent=msg;
+  document.getElementById("undoBar").hidden=false;
+  undoTimer=setTimeout(hideUndo,6000);
+}
+function hideUndo(){ clearTimeout(undoTimer); undoSnap=null; document.getElementById("undoBar").hidden=true; }
+document.getElementById("undoBtn").onclick=()=>{ if(!undoSnap) return; state=normalize(JSON.parse(undoSnap)); hideUndo(); commit(); };
+/* Watches a removal: the state before it, and a message if anything actually changed */
+function watchRemoval(msg){
+  const snap=JSON.stringify(state);
+  setTimeout(()=>{ if(JSON.stringify(state)!==snap) offerUndo(msg,snap); },0);
+}
+const RM_SEL="[data-rm],[data-rmsym],[data-rmx],[data-evrm],[data-rmmood],[data-rmwake]";
+
 /* Text boxes save as you type, without redrawing the page */
 let textTimer=null;
 function autosize(ta){ta.style.height="auto";ta.style.height=ta.scrollHeight+"px"}
 function flashSaved(key){
   const el=document.querySelector(`[data-saved="${key}"]`); if(!el) return;
   el.classList.add("on"); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("on"),1200);
+}
+/* Notes boxes opened with + Add note this session ("key|date"); one left empty closes again when you leave it */
+const noteOpen=new Set();
+function openNote(key){
+  noteOpen.add(key+"|"+viewDate); render();
+  const ta=document.getElementById("n-"+key); if(ta) ta.focus();
 }
 function noteStore(key){ return key==="today" ? state.notes : (state.pnotes[key]||(state.pnotes[key]={})) }
 function onTextInput(ta){
@@ -1311,6 +1380,9 @@ function fillTexts(){
    Its name is the Copy Yesterday's Notes button, like the other boxes, except Medication notes */
 function noteBox(key,cls,label,ph){
   const name=COPY.note.keys.includes(key)?copyName("note",key,label):`<label for="n-${key}">${esc(label)}</label>`;
+  /* An empty notes box is one line until it's tapped, so Today stays short */
+  if(!noteStore(key)[viewDate]&&!noteOpen.has(key+"|"+viewDate))
+    return `<div class="box ${cls} l-notes"><div class="lid">${name}</div><button type="button" class="noteadd" data-noteopen="${key}" aria-label="Add ${esc(label.toLowerCase())}">+ Add note<span>${esc(ph)}</span></button></div>`;
   return `<div class="box ${cls} l-notes"><div class="lid">${name}<span class="saved" data-saved="note-${key}">Saved</span></div><textarea id="n-${key}" data-note="${key}" rows="2" placeholder="${ph}" aria-label="${esc(label)}"></textarea></div>`;
 }
 /* A Today section: its heading folds it away (remembered); folded, the heading shows a quick count */
@@ -1859,6 +1931,7 @@ function render(){
   html="";
   let nth=0;   // sections alternate inverted / regular down the page, starting inverted
   for(const e of state.layout) if(e.show&&S[e.id]) html+=todaySect(e.id,S[e.id],SUM[e.id],nth++%2?"reg":"inv");
+  html=backupNudge()+html;
   if(!html) html=`<div class="box l-list"><p class="hint">Every section is hidden. Turn some back on in Settings, under Today page.</p></div>`;
 
   const slotsEl=document.getElementById("slots");
@@ -1905,6 +1978,7 @@ function render(){
     const sel=document.getElementById("dayEnd");
     sel.innerHTML=`<option value="">At midnight</option>`+bed.map(m=>`<option value="${esc(m.id)}">When I check ${esc(m.name)}</option>`).join("");
     sel.value=en?en.id:""; }
+  document.getElementById("backupWhen").textContent="Last backup: "+backupAgo()+".";
   document.getElementById("medMode").value=medsOn()?"on":"off";
   document.getElementById("dayEndBox").hidden=!medsOn();
   document.getElementById("suppMode").value=suppList()?"list":"log";
@@ -2018,6 +2092,7 @@ function renderSummary(){
   const prevEndK = shiftKey(prev.start,span-1), prevEnd = prevEndK<prev.end ? prevEndK : prev.end;
   const now=symCounts(from,upto), before=symCounts(prev.start,prevEnd);
   let html="";
+  const empties=[];   // boxes with nothing this period: listed together in one line near the end
 
   /* Most prevalent symptoms */
   if(!state.symptoms.length){
@@ -2100,7 +2175,8 @@ function renderSummary(){
       for(const e of v){ const m=anyMed(e.id); if(!m) continue; const key=e.id+"|"+(e.o||"");   // each type of a med on its own row
         const t=tally[key]||(tally[key]={doses:0,days:0,name:m.name+(optOf(m,e.o)?" · "+optOf(m,e.o).name:"")}); t.doses++; if(!seen.has(key)){seen.add(key);t.days++} } }
     const rows=Object.values(tally).map(t=>({m:{name:t.name},...t})).sort((a,b)=>b.doses-a.doses||a.m.name.localeCompare(b.m.name));
-    if(rows.length||state.extras.length){
+    if(!rows.length&&state.extras.length) empties.push("Additional medication");
+    else if(rows.length){
       const maxD=Math.max(1,...rows.map(r=>r.doses));
       html+=`<div class="box l-list"><div class="lid">Additional medication</div>
         ${rows.length?rows.map(r=>`<div class="stat"><span class="nm">${esc(r.m.name)}</span><span class="num">${r.doses} ${r.doses===1?"dose":"doses"} · ${r.days} ${r.days===1?"day":"days"}</span><div class="track"><i style="width:${Math.round(r.doses/maxD*100)}%"></i></div></div>`).join("")
@@ -2115,7 +2191,8 @@ function renderSummary(){
       for(const e of v){ const m=suppOf(e.id); if(!m) continue; const key=e.id+"|"+(e.o||"");
         const t=tally[key]||(tally[key]={doses:0,days:0,name:m.name+(optOf(m,e.o)?" · "+optOf(m,e.o).name:"")}); t.doses++; if(!seen.has(key)){seen.add(key);t.days++} } }
     const rows=Object.values(tally).map(t=>({m:{name:t.name},...t})).sort((a,b)=>b.days-a.days||b.doses-a.doses||a.m.name.localeCompare(b.m.name));
-    if(rows.length||state.supps.length){
+    if(!rows.length&&state.supps.length) empties.push("Supplements");
+    else if(rows.length){
       const maxD=Math.max(1,...rows.map(r=>r.days));
       html+=`<div class="box l-list"><div class="lid">Supplements</div>
         ${rows.length?rows.map(r=>`<div class="stat"><span class="nm">${esc(r.m.name)}</span><span class="num">${r.days} ${r.days===1?"day":"days"}${r.doses>r.days?" · "+r.doses+" times":""}</span><div class="track"><i style="width:${Math.round(r.days/maxD*100)}%"></i></div></div>`).join("")
@@ -2132,6 +2209,7 @@ function renderSummary(){
         const t=tally[id]||(tally[id]={times:0,days:0}); t.times++; if(!seen.has(id)){seen.add(id);t.days++} } }
     const rows=Object.entries(tally).map(([id,t])=>({x:state.moods.find(m=>m.id===id),...t})).sort((a,b)=>b.days-a.days||b.times-a.times||a.x.name.localeCompare(b.x.name));
     const maxD=Math.max(1,...rows.map(r=>r.days));
+    if(!rows.length) empties.push("Mood & emotions"); else
     html+=`<div class="box l-list"><div class="lid">Mood &amp; emotions</div>
       ${rows.length?rows.map(r=>`<div class="stat"><span class="nm">${esc(r.x.name)}</span><span class="num">${r.days} ${r.days===1?"day":"days"}${r.times>r.days?" · "+r.times+" times":""}</span><div class="track"><i style="width:${Math.round(r.days/maxD*100)}%"></i></div></div>`).join("")
         :`<div class="empty-row">No moods logged this ${unit}.</div>`}</div>`;
@@ -2175,17 +2253,24 @@ function renderSummary(){
       for(const e of v){ if(!evOf(kind,e.id)) continue; const key=e.id+"|"+(kind==="appt"?e.w||"":e.o||"");   // appointments: per practitioner; others per type
         const t=tally[key]||(tally[key]={times:0,days:0,name:evName(kind,e)}); t.times++; if(!seen.has(key)){seen.add(key);t.days++} } }
     const rows=Object.values(tally).sort((a,b)=>b.days-a.days||b.times-a.times||a.name.localeCompare(b.name));
-    if(!rows.length&&!on) continue;
+    if(!rows.length){ if(on) empties.push(title); continue; }
     const maxD=Math.max(1,...rows.map(r=>r.days));
     html+=`<div class="box l-list"><div class="lid">${title}</div>
       ${rows.length?rows.map(r=>`<div class="stat"><span class="nm">${esc(r.name)}</span><span class="num">${r.days} ${r.days===1?"day":"days"}${r.times>r.days?" · "+r.times+" times":""}</span><div class="track"><i style="width:${Math.round(r.days/maxD*100)}%"></i></div></div>`).join("")
         :`<div class="empty-row">${empty} this ${unit}.</div>`}</div>`;
   }
 
+  if(empties.length) html+=`<div class="box l-list"><div class="lid">Nothing logged this ${unit}</div><p class="hint empties">${esc(empties.join(" · "))}</p></div>`;
+
   /* Weather vs symptoms */
   html+=wxSummary(from,upto);
   html+=travelSummary(from,upto);
   html+=exertionSummary(from,upto);
+
+  /* Doctor summary: a printable page (or PDF) to bring to an appointment */
+  html+=`<div class="box l-list"><div class="lid">Doctor summary</div>
+    <p class="hint">One page for your appointment: your medications and how many doses you took, medication changes, as-needed medication, supplements, symptoms, appointments and your notes for ${sumMode==="month"?"this month":"this year"}. Print it, or choose Save as PDF.</p>
+    <div class="backup-btns"><button class="ghost" data-docsum>Print or save as PDF</button></div></div>`;
 
   /* Export for AI */
   const yr=P.start.slice(0,4);
@@ -3044,6 +3129,9 @@ document.getElementById("xform").addEventListener("submit",ev=>{
   xdlg.close(); commit();
 });
 document.getElementById("xcancel").onclick=()=>xdlg.close();
+document.getElementById("xremove").addEventListener("click",()=>{
+  const b=document.getElementById("xremove"); if(/undo/i.test(b.textContent)) return;   // Undo copy undoes itself
+  watchRemoval("Removed "+document.getElementById("xdlgTitle").textContent); },true);
 document.getElementById("xremove").onclick=()=>{
   if(xedit.kind==="copy") copyRestore(xedit);
   else if(xedit.kind==="sym"){ symList(xedit.date,xedit.id).splice(xedit.si,1); tidySyms(xedit.date); }
@@ -3479,6 +3567,11 @@ function goDay(n){
   },{passive:true});
   document.addEventListener("touchcancel",()=>{on=false},{passive:true});
 }
+todayCol.addEventListener("click",e=>{ const b=e.target.closest(RM_SEL); if(!b) return;
+  const what=(b.getAttribute("aria-label")||"").replace(/^Remove (one |the )?/,"").replace(/ at \d.*$/,"");
+  watchRemoval(what?"Removed "+what:"Removed"); },true);
+todayCol.addEventListener("click",e=>{ const b=e.target.closest("[data-noteopen]"); if(b) openNote(b.dataset.noteopen); });
+todayCol.addEventListener("focusout",e=>{ const ta=e.target; if(ta.matches&&ta.matches("textarea[data-note]")&&!ta.value.trim()) noteOpen.delete(ta.dataset.note+"|"+viewDate); });
 todayCol.addEventListener("input",e=>{ if(e.target.matches("textarea[data-note]")) onTextInput(e.target); else if(e.target.matches("textarea[data-dreamc]")) onDreamInput(e.target); });
 /* Dream notes save as you type, like the notes boxes */
 function onDreamInput(ta){
@@ -3739,7 +3832,7 @@ function saveOpts(kind,item){
   for(const r of rows){
     let o=(r.id&&old.find(x=>x.id===r.id))||old.find(x=>!keep.includes(x)&&x.name.toLowerCase()===r.name.toLowerCase());
     if(o){ o.name=r.name; delete o.gone; } else old.push(o={id:uid(),name:r.name});
-    if(food) o.ings=splitIngs(r.det); else if(r.det) o.dose=r.det.slice(0,80); else delete o.dose;
+    if(food) o.ings=splitIngs(r.det); else if(r.det) o.dose=tidyDose(r.det.slice(0,80)); else delete o.dose;
     if(!r.id&&!fresh) fresh=o;
     if(!keep.includes(o)) keep.push(o);
   }
@@ -3769,7 +3862,7 @@ form.addEventListener("submit",e=>{
   if(kind==="med"){
     const slots=[...form.querySelectorAll('[name="slot"]:checked')].map(c=>c.value);
     if(!slots.length){err.textContent="Pick at least one time.";return}
-    const data={name,dose:F("dose").value.trim(),notes:F("notes").value.trim(),slots};
+    const data={name,dose:tidyDose(F("dose").value.trim()),notes:F("notes").value.trim(),slots};
     /* Adding a med with the name of an archived one restarts that med, so its history stays together */
     const back=!editing.id&&state.meds.find(x=>x.archived&&x.name.toLowerCase()===name.toLowerCase());
     if(editing.id) item=Object.assign(state.meds.find(x=>x.id===editing.id),data);
@@ -3778,7 +3871,7 @@ form.addEventListener("submit",e=>{
   } else if(kind==="extra"||kind==="supp"){
     const pickT=kind==="supp"&&form.classList.contains("is-supp"), picked=[...form.querySelectorAll('[name="sslot"]:checked')].map(c=>c.value);
     if(pickT&&!picked.length){err.textContent="Pick at least one time.";return}
-    const dose=F("dose").value.trim(), list=K.list();
+    const dose=tidyDose(F("dose").value.trim()), list=K.list();
     item=editing.id ? list.find(x=>x.id===editing.id) : list.find(x=>x.name.toLowerCase()===name.toLowerCase());
     if(item){ Object.assign(item,{name,dose}); if(!editing.id&&item.archived) setArchived(item,false); } else list.push(item={id:uid(),name,dose});
     /* Times that are hidden right now are kept, so turning them back on brings them back */
@@ -4028,14 +4121,91 @@ document.getElementById("sumBody").addEventListener("click",async e=>{
   catch(err){ msg.textContent="Couldn't save the file."; }
 });
 
+/* ---------- Settings jump links ---------- */
+{ const SHORT={"Medications and Supplements":"Meds & supplements","Mood & emotions":"Mood","Smells & Other":"Smells & other","Your data":"Backup"};
+  const nav=document.getElementById("setJump"), heads=[...document.querySelectorAll(".sset .sect")];
+  heads.forEach((h,i)=>{ h.id="set-"+i; });
+  nav.innerHTML=heads.map((h,i)=>`<button type="button" data-jump="set-${i}">${esc(SHORT[h.textContent.trim()]||h.textContent.trim())}</button>`).join("");
+  nav.addEventListener("click",e=>{ const b=e.target.closest("[data-jump]"); if(b) document.getElementById(b.dataset.jump).scrollIntoView({behavior:"smooth",block:"start"}); });
+}
+/* ---------- doctor summary ----------
+   Built from the period shown on Recap into #printDoc, which is the only thing printed (see @media print). */
+function doctorSummary(){
+  const tk=todayKey(), P=periodOf(sumMode,sumAnchor), fu=firstUse(), upto=P.end<tk?P.end:tk, from=P.start<fu?fu:P.start;
+  const fmt=k=>parseKey(k).toLocaleDateString([], {month:"short",day:"numeric",year:"numeric"}), inP=k=>k>=from&&k<=upto;
+  const period=sumMode==="month"?parseKey(P.start).toLocaleDateString([], {month:"long",year:"numeric"}):P.start.slice(0,4);
+  const tbl=(head,rows)=>rows.length?`<table><thead><tr>${head.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>`:`<p class="none">None.</p>`;
+  const sec=(t,b)=>`<section><h2>${esc(t)}</h2>${b}</section>`;
+  let out=`<header><h1>Daily meds summary</h1><p>${state.name?esc(state.name)+" · ":""}${esc(period)}${from<=upto?" · "+esc(fmt(from))+" to "+esc(fmt(upto)):""}</p><p class="sm">Printed ${esc(fmt(tk))}. Recorded by the patient in the Daily meds app.</p></header>`;
+  if(from>upto) return out+`<p class="none">Nothing recorded in this period.</p>`;
+  /* Medications: each scheduled med with its doses taken out of those due */
+  { let E=0,T=0; const rows=[];
+    for(const m of state.meds){ let e=0,t=0,sk=0;
+      for(let k=from;k<=upto;k=shiftKey(k,1)){ const v=state.log[k]||{}, det=state.ldet[k]||{};
+        for(const sl of m.slots||[]) if(dueOn(m,sl,k)){ e++; if(v[m.id+"|"+sl]){ t++; if((det[m.id+"|"+sl]||{}).skip) sk++; } } }
+      if(!e&&m.archived) continue; E+=e; T+=t;
+      rows.push([m.name+(m.archived?" (stopped)":""),m.dose||"",SLOTS.filter(s=>(m.slots||[]).includes(s.id)).map(s=>s.label).join(", "),e?`${t-sk} of ${e} (${Math.round((t-sk)/e*100)}%)${sk?", "+sk+" skipped":""}`:"–"]); }
+    if(rows.length) out+=sec("Medications"+(E?` · ${Math.round(T/E*100)}% of doses checked off`:""),tbl(["Medication","Dose","When","Taken"],rows)); }
+  { const L=state.changes.filter(c=>inP(c.d)).sort((a,b)=>a.d.localeCompare(b.d));
+    if(L.length) out+=sec("Medication changes",tbl(["Date","Change"],L.map(c=>[fmt(c.d),c.txt]))); }
+  /* As-needed medication and supplements: doses and days */
+  const tallyLog=(log,of)=>{ const t={};
+    for(const [k,v] of Object.entries(log)){ if(!inP(k)) continue; const seen=new Set();
+      for(const e of v){ const m=of(e.id); if(!m) continue; const o=optOf(m,e.o), key=e.id+"|"+(e.o||"");
+        const r=t[key]||(t[key]={name:m.name+(o?" · "+o.name:""),dose:(o&&o.dose)||m.dose||"",n:0,d:0}); r.n++; if(!seen.has(key)){seen.add(key);r.d++} } }
+    return Object.values(t).sort((a,b)=>b.d-a.d||a.name.localeCompare(b.name)).map(r=>[r.name,r.dose,r.n+(r.n===1?" dose":" doses"),r.d+(r.d===1?" day":" days")]); };
+  { const R=tallyLog(state.xlog,anyMed); if(R.length) out+=sec("As-needed medication",tbl(["Medication","Dose","Taken","Days"],R)); }
+  { const R=tallyLog(state.suplog,suppOf); if(R.length) out+=sec("Supplements",tbl(["Supplement","Dose","Taken","Days"],R)); }
+  /* Symptoms */
+  { const c=symCounts(from,upto), days=daysBetween(from,upto); let fl=0; for(const k of Object.keys(state.trig)) if(inP(k)&&isTrig(k,"syms")) fl++;
+    const R=state.symptoms.filter(x=>c.c[x.id]).sort((a,b)=>c.c[b.id]-c.c[a.id]||a.name.localeCompare(b.name))
+      .map(x=>{const lv=c.lv[x.id]; return [x.name,`${c.c[x.id]} of ${days} (${Math.round(c.c[x.id]/days*100)}%)`,String(c.times[x.id]||0),lv?String(Math.round(lv[0]/lv[1]*10)/10)+"/10":"–"]});
+    out+=sec(`Symptoms · ${c.anyDays} of ${days} days with any${fl?` · ${fl} flare-up ${fl===1?"day":"days"}`:""}`,tbl(["Symptom","Days","Times","Avg intensity"],R)); }
+  /* Appointments */
+  { const R=[]; for(const [k,v] of Object.entries(state.alog)) if(inP(k)) for(const e of v){ const m=evOf("appt",e.id); if(m) R.push([k,fmt(k),evName("appt",e)]); }
+    R.sort((a,b)=>a[0].localeCompare(b[0])); if(R.length) out+=sec("Appointments",tbl(["Date","Appointment"],R.map(r=>r.slice(1)))); }
+  /* Notes: every notes box, day by day */
+  { const boxes=[["meds","Medication"],["supp","Supplements"],["syms","Symptoms"],["food","Food"],["mood","Mood"],["smell","Smells & other"],["act","Activity"],["appt","Appointments"],["today","Day"]], R=[];
+    for(let k=from;k<=upto;k=shiftKey(k,1)) for(const [key,lab] of boxes){ const t=noteStore(key)[k]; if(t&&t.trim()) R.push([fmt(k),lab,t.trim()]); }
+    if(R.length) out+=sec("Notes",tbl(["Date","About","Note"],R)); }
+  return out;
+}
+document.addEventListener("click",e=>{ if(!e.target.closest("[data-docsum]")) return;
+  flushText(); document.getElementById("printDoc").innerHTML=doctorSummary(); window.print(); });
+
 /* ---------- backup ---------- */
 const backupMsg=document.getElementById("backupMsg");
-document.getElementById("exportBtn").onclick=async()=>{
+async function saveBackup(){
   flushText();
   try{ const ok=await saveFile("daily-meds-"+fileWho()+"backup-"+todayKey()+".json",JSON.stringify(state,null,2),"application/json");
-       backupMsg.textContent= ok===false ? "" : "Backup saved to your downloads."; }
-  catch(e){ backupMsg.textContent="Couldn't save the backup."; }
-};
+       if(ok!==false){ state.lastBackup=Date.now(); commit(); }
+       backupMsg.textContent= ok===false ? "" : "Backup saved to your downloads.";
+       return ok!==false; }
+  catch(e){ backupMsg.textContent="Couldn't save the backup."; return false; }
+}
+document.getElementById("exportBtn").onclick=saveBackup;
+/* "Last backup: 12 days ago (Oct 16)" in Settings */
+function backupAgo(){
+  if(!state.lastBackup) return "never";
+  const d=daysBetween(keyOf(new Date(state.lastBackup)),keyOf(new Date()))-1, when=new Date(state.lastBackup).toLocaleDateString([], {month:"short",day:"numeric"});
+  return d<=0?"today":d===1?"yesterday":d+" days ago ("+when+")";
+}
+/* Today asks for a backup once there are two weeks of records and none in the last two weeks; Later waits 3 days */
+const BACKUP_EVERY=14;
+function backupDue(){
+  const tk=todayKey();
+  if(state.backupSnooze&&tk<state.backupSnooze) return false;
+  if(daysBetween(firstUse(),tk)<=BACKUP_EVERY) return false;
+  return !state.lastBackup||daysBetween(keyOf(new Date(state.lastBackup)),keyOf(new Date()))-1>=BACKUP_EVERY;
+}
+function backupNudge(){
+  if(!backupDue()||viewDate!==todayKey()) return "";
+  return `<div class="box l-list nudge" id="backupNudge"><div class="lid">Time for a backup</div>
+    <p class="hint">${state.lastBackup?"Your last backup was "+esc(backupAgo())+".":"You haven't saved a backup yet."} Everything is kept only on this phone, so a backup is what lets you move it or get it back.</p>
+    <div class="backup-btns"><button type="button" class="ghost" data-nudge="save">Save backup</button><button type="button" class="ghost" data-nudge="later">Later</button></div></div>`;
+}
+document.addEventListener("click",async e=>{ const b=e.target.closest("[data-nudge]"); if(!b) return;
+  if(b.dataset.nudge==="save") await saveBackup(); else { state.backupSnooze=shiftKey(todayKey(),3); commit(); } });
 document.getElementById("importBtn").onclick=()=>document.getElementById("importFile").click();
 document.getElementById("importFile").onchange=async e=>{
   const f=e.target.files[0]; e.target.value="";

@@ -1522,6 +1522,63 @@ await test("Add food: the meal's usual foods first, then all A–Z; typing narro
   foods: [{ id: "oat", name: "Oatmeal" }, { id: "cof", name: "Coffee" }, { id: "egg", name: "Eggs" }, { id: "bro", name: "Bone Broth" }, { id: "brs", name: "Brussels Sprouts" }],
   meals: { [shift(today, -1)]: { breakfast: { foods: ["oat", "cof", "egg"] } }, [shift(today, -2)]: { breakfast: { foods: ["oat", "cof"] } }, [shift(today, -3)]: { breakfast: { foods: ["oat"] } } } });
 
+/* ---------- Polish: notes, undo, backups, doctor summary, Settings links, tidy doses ---------- */
+await test("an empty notes box is one line until tapped; text keeps it open", async page => {
+  eq(await page.locator("#n-syms").count(), 0, "no text box yet");
+  await page.click('[data-noteopen="syms"]');
+  assert(await page.evaluate(() => document.activeElement && document.activeElement.id === "n-syms"), "opens and focuses");
+  await page.fill("#n-syms", "Worse after lunch");
+  await page.click("#nextDay").catch(() => {}); await page.click("#prevDay"); await page.click("#nextDay");
+  eq(await page.inputValue("#n-syms"), "Worse after lunch", "stays open with text");
+  eq(await page.locator("#n-mood").count(), 0, "others stay closed");
+}, base);
+
+await test("removing something offers Undo, which puts it back", async page => {
+  await page.click('[data-rmsym="s1"]');
+  eq((await page.state()).slog[today], undefined, "removed");
+  assert(await page.isVisible("#undoBar"), "undo bar shows");
+  eq(await page.textContent("#undoMsg"), "Removed Headache", "says what");
+  await page.click("#undoBtn");
+  eq((await page.state()).slog[today].s1.length, 1, "back");
+  eq(await page.isVisible("#undoBar"), false, "bar hides");
+}, { ...base, slog: { [today]: { s1: [{ t: at(today, 9) }] } } });
+
+await test("backups: Settings shows the last one; Today asks after two weeks without one; Later waits 3 days", async page => {
+  assert(await page.isVisible("#backupNudge"), "asks on Today");
+  await page.click('[data-nudge="later"]');
+  eq(await page.locator("#backupNudge").count(), 0, "Later hides it");
+  eq((await page.state()).backupSnooze, shift(today, 3), "for 3 days");
+  await page.click('[data-tab="set"][role="tab"]');
+  eq(await page.textContent("#backupWhen"), "Last backup: never.", "never");
+  await page.evaluate(() => { state.lastBackup = Date.now() - 5 * 86400000; commit(); });
+  assert((await page.textContent("#backupWhen")).startsWith("Last backup: 5 days ago"), "5 days ago");
+}, { ...base, log: { [shift(today, -20)]: { "m1|morning": at(shift(today, -20), 8) } } });
+
+await test("no backup reminder in the first two weeks", async page => {
+  eq(await page.locator("#backupNudge").count(), 0, "not yet");
+}, { ...base, log: { [shift(today, -5)]: { "m1|morning": at(shift(today, -5), 8) } } });
+
+await test("doctor summary lists meds with doses taken, symptoms and notes for the Recap period", async page => {
+  await page.click('[data-tab="sum"][role="tab"]');
+  await page.evaluate(() => { window.print = () => { window.__printed = true; }; });
+  await page.click("[data-docsum]");
+  assert(await page.evaluate(() => window.__printed), "print opened");
+  const t = await page.textContent("#printDoc");
+  assert(t.includes("Daily meds summary") && t.includes("Lisinopril") && t.includes("1 of 1 (100%)"), "meds: " + t.slice(0, 300));
+  assert(t.includes("Headache") && t.includes("Sat badly"), "symptoms and notes");
+}, { ...base, log: { [today]: { "m1|morning": at(today, 8) } }, slog: { [today]: { s1: [{ t: at(today, 9), i: 5 }] } }, pnotes: { syms: { [today]: "Sat badly" } } });
+
+await test("Settings jump links scroll to each section; empty Recap boxes share one line; doses get a space", async page => {
+  await page.click('[data-tab="set"][role="tab"]');
+  const labels = await page.$$eval("#setJump button", l => l.map(b => b.textContent));
+  assert(labels.includes("Meds & supplements") && labels.includes("Backup"), "links: " + labels.join(", "));
+  eq((await page.state()).meds[0].dose, "10 mg", "550mg-style doses tidied");
+  eq((await page.state()).supps[0].dose, "1000 IU", "IU spaced");
+  await page.click('[data-tab="sum"][role="tab"]');
+  assert((await page.textContent("#sumBody")).includes("Nothing logged this month"), "combined line");
+  eq(await page.locator("#sumBody .lid", { hasText: /^Mood & emotions$/ }).count(), 0, "no empty Mood box");
+}, { ...base, meds: [{ id: "m1", name: "Lisinopril", dose: "10mg", slots: ["morning"] }], supps: [{ id: "v", name: "Vitamin D", dose: "1000IU" }] });
+
 await test("checking off a med and adding a food still work", async page => {
   await page.click('.row.med[data-k="m1|morning"]');
   assert((await page.state()).log[today]["m1|morning"] > 1e11, "med checked");
