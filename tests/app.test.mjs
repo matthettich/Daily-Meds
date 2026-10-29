@@ -1370,7 +1370,7 @@ await test("Medication changes: add in Settings; shown on its day and the Recap 
 const suppSeed = { ...base, supps: [{ id: "vd", name: "Vitamin D", dose: "1000 IU" }, { id: "mg", name: "Magnesium", opts: [{ id: "gl", name: "glycinate" }, { id: "ci", name: "citrate" }] }, { id: "fo", name: "Fish oil" }] };
 await test("supplements default to one checklist: check, uncheck, which type, Take all; an older logged entry shows as checked", async page => {
   eq(await page.$$eval("[data-suppbox]", l => l.map(x => x.dataset.suppbox)), ["once"], "one box, once a day");
-  eq(await page.locator('select[data-ev="supp"]').count(), 0, "no Add supplement… picker");
+  eq(await page.textContent('[data-evbox="supp"] .lid .cpn'), "Additional supplements", "the log box is Additional supplements");
   eq(await page.textContent('[data-suppbox="once"] .lid .st'), "1/3", "the entry logged earlier counts");
   assert(await page.isChecked('[data-sk="fo|once"]'), "Fish oil checked from its older entry");
   await page.click('[data-sk="vd|once"]');
@@ -1384,11 +1384,17 @@ await test("supplements default to one checklist: check, uncheck, which type, Ta
   eq((await page.state()).suplog[today].some(e => e.id === "vd"), false, "unchecked");
   await page.click('[data-sk="mg|once"]'); await page.click('[data-sk="fo|once"]');
   eq((await page.state()).suplog[today], undefined, "all unchecked");
-  await page.click('[data-sall="once"]');
+  await page.click('[data-all="once"]');
   const L = (await page.state()).suplog[today];
   eq(L.map(e => e.id).sort(), ["fo", "mg", "vd"], "Take all");
   eq(L.find(e => e.id === "mg").o, "ci", "Take all uses the type taken last");
-  assert((await page.textContent(".tsec[data-sec=meds]")).includes("Supplements"), "box title");
+  eq(await page.textContent('[data-suppbox="once"] .lid').then(t => t.startsWith("Once a day")), true, "Once a day box title");
+  // Additional supplements: logged on their own, never checks a row
+  await page.selectOption('select[data-pick="ev"][data-ev="supp"]', "fo");
+  const a = (await page.state()).suplog[today].filter(e => e.a);
+  eq(a.map(e => e.id), ["fo"], "logged as additional");
+  eq(await page.locator('[data-evbox="supp"] .chip').count(), 1, "shows as a chip");
+  eq(await page.textContent('[data-suppbox="once"] .lid .st'), "Done", "checklist unchanged");
 }, { ...suppSeed, suplog: { [today]: [{ id: "fo", t: at(today, 7) }] } });
 
 await test("Settings: turn on times, hide Once a day, pick each supplement's times; hidden times are kept; log style brings back the picker", async page => {
@@ -1440,9 +1446,9 @@ await test("Settings: turn on times, hide Once a day, pick each supplement's tim
   assert((await page.textContent('[data-evbox="supp"] .chips')).includes("Fish oil"), "what was checked shows as logged");
 }, suppSeed);
 
-await test("supplement checklist: extra entries show under Also taken; copying yesterday keeps each box", async page => {
-  assert((await page.textContent('[data-suppbox="once"]')).includes("Also taken"), "the second Vitamin D is listed");
-  await page.click('[data-suppbox="once"] [data-evrm="supp"]');
+await test("supplement checklist: extra entries show under Additional supplements; copying yesterday keeps each box", async page => {
+  eq(await page.locator('[data-evbox="supp"] .chip').count(), 1, "the second Vitamin D is under Additional supplements");
+  await page.click('[data-evbox="supp"] [data-evrm="supp"]');
   eq((await page.state()).suplog[today].length, 1, "removed the extra one");
   await page.click('[data-tab="set"][role="tab"]');
   await page.click('#suppTimePick input[value="evening"]');
@@ -1472,6 +1478,7 @@ await test("medication checklist can be turned off: only Additional medication s
   await page.click('[role="tab"][data-tab="today"]');
   eq(await page.locator(".box.l-morning .med").count(), 0, "no med boxes");
   assert(await page.isVisible(".box.l-extra"), "Additional medication still shows");
+  eq(await page.textContent(".box.l-extra .lid").then(t => t.startsWith("Medications")), true, "called Medications");
   eq(await page.textContent(".progress .count"), "0/1", "progress is the supplement");
   eq(await page.evaluate(() => dayEnder()), null, "the day ends at midnight");
   // yesterday is still a normal day, with its dose checklist

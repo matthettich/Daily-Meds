@@ -58,7 +58,7 @@ body[data-page="food"]{--dh:22} body[data-page="syms"]{--dh:44} body[data-page="
 .alt-look .lk-reg .lid,.alt-look #sumBody > .box:nth-child(even of .box) .lid{background:var(--white)}
 /* Box bodies get a little deeper through the day; still pastel at the darkest */
 .l-page{--l:96%} .l-waking{--l:93%} .l-morning{--l:90%} .l-afternoon{--l:87%}
-.l-lunch{--l:88.5%} .l-evening{--l:84%} .l-bedtime{--l:81%} .l-snack{--l:88.5%} .l-extra{--l:78%} .l-supp{--l:75%} .l-sym{--l:85%} .l-list{--l:90%} .l-notes{--l:88%}
+.l-once{--l:95%} .l-lunch{--l:88.5%} .l-evening{--l:84%} .l-bedtime{--l:81%} .l-snack{--l:88.5%} .l-extra{--l:78%} .l-supp{--l:75%} .l-sym{--l:85%} .l-list{--l:90%} .l-notes{--l:88%}
 
 *,*::before,*::after{box-sizing:inherit;border-radius:0}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -261,7 +261,6 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .is-supp .supp-only{display:block}
 .suppt{margin:10px}
 .suppt .hint{margin:0 0 6px}
-.box .also{padding:8px 10px 0;font-size:12px;color:var(--muted)}
 .whorow{display:flex;margin-bottom:6px}
 .whorow input{flex:1;min-width:0;padding:10px;border:1px solid var(--rule);border-radius:0;background:var(--white);font:inherit;font-size:15px;color:var(--ink)}
 .whorow button{flex:none;width:44px;border:1px solid var(--rule);border-left:0;background:var(--white);font-size:18px;line-height:1;color:var(--ink)}
@@ -973,7 +972,8 @@ const LATE_CUTOFF = 3;       // 3 AM: the latest a day can run past midnight whi
 
 /* extras: as-needed medications (Tylenol, aspirin…). xlog: {date:[{id,t}]} — each dose taken, from extras or the regular list */
 /* supps: supplements (vitamin D, magnesium…), each with slots: the checklist times it's in (none = Once a day).
-   suplog: {date:[{id,t,s?}]} — each supplement taken; s = the checklist box it was checked in.
+   suplog: {date:[{id,t,s?,a?}]} — each supplement taken; s = the checklist box it was checked in, a = logged under
+   Additional supplements (taken outside its checklist times).
    suppMode: "list" (a checklist, the default) or "log". suppTimes: the checklist boxes shown, in SUPP_TIMES order */
 /* moods: mood list. mlog: {date:{morning:[ids],afternoon:[ids],evening:[ids]}}
    mtlog: {date:{morning:{id:t}}} — optional time each mood was felt (the first time, when a mood was felt more than once)
@@ -1367,12 +1367,15 @@ function suppTimesOn(){const on=SUPP_TIMES.filter(s=>state.suppTimes.includes(s.
 function suppSlotsOf(m){const on=suppTimesOn(), mine=on.filter(s=>(m.slots&&m.slots.length?m.slots:["once"]).includes(s.id));return (mine.length?mine:[on[0]]).map(s=>s.id)}
 /* Which logged entry checks each "id|time" row on day `date` (rows: Map to the entry's index in suplog[date]).
    An entry checked in a box (e.s) checks that row; one without a box that fits (an older save, the log style, a copy)
-   checks the supplement's first row still unchecked. Any left over (taken more often than it has rows) are `extra`. */
+   checks the supplement's first row still unchecked. Entries logged under Additional supplements (e.a), and any left
+   over (taken more often than it has rows), are `extra`, listed in the Additional supplements box. */
 function suppChecks(date){
   const L=state.suplog[date]||[], rows=new Map(), loose=[], extra=[];
   L.forEach((e,i)=>{ const m=suppOf(e.id); if(!m) return; const k=e.id+"|"+e.s;
+    if(e.a){ extra.push(i); return; }   // logged under Additional supplements
     if(e.s&&suppSlotsOf(m).includes(e.s)&&!rows.has(k)) rows.set(k,i); else loose.push(i); });
   for(const i of loose){ const e=L[i], s=suppSlotsOf(suppOf(e.id)).find(x=>!rows.has(e.id+"|"+x)); if(s) rows.set(e.id+"|"+s,i); else extra.push(i); }
+  extra.sort((a,b)=>a-b);
   return {rows,extra};
 }
 /* The supplements in box `slot`: active that day, or checked anyway */
@@ -1387,33 +1390,24 @@ function suppRow(m,slot,ch,L){
           <span><span class="nm">${esc(m.name)}</span>${sub?`<span class="ds">${esc(sub)}</span>`:""}</span>
         </button>${e?`<button class="when t" data-evt="supp" data-i="${i}" aria-label="${esc(m.name)}, taken ${fmtTime(e.t)}. Tap to change the time, type, linked symptom or comment">${fmtTime(e.t)}</button>`:""}</div>`;
 }
-/* Supplements logged more often than they have rows: one chip each (×2 for the same one again); × removes the latest */
-function suppExtra(ch,L){
-  if(!ch.extra.length) return "";
-  const groups=new Map(); for(const i of ch.extra){ const e=L[i], key=e.id+"|"+(e.o||""), g=groups.get(key); if(g){g.n++;g.i=i} else groups.set(key,{n:1,i}); }
-  return `<div class="also">Also taken</div><div class="chips">${[...groups.values()].map(({n,i})=>{const e=L[i], m=suppOf(e.id), tn=optLabel(optOf(m,e.o)), nm=esc(evName("supp",e));
-    return `<span class="chip"><button class="nm" data-evt="supp" data-i="${i}" aria-label="${nm}. Tap for time, type, linked symptom and comment">${esc(m.name)}${tn?`<span class="typ">${esc(tn)}</span>`:""}${entryTags(e)}</button>${n>1?`<span class="qty">×${n}</span>`:""}<button class="t" data-evt="supp" data-i="${i}" aria-label="Change time of ${nm}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-evrm="supp" data-i="${i}" aria-label="Remove ${n>1?"one ":""}${nm}">×</button></span>`}).join("")}</div>`;
-}
-/* The times of day on Today's checklist: the medication times, with Lunch between Morning and Afternoon for supplements.
-   Supplements set to a time go in that time's box with the medications (see render); Once a day keeps its own box. */
-const DAY_TIMES=[...SLOTS.slice(0,2),{id:"lunch",label:"Lunch"},...SLOTS.slice(2)];
-/* The Supplements box: Once a day, plus any taken more often than they have rows. With no supplements at all it
-   offers Add. Drawn when there's something for it, or nothing anywhere (so Copy Yesterday's stays reachable). */
-function suppBoxes(){
-  const ch=suppChecks(viewDate), L=state.suplog[viewDate]||[], extra=suppExtra(ch,L);
-  const once=state.suppTimes.includes("once")||!suppTimesOn().some(s=>s.id!=="once")?suppsFor("once",viewDate,ch):[];
-  const timed=suppTimesOn().some(s=>s.id!=="once"&&suppsFor(s.id,viewDate,ch).length);
-  if(!once.length){
-    if(timed&&!extra) return "";
-    return `<div class="box l-supp" data-suppbox="">
-      <div class="lid">${copyName("supp","supp","Supplements")}<span class="st">${timed?"":"None"}</span>${timed?"":`<button class="act" data-add="supp">Add</button>`}</div>
-      ${extra||`<p class="hint">Add your supplements to check them off here.</p>`}</div>`;
-  }
-  const done=once.filter(m=>ch.rows.has(m.id+"|once")).length, all=done===once.length;
-  return `<div class="box l-supp" data-suppbox="once">
-      <div class="lid">${copyName("supp","supp","Supplements")}<span class="st">${all?"Done":done+"/"+once.length}</span>${once.length>1&&!all?`<button class="act" data-sall="once">Take all</button>`:""}</div>
-      ${once.map(m=>suppRow(m,"once",ch,L)).join("")}
-      ${extra}
+/* The times of day on Today's checklist: Once a day (supplements only) first, then the medication times, with Lunch
+   between Morning and Afternoon for supplements. Supplements are checked off in their times' boxes, below the meds. */
+const DAY_TIMES=[{id:"once",label:"Once a day"},...SLOTS.slice(0,2),{id:"lunch",label:"Lunch"},...SLOTS.slice(2)];
+/* Additional supplements (checklist style): logged one at a time like Additional medication, for ones taken outside
+   their checklist times. Older entries beyond a supplement's rows show here too. */
+function addSuppBox(){
+  const ch=suppChecks(viewDate), L=state.suplog[viewDate]||[], live=state.supps.filter(m=>activeOn(m,viewDate));
+  return `<div class="box l-supp" data-evbox="supp">
+      <div class="lid">${copyName("supp","supp","Additional supplements")}<span class="st">${ch.extra.length?ch.extra.length+" taken":"None"}</span></div>
+      <div class="chips">${ch.extra.length?ch.extra.map(i=>{const e=L[i], m=suppOf(e.id), tn=optLabel(optOf(m,e.o));
+        return `<span class="chip"><button class="nm" data-evt="supp" data-i="${i}" aria-label="${esc(m.name)}${tn?" "+esc(tn):""}. Tap for time, type, linked symptom and comment">${esc(m.name)}${tn?`<span class="typ">${esc(tn)}</span>`:""}${entryTags(e)}</button><button class="t" data-evt="supp" data-i="${i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-evrm="supp" data-i="${i}" aria-label="Remove ${esc(m.name)} at ${fmtTime(e.t)}">×</button></span>`}).join(""):`<span class="none">Nothing extra taken</span>`}</div>
+      <div class="pickers one">
+        <select data-pick="ev" data-ev="supp" aria-label="Add an additional supplement">
+          <option value="">Add supplement…</option>
+          ${live.map(m=>`<option value="${esc(m.id)}">${esc(m.name)}${liveOpts(m).length?" ›":m.dose?" · "+esc(m.dose):""}</option>`).join("")}
+          <option value="__new">+ New supplement…</option>
+        </select>
+      </div>
     </div>`;
 }
 /* Check a supplement off in a box (asking which type first, if it has types), or uncheck it */
@@ -1446,7 +1440,7 @@ const EVLOGS={
 };
 function evOf(kind,id){return state[EVLOGS[kind].items].find(x=>x.id===id)}
 function evHits(kind,date){return (state[EVLOGS[kind].log][date]||[]).map((e,i)=>({...e,i})).filter(e=>evOf(kind,e.id))}
-function logEv(kind,date,id,w,o){const L=state[EVLOGS[kind].log], list=L[date]||(L[date]=[]); list.push({id,t:stampFor(date),...(w?{w}:{}),...(o?{o}:{})}); list.sort((a,b)=>a.t-b.t); if(o) rememberOpt(evOf(kind,id),o)}
+function logEv(kind,date,id,w,o){const L=state[EVLOGS[kind].log], list=L[date]||(L[date]=[]); list.push({id,t:stampFor(date),...(w?{w}:{}),...(o?{o}:{}),...(kind==="supp"&&suppList()?{a:1}:{})}); list.sort((a,b)=>a.t-b.t); if(o) rememberOpt(evOf(kind,id),o)}
 /* The type picked last is offered first next time */
 function rememberOpt(item,o){ if(item&&o) item.lastOpt=o; }
 /* Appointments: appt.who = the people or places it can be with ({id,name}; gone:true = removed in Settings but kept
@@ -1659,12 +1653,12 @@ function render(){
   /* Supplements set to a time of day are checked off in that time's box, below its medications */
   const sch=suppChecks(viewDate), sL=state.suplog[viewDate]||[], sOn=suppList()?suppTimesOn().map(s=>s.id):[];
   for(const s of DAY_TIMES){
-    const list=s.id==="lunch"?[]:medsFor(s.id), sl=sOn.includes(s.id)?suppsFor(s.id,viewDate,sch):[];
+    const list=SLOTS.some(x=>x.id===s.id)?medsFor(s.id):[], sl=sOn.includes(s.id)?suppsFor(s.id,viewDate,sch):[];
     if(!list.length&&!sl.length) continue;
     const doneCount=list.filter(m=>day[m.id+"|"+s.id]).length, n=list.length+sl.length, done=doneCount+sl.filter(m=>sch.rows.has(m.id+"|"+s.id)).length;
     total+=list.length; taken+=doneCount;   // supplements are added to the bar below
     const allDone=done===n;
-    html+=`<div class="box l-${s.id}">
+    html+=`<div class="box l-${s.id}"${s.id==="once"?' data-suppbox="once"':""}>
       <div class="lid">${s.label}<span class="st">${allDone?"Done":done+"/"+n}</span>${n>1&&!allDone?`<button class="act" data-all="${s.id}">Take all</button>`:""}</div>
       ${list.map(m=>{
         const k=m.id+"|"+s.id, ts=day[k], det=ts?doseDet(viewDate,k):null, skip=!!(det&&det.skip);
@@ -1686,7 +1680,7 @@ function render(){
     const opt=m=>`<option value="${esc(m.id)}">${esc(m.name)}${liveOpts(m).length?" ›":m.dose?" · "+esc(m.dose):""}</option>`;   // › = asks which type
     const xLive=state.extras.filter(m=>activeOn(m,viewDate)), mLive=state.meds.filter(m=>activeOn(m,viewDate));
     html+=`<div class="box l-extra">
-      <div class="lid">Additional medication<span class="st">${doses.length?doses.length+(doses.length===1?" dose":" doses"):"None"}</span></div>
+      <div class="lid">${medsOn()?"Additional medication":"Medications"}<span class="st">${doses.length?doses.length+(doses.length===1?" dose":" doses"):"None"}</span></div>
       <div class="chips">${doses.length?doses.map(e=>{const m=anyMed(e.id), tn=optLabel(optOf(m,e.o));
         /* Tap the name (or time) for the time, which type, a linked symptom and a comment */
         return `<span class="chip"><button class="nm" data-editx="${e.i}" aria-label="${esc(m.name)}${tn?" "+esc(tn):""}. Tap for time, type, linked symptom and comment">${esc(m.name)}${tn?`<span class="typ">${esc(tn)}</span>`:""}${entryTags(e)}</button><button class="t" data-editx="${e.i}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-rmx="${e.i}" aria-label="Remove ${esc(m.name)} at ${fmtTime(e.t)}">×</button></span>`}).join(""):`<span class="none">Nothing extra taken</span>`}</div>
@@ -1703,12 +1697,12 @@ function render(){
 
   /* Today: supplements, as a checklist or logged as taken (Settings → Supplements). As a checklist they count
      toward the progress bar too. */
-  const suppHtml=suppList()?suppBoxes():evBox("supp");
+  const suppHtml=suppList()?addSuppBox():evBox("supp");
   if(suppList()){ const ch=suppChecks(viewDate);
     for(const s of suppTimesOn()){ const L=suppsFor(s.id,viewDate,ch); total+=L.length; taken+=L.filter(m=>ch.rows.has(m.id+"|"+s.id)).length; } }
 
   html+=noteBox("meds","","Medication notes","Side effects, doctor changes…");
-  /* Supplements (Once a day, or all of them when logged as taken) come after the medications and their notes */
+  /* Additional supplements (or every supplement, when logged as taken) come after the medications and their notes */
   html+=suppHtml+noteBox("supp","","Supplement notes","Brand changes, how they sat…");
   {
     const back = viewDate!==tk ? `<button class="today-link" id="goToday">Today</button>` : "";
@@ -2668,9 +2662,8 @@ todayCol.addEventListener("click",e=>{
   if(rmsym){ const L=symList(viewDate,rmsym.dataset.rmsym); L.splice(+rmsym.dataset.si,1); tidySyms(viewDate); commit(); return; }
   if(add){openEditor(add.dataset.add,null);return}
   if(rm){ const m=mealOf(viewDate,rm.dataset.meal), i=m.foods.lastIndexOf(rm.dataset.rm); if(i>=0){ m.foods.splice(i,1); const x=m.fx&&m.fx[rm.dataset.rm]; if(x) x.pop(); } tidyMeals(viewDate); commit(); return; }
-  const smed=e.target.closest(".smed"), sall=e.target.closest("[data-sall]");
+  const smed=e.target.closest(".smed");
   if(smed){ toggleSupp(viewDate,smed.dataset.sk); return; }
-  if(sall){ takeAllSupps(viewDate,sall.dataset.sall); return; }
   if(!med&&!all) return;
   if(med&&lpFired){ lpFired=false; return; }   // the tap that ended a long press (Skip) isn't a check
   const date=viewDate, day=state.log[date]||{};
@@ -2683,7 +2676,7 @@ todayCol.addEventListener("click",e=>{
     /* Take all: a med with types gets the one taken last time */
     const now=stampFor(date);
     for(const m of medsFor(all.dataset.all)){const k=m.id+"|"+all.dataset.all;if(!day[k]){day[k]=now; const o=defaultOpt(m); if(o) setDoseDet(date,k,{o});}}
-    if(suppList()&&state.suppTimes.includes(all.dataset.all)) takeAllSupps(date,all.dataset.all,true);
+    if(suppList()&&suppTimesOn().some(t=>t.id===all.dataset.all)) takeAllSupps(date,all.dataset.all,true);
     sweep();
   }
   if(Object.keys(day).length) state.log[date]=day; else delete state.log[date];
@@ -3051,7 +3044,7 @@ function evCopier(kind,what,q){
     pick(from,to){ return {e:(state[E.log][from]||[]).filter(e=>liveOn(state[E.items],e.id,to))}; },
     size:p=>p.e.length, preview:p=>tallyNames(p.e.map(e=>evName(kind,e))),
     has:to=>evHits(kind,to).length>0,
-    put(p,to,k,t){ const L=state[E.log]; if(p.e.length) L[to]=p.e.map(e=>({id:e.id,t,...(e.o?{o:e.o}:{}),...(e.x?{x:e.x}:{}),...(e.min?{min:e.min}:{}),...(e.w?{w:e.w}:{}),...(e.s?{s:e.s}:{})})); else delete L[to]; return p.e.length; }};   // keeps each entry's type; an activity its exertion and minutes, an appointment its practitioner, a supplement its box (not comments or linked symptoms)
+    put(p,to,k,t){ const L=state[E.log]; if(p.e.length) L[to]=p.e.map(e=>({id:e.id,t,...(e.o?{o:e.o}:{}),...(e.x?{x:e.x}:{}),...(e.min?{min:e.min}:{}),...(e.w?{w:e.w}:{}),...(e.s?{s:e.s}:{}),...(e.a?{a:1}:{})})); else delete L[to]; return p.e.length; }};   // keeps each entry's type; an activity its exertion and minutes, an appointment its practitioner, a supplement its box (not comments or linked symptoms)
 }
 const COPY={
   meal:{what:"Meal", word:k=>MEALS.find(x=>x.id===k).what, q:"When did you eat?", time:"Time eaten", logs:["meals"], box:k=>MEALS.find(x=>x.id===k).label,
