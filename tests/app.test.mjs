@@ -158,7 +158,7 @@ await test("swiping forward to today keeps the page screen-width, today's color 
   eq(w, [412, 412], "page width while today slides in");
   eq(await page.evaluate(() => document.body.dataset.day), String(new Date().getDay()), "today's color");
   await page.waitForTimeout(300);
-  await page.locator('[data-evbox="supp"] .cpn').tap();
+  await page.locator('[data-copy="supp"]').tap();
   assert(await page.evaluate(() => cmenu.open), "Supplements name opens the copy menu");
   assert((await page.textContent("#cmText")).startsWith("Copy Yesterday's"), "copies from yesterday");
 }, base);
@@ -261,7 +261,7 @@ await test("supplements and smells still work through the shared log", async pag
   eq([s.suplog[today].length, s.smlog[today].length], [1, 1], "logged");
   await page.click('[data-evrm="supp"]');
   eq((await page.state()).suplog[today], undefined, "removed");
-}, { ...base, supps: [{ id: "sp1", name: "Vitamin D", dose: "1000 IU" }], smells: [{ id: "sm1", name: "Smoke" }], trackSmells: true });
+}, { ...base, suppMode: "log", supps: [{ id: "sp1", name: "Vitamin D", dose: "1000 IU" }], smells: [{ id: "sm1", name: "Smoke" }], trackSmells: true });
 
 /* ---------- 7. Year calendar ---------- */
 await test("year calendar below the month, 12 colored months, toggle in Settings", async page => {
@@ -552,7 +552,7 @@ await test("archive works on every Settings list, and Today's pickers skip archi
   await page.click("#prevDay");
   assert((await optVals(page, 'select[data-pick="food"][data-meal="lunch"]')).includes("f1"), "yesterday's picker still has it");
 }, { ...base, foods: [{ id: "f1", name: "Oatmeal" }, { id: "f2", name: "Toast" }], places: [{ id: "p1", name: "Chipotle" }],
-     extras: [{ id: "x1", name: "Tylenol" }, { id: "x2", name: "Aspirin" }], supps: [{ id: "u1", name: "Iron" }, { id: "u2", name: "Vitamin D" }],
+     extras: [{ id: "x1", name: "Tylenol" }, { id: "x2", name: "Aspirin" }], supps: [{ id: "u1", name: "Iron" }, { id: "u2", name: "Vitamin D" }], suppMode: "log",
      appts: [{ id: "a1", name: "GI follow-up" }],
      slog: { [today]: { s2: [{ t: "all" }] } }, meals: { [today]: { lunch: { foods: ["f1"] } } } });
 
@@ -1366,6 +1366,88 @@ await test("Medication changes: add in Settings; shown on its day and the Recap 
 }, chgSeed, { clock: new Date(2026, 9, 27, 9, 0) });
 
 /* ---------- Existing features still work ---------- */
+/* ---------- Supplements as a checklist ---------- */
+const suppSeed = { ...base, supps: [{ id: "vd", name: "Vitamin D", dose: "1000 IU" }, { id: "mg", name: "Magnesium", opts: [{ id: "gl", name: "glycinate" }, { id: "ci", name: "citrate" }] }, { id: "fo", name: "Fish oil" }] };
+await test("supplements default to one checklist: check, uncheck, which type, Take all; an older logged entry shows as checked", async page => {
+  eq(await page.$$eval("[data-suppbox]", l => l.map(x => x.dataset.suppbox)), ["once"], "one box, once a day");
+  eq(await page.locator('select[data-ev="supp"]').count(), 0, "no Add supplement… picker");
+  eq(await page.textContent('[data-suppbox="once"] .lid .st'), "1/3", "the entry logged earlier counts");
+  assert(await page.isChecked('[data-sk="fo|once"]'), "Fish oil checked from its older entry");
+  await page.click('[data-sk="vd|once"]');
+  eq((await page.state()).suplog[today].find(e => e.id === "vd").s, "once", "checked in the Once box");
+  await page.click('[data-sk="mg|once"]');
+  await page.waitForSelector("#odlg[open]"); await page.click('#oList [data-oid="ci"]');
+  eq((await page.state()).suplog[today].find(e => e.id === "mg").o, "ci", "asked which type");
+  assert((await page.textContent('[data-suppbox="once"]')).includes("citrate"), "row shows the type taken");
+  eq(await page.textContent('[data-suppbox="once"] .lid .st'), "Done", "all done");
+  await page.click('[data-sk="vd|once"]');
+  eq((await page.state()).suplog[today].some(e => e.id === "vd"), false, "unchecked");
+  await page.click('[data-sk="mg|once"]'); await page.click('[data-sk="fo|once"]');
+  eq((await page.state()).suplog[today], undefined, "all unchecked");
+  await page.click('[data-sall="once"]');
+  const L = (await page.state()).suplog[today];
+  eq(L.map(e => e.id).sort(), ["fo", "mg", "vd"], "Take all");
+  eq(L.find(e => e.id === "mg").o, "ci", "Take all uses the type taken last");
+  assert((await page.textContent(".tsec[data-sec=meds]")).includes("Supplements"), "box title");
+}, { ...suppSeed, suplog: { [today]: [{ id: "fo", t: at(today, 7) }] } });
+
+await test("Settings: turn on times, hide Once a day, pick each supplement's times; hidden times are kept; log style brings back the picker", async page => {
+  await page.click('[data-tab="set"][role="tab"]');
+  eq(await page.$eval("#suppMode", el => el.value), "list", "checklist by default");
+  eq(await page.$$eval("#suppTimePick input:checked", l => l.map(x => x.value)), ["once"], "once a day by default");
+  eq(await page.$$eval("#suppTimePick input", l => l.map(x => x.value)), ["once", "waking", "morning", "lunch", "afternoon", "evening", "bedtime"], "all six times plus once");
+  await page.click('#suppTimePick input[value="once"]');
+  eq((await page.state()).suppTimes, ["once"], "the last time can't be turned off");
+  await page.click('#suppTimePick input[value="morning"]'); await page.click('#suppTimePick input[value="lunch"]'); await page.click('#suppTimePick input[value="bedtime"]');
+  await page.click('#suppTimePick input[value="once"]');
+  eq((await page.state()).suppTimes, ["morning", "lunch", "bedtime"], "times saved in order");
+  // Fish oil: morning and bedtime
+  await page.click('[data-edit-supp="fo"]');
+  assert(await page.isVisible("#suppSlotPick"), "editor shows times");
+  eq(await page.$$eval('#suppSlotPick input', l => l.map(x => x.value)), ["morning", "lunch", "bedtime"], "only the times shown");
+  eq(await page.$$eval('#suppSlotPick input:checked', l => l.map(x => x.value)), ["morning"], "an older supplement starts in the first box");
+  await page.click('#suppSlotPick input[value="bedtime"]'); await page.click('#saveItem');
+  eq((await page.state()).supps.find(x => x.id === "fo").slots, ["morning", "bedtime"], "saved");
+  assert((await page.textContent("#suppList")).includes("Morning, Bedtime"), "list shows its times");
+  // A new one can't have no times
+  await page.click("#addSupp"); await page.fill('input[name="name"]', "Zinc");
+  await page.click('#suppSlotPick input[value="morning"]'); await page.click('#saveItem');
+  eq(await page.textContent("#formErr"), "Pick at least one time.", "needs a time");
+  await page.click('#suppSlotPick input[value="lunch"]'); await page.click('#saveItem');
+  eq((await page.state()).supps.find(x => x.name === "Zinc").slots, ["lunch"], "Zinc at lunch");
+  await page.click('[role="tab"][data-tab="today"]');
+  eq(await page.$$eval("[data-suppbox]", l => l.map(x => x.dataset.suppbox)), ["morning", "lunch", "bedtime"], "a box per time with supplements");
+  eq(await page.$$eval('[data-suppbox="bedtime"] .smed .nm', l => l.map(x => x.textContent)), ["Fish oil"], "bedtime box");
+  eq(await page.textContent('[data-suppbox="lunch"] .lid'), "Lunch supplements0/1", "lunch title");
+  await page.click('[data-sk="fo|bedtime"]');
+  eq((await page.state()).suplog[today].map(e => [e.id, e.s]), [["fo", "bedtime"]], "checked at bedtime only");
+  assert(!(await page.isChecked('[data-sk="fo|morning"]')), "morning still open");
+  // Hiding bedtime keeps Fish oil's bedtime time for later
+  await page.click('[data-tab="set"][role="tab"]');
+  await page.click('#suppTimePick input[value="bedtime"]');
+  await page.click('[data-edit-supp="fo"]'); await page.click('#saveItem');
+  eq((await page.state()).supps.find(x => x.id === "fo").slots, ["morning", "bedtime"], "hidden time kept");
+  // Log style: the old picker comes back, times are hidden
+  await page.selectOption("#suppMode", "log");
+  eq(await page.isVisible("#suppTimesF"), false, "times hidden in log style");
+  await page.click('[role="tab"][data-tab="today"]');
+  eq(await page.locator('[data-evbox="supp"] select[data-ev="supp"]').count(), 1, "Add supplement… picker");
+  assert((await page.textContent('[data-evbox="supp"] .chips')).includes("Fish oil"), "what was checked shows as logged");
+}, suppSeed);
+
+await test("supplement checklist: extra entries show under Also taken; copying yesterday keeps each box", async page => {
+  assert((await page.textContent('[data-suppbox="once"]')).includes("Also taken"), "the second Vitamin D is listed");
+  await page.click('[data-suppbox="once"] [data-evrm="supp"]');
+  eq((await page.state()).suplog[today].length, 1, "removed the extra one");
+  await page.click('[data-tab="set"][role="tab"]');
+  await page.click('#suppTimePick input[value="evening"]');
+  await page.click('[role="tab"][data-tab="today"]');
+  await page.click("#prevDay");
+  await copyFrom(page, '[data-copy="supp"]');
+  await page.waitForSelector("#xdlg[open]"); await page.click('#xform [type="submit"]');
+  eq((await page.state()).suplog[shift(today, -1)].map(e => e.s), ["once", "once"], "copied with their boxes");
+}, { ...suppSeed, supps: [{ id: "vd", name: "Vitamin D" }], suplog: { [today]: [{ id: "vd", t: at(today, 7), s: "once" }, { id: "vd", t: at(today, 9) }], [shift(today, -2)]: [{ id: "vd", t: at(shift(today, -2), 7), s: "once" }, { id: "vd", t: at(shift(today, -2), 8), s: "once" }] } });
+
 await test("checking off a med and adding a food still work", async page => {
   await page.click('.row.med[data-k="m1|morning"]');
   assert((await page.state()).log[today]["m1|morning"] > 1e11, "med checked");
