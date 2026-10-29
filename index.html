@@ -3540,12 +3540,14 @@ document.getElementById("prevDay").onclick=()=>{flushText();viewDate=shiftKey(vi
 document.getElementById("nextDay").onclick=()=>{if(viewDate<todayKey()){flushText();viewDate=shiftKey(viewDate,1);render()}};
 /* Swipe on Today: right goes back a day, left goes forward (not past today), like turning pages.
    Starts near the screen edges are left alone so the phone's back gesture still works. */
+/* Only the date heading slides. Sliding the whole Today column (thousands of pixels tall) made the installed app on
+   Android stop redrawing: the screen kept the previous day's colors and taps did nothing until a pull-to-refresh. */
 function goDay(n){
-  const tk=todayKey(), next=shiftKey(viewDate,n), col=document.querySelector(".colL");
-  const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if(n>0&&viewDate>=tk){ if(!still&&col.animate) col.animate([{transform:"translateX(0)"},{transform:"translateX(-14px)"},{transform:"translateX(0)"}],{duration:260,easing:"ease-out"}); return false; }
+  const tk=todayKey(), next=shiftKey(viewDate,n), head=document.querySelector(".view[data-tab=today] .day");
+  const still=matchMedia("(prefers-reduced-motion: reduce)").matches||!head||!head.animate;
+  if(n>0&&viewDate>=tk){ if(!still) head.animate([{transform:"translateX(0)"},{transform:"translateX(-14px)"},{transform:"translateX(0)"}],{duration:260,easing:"ease-out"}); return false; }
   flushText(); viewDate=next; render();
-  if(!still&&col.animate) col.animate([{transform:`translateX(${n>0?36:-36}px)`,opacity:.35},{transform:"translateX(0)",opacity:1}],{duration:220,easing:"ease-out"});
+  if(!still) head.animate([{transform:`translateX(${n>0?36:-36}px)`,opacity:.3},{transform:"translateX(0)",opacity:1}],{duration:220,easing:"ease-out"});
   return true;
 }
 {
