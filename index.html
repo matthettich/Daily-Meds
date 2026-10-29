@@ -386,6 +386,20 @@ label.f textarea{display:block;width:100%;margin-top:4px;padding:10px;border:1px
 .olist .od{font-size:13px;font-weight:400;color:var(--muted)}
 .olist .last{margin-left:auto;font-size:12px;font-weight:400;color:var(--muted);white-space:nowrap}
 .actions .onew{margin-right:auto}
+/* Add food: a search pop-up over the food dropdown. It sits at the top of the screen so the keyboard doesn't cover it. */
+.fpick{position:relative;display:block}
+.fpick .fopen{position:absolute;inset:0;width:100%;border:0;background:transparent;padding:0;cursor:pointer}
+.fpick .fopen:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+#fsdlg{margin:12px auto auto;max-height:calc(100dvh - 24px)}
+#fsdlg[open]{display:flex;flex-direction:column}
+#fsdlg .body{display:flex;flex-direction:column;min-height:0;flex:1}
+#fsdlg input[type=search]{width:100%;padding:10px;border:1px solid var(--rule);border-radius:0;background:var(--white);font:inherit;font-size:16px;color:var(--ink);margin-bottom:10px}
+#fsdlg .olist{overflow-y:auto;min-height:0;flex:1 1 auto;margin-bottom:10px}
+#fsdlg .fgrp{padding:6px 12px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--white);border-top:1px solid var(--hair)}
+#fsdlg .fgrp:first-child{border-top:0}
+#fsdlg .fgrp+button{border-top:0}
+#fsdlg .fn{font-size:12px;font-weight:400;color:var(--muted);margin-left:auto;white-space:nowrap}
+#fsdlg .fnone{padding:14px 12px;color:var(--muted);font-size:14px}
 /* Flare-up: a checkbox in the Symptoms box that logs when a flare started, without naming symptoms */
 .flare{display:flex;align-items:center;gap:10px;padding:4px 10px 0}
 .flare .toggle{min-height:44px;padding:0;font-size:15px}
@@ -782,6 +796,18 @@ body{display:flex;flex-direction:column}
     <div class="actions">
       <button type="button" class="ghost onew" id="oNew">+ New type…</button>
       <button type="button" class="ghost" id="oCancel">Cancel</button>
+    </div>
+  </div>
+</dialog>
+<!-- Add food: search the food list, with this meal's usual foods first -->
+<dialog id="fsdlg" aria-labelledby="fsTitle">
+  <h3 id="fsTitle">Add food</h3>
+  <div class="body">
+    <input type="search" id="fsSearch" placeholder="Search foods" autocomplete="off" enterkeyhint="go" aria-label="Search foods">
+    <div class="olist" id="fsList"></div>
+    <div class="actions">
+      <button type="button" class="ghost onew" id="fsNew">+ New food…</button>
+      <button type="button" class="ghost" id="fsCancel">Cancel</button>
     </div>
   </div>
 </dialog>
@@ -1762,11 +1788,13 @@ function render(){
         return `<span class="chip">${nb}${n>1?`<span class="qty">×${n}</span>`:""}${tb}<button data-rm="${esc(id)}" data-meal="${ml.id}" aria-label="Remove one ${esc(nm)}">×</button></span>`}).join(""):`<span class="none">Nothing added</span>`}</div>
       ${legacy[ml.id]?`<p class="legacy">${esc(legacy[ml.id])}</p>`:""}
       <div class="pickers">
-        <select data-pick="food" data-meal="${ml.id}" aria-label="Add food to ${esc(ml.label)}">
+        <span class="fpick">${(()=>{ const live=foodsSorted.filter(f=>activeOn(f,viewDate)), us=usualFoods(ml.id,viewDate), rest=live.filter(f=>!us.includes(f));
+          const o=f=>`<option value="${esc(f.id)}">${esc(f.name)}${liveOpts(f).length?" ›":""}</option>`;
+          return `<select data-pick="food" data-meal="${ml.id}" aria-label="Add food to ${esc(ml.label)}" tabindex="-1">
           <option value="">Add food…</option>
-          ${foodsSorted.filter(f=>activeOn(f,viewDate)).map(f=>`<option value="${esc(f.id)}">${esc(f.name)}${liveOpts(f).length?" ›":""}</option>`).join("")}
+          ${us.length?`<optgroup label="Usual for ${esc(ml.label)}">${us.map(o).join("")}</optgroup><optgroup label="All foods">${rest.map(o).join("")}</optgroup>`:live.map(o).join("")}
           <option value="__new">+ New food…</option>
-        </select>
+        </select>`})()}<button type="button" class="fopen" data-fopen="${ml.id}" aria-label="Add food to ${esc(ml.label)}"></button></span>
         <select data-pick="place" data-meal="${ml.id}" aria-label="Restaurant for ${esc(ml.label)}">
           <option value="">${place?"Not eating out":"Restaurant…"}</option>
           ${placesSorted.filter(p=>activeOn(p,viewDate)||(place&&place.id===p.id)).map(p=>`<option value="${esc(p.id)}" ${place&&place.id===p.id?"selected":""}>${esc(p.name)}</option>`).join("")}
@@ -3213,6 +3241,15 @@ function tidyMoods(date){
 }
 /* A meal's foods list can hold the same food more than once; this tallies them in first-added order */
 function countFoods(list){const c=new Map();for(const id of list||[])c.set(id,(c.get(id)||0)+1);return c}
+/* A meal's usual foods: those eaten in that meal on at least two of the 28 days before `date`, most often first
+   (up to 8, still in Settings). Shown first in Add food. */
+const USUAL_DAYS=28, USUAL_MAX=8;
+function usualFoods(meal,date){
+  const n=new Map();
+  for(let i=1;i<=USUAL_DAYS;i++){ const m=(state.meals[shiftKey(date,-i)]||{})[meal]; for(const id of new Set((m&&m.foods)||[])) n.set(id,(n.get(id)||0)+1); }
+  return state.foods.filter(f=>(n.get(f.id)||0)>=2&&activeOn(f,date))
+    .sort((a,b)=>n.get(b.id)-n.get(a.id)||a.name.localeCompare(b.name)).slice(0,USUAL_MAX);
+}
 /* Food times: m.ft maps a food id to when it was eaten (optional).
    The meal's time is the earliest food time, so if only one food has a time the whole meal gets it;
    foods without their own time show the meal's time. */
@@ -3356,6 +3393,52 @@ todayCol.addEventListener("change",async e=>{
   else { const m=mealOf(date,meal); if(v) m.place=v; else delete m.place; }
   tidyMeals(date); commit();
 });
+/* ---------- Add food search ----------
+   Tapping Add food… opens a search pop-up (the dropdown underneath stays for screen readers and tests). Empty, it
+   lists the meal's usual foods, then every food A–Z; typing narrows it to names containing what's typed, those
+   starting with it first. Picking one sets the dropdown, so it's logged exactly like picking from it. */
+const fsdlg=document.getElementById("fsdlg"), fSearch=document.getElementById("fsSearch"); let fFor=null;
+function fRow(f,note){return `<button type="button" data-fid="${esc(f.id)}"><span>${esc(f.name)}</span>${liveOpts(f).length?`<span class="od">${esc(liveOpts(f).map(o=>o.name).join(" / "))}</span>`:""}${note?`<span class="fn">${esc(note)}</span>`:""}</button>`}
+function fillFoods(){
+  const q=fSearch.value.trim().toLowerCase(), {meal,date}=fFor, live=[...state.foods].filter(f=>activeOn(f,date)).sort((a,b)=>a.name.localeCompare(b.name));
+  const label=MEALS.find(x=>x.id===meal).label, list=document.getElementById("fsList");
+  if(q){
+    const hit=live.filter(f=>f.name.toLowerCase().includes(q)||liveOpts(f).some(o=>o.name.toLowerCase().includes(q)));
+    const starts=f=>f.name.toLowerCase().startsWith(q)||f.name.toLowerCase().split(/\s+/).some(w=>w.startsWith(q));
+    hit.sort((a,b)=>(starts(b)-starts(a))||a.name.localeCompare(b.name));
+    list.innerHTML=hit.length?hit.map(f=>fRow(f)).join(""):`<div class="fnone">No food called “${esc(fSearch.value.trim())}” yet.</div>`;
+    document.getElementById("fsNew").textContent=`+ New food “${fSearch.value.trim()}”`;
+  } else {
+    const us=usualFoods(meal,date), rest=live.filter(f=>!us.includes(f));
+    list.innerHTML=(us.length?`<div class="fgrp">Usual for ${esc(label)}</div>`+us.map(f=>fRow(f)).join("")+`<div class="fgrp">All foods</div>`:"")
+      +(rest.length?rest.map(f=>fRow(f)).join(""):us.length?"":`<div class="fnone">No foods yet.</div>`);
+    document.getElementById("fsNew").textContent="+ New food…";
+  }
+  list.scrollTop=0;
+}
+function openFoodSearch(meal){
+  fFor={meal,date:viewDate};
+  document.getElementById("fsTitle").textContent="Add food to "+MEALS.find(x=>x.id===meal).label;
+  fSearch.value=""; fillFoods(); fsdlg.showModal();
+  /* The keyboard opens straight away only when there's a lot to search */
+  if(state.foods.length>12) fSearch.focus(); else (document.querySelector("#fsList [data-fid]")||fSearch).focus();
+}
+fSearch.addEventListener("input",fillFoods);
+fSearch.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); const b=document.querySelector("#fsList [data-fid]"); if(b) b.click(); else document.getElementById("fsNew").click(); } });
+document.getElementById("fsList").addEventListener("click",e=>{
+  const b=e.target.closest("[data-fid]"); if(!b||!fFor) return;
+  const {meal}=fFor; fsdlg.close();
+  const sel=document.querySelector(`select[data-pick="food"][data-meal="${CSS.escape(meal)}"]`); if(!sel) return;
+  sel.value=b.dataset.fid; sel.dispatchEvent(new Event("change",{bubbles:true}));
+});
+document.getElementById("fsNew").onclick=()=>{
+  if(!fFor) return; const {meal,date}=fFor, name=fSearch.value.trim(); fsdlg.close();
+  openEditor("food",null,{date,meal}); if(name) F("name").value=name;
+};
+document.getElementById("fsCancel").onclick=()=>fsdlg.close();
+fsdlg.addEventListener("close",()=>{ fFor=null; });
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-fopen]"); if(b) openFoodSearch(b.dataset.fopen); });
+
 /* Adds a food to a meal; with a version (type), that version's ingredients come along */
 function logFoodVer(date,meal,fid,vid){
   logFood(date,meal,fid);

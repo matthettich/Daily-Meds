@@ -1494,6 +1494,34 @@ await test("medication checklist can be turned off: only Additional medication s
   eq(await page.locator(".box.l-morning .med").count(), 1, "checklist back");
 }, { ...base, supps: [{ id: "vd", name: "Vitamin D" }] });
 
+/* ---------- Add food: usual foods first, and search ---------- */
+await test("Add food: the meal's usual foods first, then all A–Z; typing narrows it; picking adds it; + New food keeps what was typed", async page => {
+  const groups = await page.$$eval('select[data-pick="food"][data-meal="breakfast"] optgroup', l => l.map(g => [g.label, [...g.children].map(o => o.value)]));
+  eq(groups, [["Usual for Breakfast", ["oat", "cof"]], ["All foods", ["bro", "brs", "egg"]]], "dropdown groups (each food once)");
+  await page.click('[data-fopen="breakfast"]');
+  await page.waitForSelector("#fsdlg[open]");
+  eq(await page.textContent("#fsTitle"), "Add food to Breakfast", "title");
+  eq(await page.$$eval("#fsList [data-fid]", l => l.map(b => b.dataset.fid)), ["oat", "cof", "bro", "brs", "egg"], "usual first");
+  eq(await page.$$eval("#fsList .fgrp", l => l.map(x => x.textContent)), ["Usual for Breakfast", "All foods"], "headings");
+  await page.fill("#fsSearch", "br");
+  eq(await page.$$eval("#fsList [data-fid]", l => l.map(b => b.dataset.fid)), ["bro", "brs"], "Bone Broth, Brussels Sprouts");
+  await page.fill("#fsSearch", "sprout");
+  await page.press("#fsSearch", "Enter");
+  eq((await page.state()).meals[today].breakfast.foods, ["brs"], "Enter adds the first match");
+  eq(await page.isVisible("#fsdlg"), false, "closed");
+  await page.click('[data-fopen="lunch"]'); await page.fill("#fsSearch", "Arepa");
+  eq(await page.textContent("#fsNew"), "+ New food “Arepa”", "offers to add it");
+  await page.click("#fsNew");
+  eq(await page.inputValue('input[name="name"]'), "Arepa", "name filled in");
+  await page.click("#saveItem");
+  const s = await page.state();
+  eq(s.meals[today].lunch.foods.map(id => s.foods.find(f => f.id === id).name), ["Arepa"], "new food added to lunch");
+  // a meal with no usual foods: plain A–Z, no headings
+  eq(await page.locator('select[data-pick="food"][data-meal="dinner"] optgroup').count(), 0, "dinner has no usual foods");
+}, { ...base,
+  foods: [{ id: "oat", name: "Oatmeal" }, { id: "cof", name: "Coffee" }, { id: "egg", name: "Eggs" }, { id: "bro", name: "Bone Broth" }, { id: "brs", name: "Brussels Sprouts" }],
+  meals: { [shift(today, -1)]: { breakfast: { foods: ["oat", "cof", "egg"] } }, [shift(today, -2)]: { breakfast: { foods: ["oat", "cof"] } }, [shift(today, -3)]: { breakfast: { foods: ["oat"] } } } });
+
 await test("checking off a med and adding a food still work", async page => {
   await page.click('.row.med[data-k="m1|morning"]');
   assert((await page.state()).log[today]["m1|morning"] > 1e11, "med checked");
