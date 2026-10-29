@@ -58,7 +58,7 @@ body[data-page="food"]{--dh:22} body[data-page="syms"]{--dh:44} body[data-page="
 .alt-look .lk-reg .lid,.alt-look #sumBody > .box:nth-child(even of .box) .lid{background:var(--white)}
 /* Box bodies get a little deeper through the day; still pastel at the darkest */
 .l-page{--l:96%} .l-waking{--l:93%} .l-morning{--l:90%} .l-afternoon{--l:87%}
-.l-evening{--l:84%} .l-bedtime{--l:81%} .l-snack{--l:88.5%} .l-extra{--l:78%} .l-supp{--l:75%} .l-sym{--l:85%} .l-list{--l:90%} .l-notes{--l:88%}
+.l-lunch{--l:88.5%} .l-evening{--l:84%} .l-bedtime{--l:81%} .l-snack{--l:88.5%} .l-extra{--l:78%} .l-supp{--l:75%} .l-sym{--l:85%} .l-list{--l:90%} .l-notes{--l:88%}
 
 *,*::before,*::after{box-sizing:inherit;border-radius:0}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -1378,29 +1378,43 @@ function suppChecks(date){
 /* The supplements in box `slot`: active that day, or checked anyway */
 function suppsFor(slot,date,ch){return state.supps.filter(m=>suppSlotsOf(m).includes(slot)&&(activeOn(m,date)||ch.rows.has(m.id+"|"+slot)))}
 function logSupp(date,id,s,o){const list=state.suplog[date]||(state.suplog[date]=[]); list.push({id,t:stampFor(date),s,...(o?{o}:{})}); list.sort((a,b)=>a.t-b.t); if(o) rememberOpt(suppOf(id),o)}
-/* Today's supplement boxes in the checklist style: one per time shown that has supplements in it */
-function suppBoxes(){
-  const ch=suppChecks(viewDate), L=state.suplog[viewDate]||[];
-  const boxes=suppTimesOn().map(s=>({s,list:suppsFor(s.id,viewDate,ch)})).filter(b=>b.list.length);
-  const extra=ch.extra.length?`<div class="also">Also taken</div><div class="chips">${ch.extra.map(i=>{const e=L[i], m=suppOf(e.id), tn=optLabel(optOf(m,e.o)), nm=esc(evName("supp",e));
-    return `<span class="chip"><button class="nm" data-evt="supp" data-i="${i}" aria-label="${nm}. Tap for time, type, linked symptom and comment">${esc(m.name)}${tn?`<span class="typ">${esc(tn)}</span>`:""}${entryTags(e)}</button><button class="t" data-evt="supp" data-i="${i}" aria-label="Change time of ${nm}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-evrm="supp" data-i="${i}" aria-label="Remove ${nm}">×</button></span>`}).join("")}</div>`:"";
-  if(!boxes.length) return `<div class="box l-supp" data-suppbox="">
-      <div class="lid">${copyName("supp","supp","Supplements")}<span class="st">None</span><button class="act" data-add="supp">Add</button></div>
-      ${extra||`<p class="hint">Add your supplements to check them off here.</p>`}</div>`;
-  return boxes.map((b,bi)=>{
-    const done=b.list.filter(m=>ch.rows.has(m.id+"|"+b.s.id)).length, all=done===b.list.length;
-    const title=b.s.id==="once"?"Supplements":b.s.label+" supplements";
-    return `<div class="box l-supp" data-suppbox="${b.s.id}">
-      <div class="lid">${bi===0?copyName("supp","supp",title):esc(title)}<span class="st">${all?"Done":done+"/"+b.list.length}</span>${b.list.length>1&&!all?`<button class="act" data-sall="${b.s.id}">Take all</button>`:""}</div>
-      ${b.list.map(m=>{
-        const k=m.id+"|"+b.s.id, i=ch.rows.get(k), e=i==null?null:L[i];
-        const sub=(e?[optLabel(optOf(m,e.o))||m.dose,symName(e.sym)?"→ "+symName(e.sym):"",e.c]:[m.dose,liveOpts(m).map(o=>o.name).join(" / ")]).filter(Boolean).join(" · ");
-        return `<div class="medrow${e?" has-t":""}"><button class="row smed" role="checkbox" aria-checked="${e?"true":"false"}" data-sk="${esc(k)}">
+/* One supplement's checklist row in box `slot`, drawn like a medication's */
+function suppRow(m,slot,ch,L){
+  const k=m.id+"|"+slot, i=ch.rows.get(k), e=i==null?null:L[i];
+  const sub=(e?[optLabel(optOf(m,e.o))||m.dose,symName(e.sym)?"→ "+symName(e.sym):"",e.c]:[m.dose,liveOpts(m).map(o=>o.name).join(" / ")]).filter(Boolean).join(" · ");
+  return `<div class="medrow${e?" has-t":""}"><button class="row smed" role="checkbox" aria-checked="${e?"true":"false"}" data-sk="${esc(k)}">
           <span class="pill">${CHECK}</span>
           <span><span class="nm">${esc(m.name)}</span>${sub?`<span class="ds">${esc(sub)}</span>`:""}</span>
-        </button>${e?`<button class="when t" data-evt="supp" data-i="${i}" aria-label="${esc(m.name)}, taken ${fmtTime(e.t)}. Tap to change the time, type, linked symptom or comment">${fmtTime(e.t)}</button>`:""}</div>`}).join("")}
-      ${bi===boxes.length-1?extra:""}
-    </div>`}).join("");
+        </button>${e?`<button class="when t" data-evt="supp" data-i="${i}" aria-label="${esc(m.name)}, taken ${fmtTime(e.t)}. Tap to change the time, type, linked symptom or comment">${fmtTime(e.t)}</button>`:""}</div>`;
+}
+/* Supplements logged more often than they have rows: one chip each (×2 for the same one again); × removes the latest */
+function suppExtra(ch,L){
+  if(!ch.extra.length) return "";
+  const groups=new Map(); for(const i of ch.extra){ const e=L[i], key=e.id+"|"+(e.o||""), g=groups.get(key); if(g){g.n++;g.i=i} else groups.set(key,{n:1,i}); }
+  return `<div class="also">Also taken</div><div class="chips">${[...groups.values()].map(({n,i})=>{const e=L[i], m=suppOf(e.id), tn=optLabel(optOf(m,e.o)), nm=esc(evName("supp",e));
+    return `<span class="chip"><button class="nm" data-evt="supp" data-i="${i}" aria-label="${nm}. Tap for time, type, linked symptom and comment">${esc(m.name)}${tn?`<span class="typ">${esc(tn)}</span>`:""}${entryTags(e)}</button>${n>1?`<span class="qty">×${n}</span>`:""}<button class="t" data-evt="supp" data-i="${i}" aria-label="Change time of ${nm}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-evrm="supp" data-i="${i}" aria-label="Remove ${n>1?"one ":""}${nm}">×</button></span>`}).join("")}</div>`;
+}
+/* The times of day on Today's checklist: the medication times, with Lunch between Morning and Afternoon for supplements.
+   Supplements set to a time go in that time's box with the medications (see render); Once a day keeps its own box. */
+const DAY_TIMES=[...SLOTS.slice(0,2),{id:"lunch",label:"Lunch"},...SLOTS.slice(2)];
+/* The Supplements box: Once a day, plus any taken more often than they have rows. With no supplements at all it
+   offers Add. Drawn when there's something for it, or nothing anywhere (so Copy Yesterday's stays reachable). */
+function suppBoxes(){
+  const ch=suppChecks(viewDate), L=state.suplog[viewDate]||[], extra=suppExtra(ch,L);
+  const once=state.suppTimes.includes("once")||!suppTimesOn().some(s=>s.id!=="once")?suppsFor("once",viewDate,ch):[];
+  const timed=suppTimesOn().some(s=>s.id!=="once"&&suppsFor(s.id,viewDate,ch).length);
+  if(!once.length){
+    if(timed&&!extra) return "";
+    return `<div class="box l-supp" data-suppbox="">
+      <div class="lid">${copyName("supp","supp","Supplements")}<span class="st">${timed?"":"None"}</span>${timed?"":`<button class="act" data-add="supp">Add</button>`}</div>
+      ${extra||`<p class="hint">Add your supplements to check them off here.</p>`}</div>`;
+  }
+  const done=once.filter(m=>ch.rows.has(m.id+"|once")).length, all=done===once.length;
+  return `<div class="box l-supp" data-suppbox="once">
+      <div class="lid">${copyName("supp","supp","Supplements")}<span class="st">${all?"Done":done+"/"+once.length}</span>${once.length>1&&!all?`<button class="act" data-sall="once">Take all</button>`:""}</div>
+      ${once.map(m=>suppRow(m,"once",ch,L)).join("")}
+      ${extra}
+    </div>`;
 }
 /* Check a supplement off in a box (asking which type first, if it has types), or uncheck it */
 async function toggleSupp(date,k){
@@ -1413,10 +1427,10 @@ async function toggleSupp(date,k){
   logSupp(date,id,s,o); commit();
 }
 /* Take all: a supplement with types gets the one taken last time */
-function takeAllSupps(date,s){
+function takeAllSupps(date,s,later){
   const ch=suppChecks(date);
   for(const m of suppsFor(s,date,ch)) if(!ch.rows.has(m.id+"|"+s)) logSupp(date,m.id,s,defaultOpt(m));
-  commit();
+  if(!later) commit();
 }
 function smellOf(id){return state.smells.find(x=>x.id===id)}
 function smdoses(date){return (state.smlog[date]||[]).filter(e=>smellOf(e.id))}
@@ -1642,14 +1656,16 @@ function render(){
   let total=0, taken=0, html="";
   /* A medication change marked for this day: a line above the doses (tap to edit it) */
   html+=changesOn(viewDate).map(c=>`<button type="button" class="chgb" data-edit-change="${esc(c.id)}"><span class="k">Medication change</span>${esc(c.txt)}</button>`).join("");
-  for(const s of SLOTS){
-    const list=medsFor(s.id);
-    if(!list.length) continue;
-    const doneCount=list.filter(m=>day[m.id+"|"+s.id]).length;
-    total+=list.length; taken+=doneCount;
-    const allDone=doneCount===list.length;
+  /* Supplements set to a time of day are checked off in that time's box, below its medications */
+  const sch=suppChecks(viewDate), sL=state.suplog[viewDate]||[], sOn=suppList()?suppTimesOn().map(s=>s.id):[];
+  for(const s of DAY_TIMES){
+    const list=s.id==="lunch"?[]:medsFor(s.id), sl=sOn.includes(s.id)?suppsFor(s.id,viewDate,sch):[];
+    if(!list.length&&!sl.length) continue;
+    const doneCount=list.filter(m=>day[m.id+"|"+s.id]).length, n=list.length+sl.length, done=doneCount+sl.filter(m=>sch.rows.has(m.id+"|"+s.id)).length;
+    total+=list.length; taken+=doneCount;   // supplements are added to the bar below
+    const allDone=done===n;
     html+=`<div class="box l-${s.id}">
-      <div class="lid">${s.label}<span class="st">${allDone?"Done":doneCount+"/"+list.length}</span>${list.length>1&&!allDone?`<button class="act" data-all="${s.id}">Take all</button>`:""}</div>
+      <div class="lid">${s.label}<span class="st">${allDone?"Done":done+"/"+n}</span>${n>1&&!allDone?`<button class="act" data-all="${s.id}">Take all</button>`:""}</div>
       ${list.map(m=>{
         const k=m.id+"|"+s.id, ts=day[k], det=ts?doseDet(viewDate,k):null, skip=!!(det&&det.skip);
         /* A med with types shows the one taken once it's checked, and the choices before */
@@ -1659,6 +1675,7 @@ function render(){
           <span class="pill">${CHECK}</span>
           <span><span class="nm">${esc(m.name)}</span>${sub||skip?`<span class="ds">${skip?`<span class="sk">Skipped</span>`:""}${esc(sub)}</span>`:""}</span>
         </button>${ts?`<button class="when t" data-editk="${esc(k)}" aria-label="Change time of ${esc(m.name)}, now ${fmtTime(ts)}">${fmtTime(ts)}</button>`:""}</div>`}).join("")}
+      ${sl.map(m=>suppRow(m,s.id,sch,sL)).join("")}
     </div>`;
   }
 
@@ -2664,6 +2681,7 @@ todayCol.addEventListener("click",e=>{
     /* Take all: a med with types gets the one taken last time */
     const now=stampFor(date);
     for(const m of medsFor(all.dataset.all)){const k=m.id+"|"+all.dataset.all;if(!day[k]){day[k]=now; const o=defaultOpt(m); if(o) setDoseDet(date,k,{o});}}
+    if(suppList()&&state.suppTimes.includes(all.dataset.all)) takeAllSupps(date,all.dataset.all,true);
     sweep();
   }
   if(Object.keys(day).length) state.log[date]=day; else delete state.log[date];

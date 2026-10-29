@@ -1416,12 +1416,17 @@ await test("Settings: turn on times, hide Once a day, pick each supplement's tim
   await page.click('#suppSlotPick input[value="lunch"]'); await page.click('#saveItem');
   eq((await page.state()).supps.find(x => x.name === "Zinc").slots, ["lunch"], "Zinc at lunch");
   await page.click('[role="tab"][data-tab="today"]');
-  eq(await page.$$eval("[data-suppbox]", l => l.map(x => x.dataset.suppbox)), ["morning", "lunch", "bedtime"], "a box per time with supplements");
-  eq(await page.$$eval('[data-suppbox="bedtime"] .smed .nm', l => l.map(x => x.textContent)), ["Fish oil"], "bedtime box");
-  eq(await page.textContent('[data-suppbox="lunch"] .lid'), "Lunch supplements0/1", "lunch title");
+  eq(await page.locator("[data-suppbox]").count(), 0, "no separate Supplements box once they all have times");
+  eq(await page.$$eval(".box.l-morning .row .nm", l => l.map(x => x.textContent)), ["Lisinopril", "Vitamin D", "Magnesium", "Fish oil"], "supplements below the morning meds, in one box");
+  eq(await page.textContent(".box.l-morning .lid .st"), "0/4", "the box counts both");
+  eq(await page.$$eval(".box.l-bedtime .smed .nm", l => l.map(x => x.textContent)), ["Fish oil"], "a bedtime box just for supplements");
+  eq(await page.$$eval("[data-sec=meds] .box.l-morning, [data-sec=meds] .box.l-lunch, [data-sec=meds] .box.l-bedtime", l => l.map(x => x.className.split(" ").pop())), ["l-morning", "l-lunch", "l-bedtime"], "Morning, Lunch, Bedtime in order");
+  eq(await page.textContent(".box.l-lunch .lid .st"), "0/1", "lunch box");
+  await page.click('.box.l-morning [data-all]');
+  const st = await page.state();
+  eq([Object.keys(st.log[today]), st.suplog[today].filter(e => e.s === "morning").length], [["m1|morning"], 3], "Take all checks the meds and supplements in that box");
   await page.click('[data-sk="fo|bedtime"]');
-  eq((await page.state()).suplog[today].map(e => [e.id, e.s]), [["fo", "bedtime"]], "checked at bedtime only");
-  assert(!(await page.isChecked('[data-sk="fo|morning"]')), "morning still open");
+  eq((await page.state()).suplog[today].filter(e => e.id === "fo").map(e => e.s), ["morning", "bedtime"], "checked at bedtime too");
   // Hiding bedtime keeps Fish oil's bedtime time for later
   await page.click('[data-tab="set"][role="tab"]');
   await page.click('#suppTimePick input[value="bedtime"]');
