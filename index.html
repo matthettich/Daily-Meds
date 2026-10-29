@@ -558,6 +558,7 @@ body{display:flex;flex-direction:column}
       <div class="sect first" role="heading" aria-level="2">Medications and Supplements</div>
       <div class="box l-list">
         <div class="lid"><h2>Medications</h2><button class="act add" id="addMed">Add</button></div>
+        <label class="wxpick wide">On Today<select id="medMode"><option value="on">Checklist</option><option value="off">Off (only additional medication)</option></select></label>
         <div id="medList"></div>
       </div>
       <div class="box l-list">
@@ -565,7 +566,7 @@ body{display:flex;flex-direction:column}
         <div id="changeList"></div>
         <p class="hint">Mark the day a medication started, stopped or changed dose. It shows on that day, Recap compares the two weeks before and after it, and the spreadsheet lists it.</p>
       </div>
-      <div class="box l-list">
+      <div class="box l-list" id="dayEndBox">
         <div class="lid"><h2>End of day</h2></div>
         <label class="wxpick wide">Day ends<select id="dayEnd"></select></label>
         <p class="hint">Pick a bedtime dose and the day keeps going past midnight until you check it off, so late doses, food and symptoms stay on the day they belong to, with their real times. If it's still unchecked at 3 AM, the new day starts.</p>
@@ -1003,7 +1004,9 @@ const LATE_CUTOFF = 3;       // 3 AM: the latest a day can run past midnight whi
    flare: {date:t} — when a flare-up started (the Flare-up checkbox in Symptoms; the flag itself is trig[date].syms)
    nlog: {night:{w:[{t,why?,body?:[],feel?:[],i?,c?}],d:{v?,dis?,nm?,none?,c?}}} — wake-ups and dreams, each night keyed by
    the morning it leads into (see "Overnight & dreams")
-   changes: [{id,d,txt}] — medication changes the user marked: the day (YYYY-MM-DD) and what changed */
+   changes: [{id,d,txt}] — medication changes the user marked: the day (YYYY-MM-DD) and what changed
+   medsOffSince: the day the medication checklist was turned off (Settings → Medications → On Today), unset while it's on.
+   medsOffSpells: finished off spells [[from,to)], kept so those days aren't counted as missed doses (see dueOn) */
 /* ---------- Today page sections ----------
    Default order tells the day's story: what you took, ate and were around, then how you felt. */
 const SECTIONS=[
@@ -1030,7 +1033,7 @@ function secShown(id){ const e=state.layout.find(x=>x.id===id); return !e||e.sho
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{}, suppMode:"list", suppTimes:["once"],
   moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:defaultOthers(), olog:{}, trackOther:true, hotAdded:true, acts:[], aclog:{}, showSnacks:true, showAfter:true, trig:{}, trackTrig:true, altLook:true,
   appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, trackLoc:false, geo:{}, pollenKey:"", name:"", updated:0,
-  ldet:{}, flare:{}, nlog:{}, changes:[]};
+  ldet:{}, flare:{}, nlog:{}, changes:[], medsOffSpells:[]};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
 
@@ -1045,6 +1048,7 @@ function shiftKey(k,n){const d=parseKey(k);d.setDate(d.getDate()+n);return keyOf
    day so late doses, food and symptoms land on it with their real times. If it's still unchecked at LATE_CUTOFF,
    the new day starts. Times typed for a day that ran past midnight can fall in that night (the next calendar date). */
 function dayEnder(){
+  if(state.medsOffSince) return null;   // no checklist to check it off on: the day ends at midnight
   const bed=state.meds.filter(m=>Array.isArray(m.slots)&&m.slots.includes("bedtime"));
   if(typeof state.dayEnd==="string") return bed.find(m=>m.id===state.dayEnd)||null;
   return bed.find(m=>!m.archived&&/cromolyn/i.test(m.name))||null;
@@ -1151,6 +1155,8 @@ function normalize(s){
           name:typeof s.name==="string"?s.name.trim().slice(0,60):"",
           dayEnd:typeof s.dayEnd==="string"?s.dayEnd:undefined,
           ldet:obj(s.ldet), flare:obj(s.flare),
+          medsOffSince:/^\d{4}-\d\d-\d\d$/.test(s.medsOffSince||"")?s.medsOffSince:undefined,
+          medsOffSpells:(Array.isArray(s.medsOffSpells)?s.medsOffSpells:[]).filter(x=>Array.isArray(x)&&x.length===2&&x.every(d=>/^\d{4}-\d\d-\d\d$/.test(d))),
           nlog:normNlog(obj(s.nlog)), changes:normChanges(s.changes),
           updated:Number(s.updated)||0};
   normAppts(n); return n;
@@ -1304,7 +1310,18 @@ function setArchived(x,on){
   delete x.archived;
 }
 /* A regular med is due on day k when it was active then, or when a dose was checked off anyway */
-function dueOn(m,sl,k){return activeOn(m,k)||!!(state.log[k]||{})[m.id+"|"+sl]}
+function dueOn(m,sl,k){return (activeOn(m,k)&&!medsOffOn(k))||!!(state.log[k]||{})[m.id+"|"+sl]}
+/* ---------- medication checklist off ----------
+   Settings → Medications → On Today can turn the checklist off, leaving only Additional medication (as-needed doses).
+   Like archiving, the days it's off aren't counted as missed doses, and turning it back on doesn't fill them in. */
+function medsOn(){return !state.medsOffSince}
+function medsOffOn(k){return (!!state.medsOffSince&&k>=state.medsOffSince)||state.medsOffSpells.some(([a,b])=>k>=a&&k<b)}
+function setMedsOn(on){
+  const tk=todayKey();
+  if(!on){ if(!state.medsOffSince) state.medsOffSince=tk; return; }
+  if(state.medsOffSince&&state.medsOffSince<tk) state.medsOffSpells.push([state.medsOffSince,tk]);
+  delete state.medsOffSince;
+}
 function medsFor(slot,k=viewDate){return state.meds.filter(m=>m.slots&&m.slots.includes(slot)&&dueOn(m,slot,k))}
 /* An additional dose can point at an as-needed med or a regular one */
 function anyMed(id){return state.extras.find(x=>x.id===id)||state.meds.find(x=>x.id===id)}
@@ -1667,8 +1684,11 @@ function render(){
     </div>`;
   }
 
-  /* Today: supplements, as a checklist or logged as taken (Settings → Supplements) */
+  /* Today: supplements, as a checklist or logged as taken (Settings → Supplements). As a checklist they count
+     toward the progress bar too. */
   html+=suppList()?suppBoxes():evBox("supp");
+  if(suppList()){ const ch=suppChecks(viewDate);
+    for(const s of suppTimesOn()){ const L=suppsFor(s.id,viewDate,ch); total+=L.length; taken+=L.filter(m=>ch.rows.has(m.id+"|"+s.id)).length; } }
 
   html+=noteBox("meds","","Medication notes","Side effects, doctor changes…");
   {
@@ -1844,6 +1864,8 @@ function render(){
     const sel=document.getElementById("dayEnd");
     sel.innerHTML=`<option value="">At midnight</option>`+bed.map(m=>`<option value="${esc(m.id)}">When I check ${esc(m.name)}</option>`).join("");
     sel.value=en?en.id:""; }
+  document.getElementById("medMode").value=medsOn()?"on":"off";
+  document.getElementById("dayEndBox").hidden=!medsOn();
   document.getElementById("suppMode").value=suppList()?"list":"log";
   document.getElementById("suppTimesF").hidden=!suppList();
   for(const c of document.querySelectorAll("#suppTimePick input")) c.checked=state.suppTimes.includes(c.value);
@@ -3474,6 +3496,7 @@ document.getElementById("addSmell").onclick=()=>openEditor("smell",null);
 document.getElementById("smellList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-smell]");if(b)openEditor("smell",b.dataset.editSmell)});
 document.getElementById("trackSmells").addEventListener("change",e=>{state.trackSmells=e.target.checked;commit()});
 document.getElementById("suppTimePick").innerHTML=SUPP_TIMES.map(s=>`<label><input type="checkbox" value="${s.id}"><span>${s.label}</span></label>`).join("");
+document.getElementById("medMode").addEventListener("change",e=>{setMedsOn(e.target.value!=="off");commit()});
 document.getElementById("suppMode").addEventListener("change",e=>{state.suppMode=e.target.value==="log"?"log":"list";commit()});
 /* At least one time stays on */
 document.getElementById("suppTimePick").addEventListener("change",e=>{

@@ -1448,6 +1448,40 @@ await test("supplement checklist: extra entries show under Also taken; copying y
   eq((await page.state()).suplog[shift(today, -1)].map(e => e.s), ["once", "once"], "copied with their boxes");
 }, { ...suppSeed, supps: [{ id: "vd", name: "Vitamin D" }], suplog: { [today]: [{ id: "vd", t: at(today, 7), s: "once" }, { id: "vd", t: at(today, 9) }], [shift(today, -2)]: [{ id: "vd", t: at(shift(today, -2), 7), s: "once" }, { id: "vd", t: at(shift(today, -2), 8), s: "once" }] } });
 
+await test("progress counts the supplement checklist too, not the log style", async page => {
+  eq(await page.textContent(".progress .count"), "0/3", "1 med dose + 2 supplements");
+  await page.click('[data-sk="vd|once"]');
+  eq(await page.textContent(".progress .count"), "1/3", "a supplement counts");
+  await page.click('[data-tab="set"][role="tab"]'); await page.selectOption("#suppMode", "log");
+  await page.click('[role="tab"][data-tab="today"]');
+  eq(await page.textContent(".progress .count"), "0/1", "log style: meds only");
+}, { ...base, supps: [{ id: "vd", name: "Vitamin D" }, { id: "fo", name: "Fish oil" }] });
+
+await test("medication checklist can be turned off: only Additional medication shows, off days aren't missed, End of day hides; on again by default", async page => {
+  await page.click('[data-tab="set"][role="tab"]');
+  eq(await page.$eval("#medMode", el => el.value), "on", "on by default");
+  assert(await page.isVisible("#dayEndBox"), "End of day shows");
+  await page.selectOption("#medMode", "off");
+  eq((await page.state()).medsOffSince, today, "off from today");
+  eq(await page.isVisible("#dayEndBox"), false, "End of day hidden");
+  await page.click('[role="tab"][data-tab="today"]');
+  eq(await page.locator(".box.l-morning .med").count(), 0, "no med boxes");
+  assert(await page.isVisible(".box.l-extra"), "Additional medication still shows");
+  eq(await page.textContent(".progress .count"), "0/1", "progress is the supplement");
+  eq(await page.evaluate(() => dayEnder()), null, "the day ends at midnight");
+  // yesterday is still a normal day, with its dose checklist
+  await page.click("#prevDay");
+  eq(await page.locator(".box.l-morning .med").count(), 1, "yesterday keeps its checklist");
+  await page.click("#nextDay");
+  // back on: the off day isn't counted as missed once it's in the past
+  await page.evaluate(k => { state.medsOffSince = k; setMedsOn(true); commit(); }, shift(today, -3));
+  const s = await page.state();
+  eq([s.medsOffSince, s.medsOffSpells], [undefined, [[shift(today, -3), today]]], "spell kept");
+  eq(await page.evaluate(k => dueOn(state.meds[0], "morning", k), shift(today, -2)), false, "off day not due");
+  eq(await page.evaluate(k => dueOn(state.meds[0], "morning", k), today), true, "today due again");
+  eq(await page.locator(".box.l-morning .med").count(), 1, "checklist back");
+}, { ...base, supps: [{ id: "vd", name: "Vitamin D" }] });
+
 await test("checking off a med and adding a food still work", async page => {
   await page.click('.row.med[data-k="m1|morning"]');
   assert((await page.state()).log[today]["m1|morning"] > 1e11, "med checked");
