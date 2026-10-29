@@ -1703,11 +1703,13 @@ function render(){
 
   /* Today: supplements, as a checklist or logged as taken (Settings → Supplements). As a checklist they count
      toward the progress bar too. */
-  html+=suppList()?suppBoxes():evBox("supp");
+  const suppHtml=suppList()?suppBoxes():evBox("supp");
   if(suppList()){ const ch=suppChecks(viewDate);
     for(const s of suppTimesOn()){ const L=suppsFor(s.id,viewDate,ch); total+=L.length; taken+=L.filter(m=>ch.rows.has(m.id+"|"+s.id)).length; } }
 
   html+=noteBox("meds","","Medication notes","Side effects, doctor changes…");
+  /* Supplements (Once a day, or all of them when logged as taken) come after the medications and their notes */
+  html+=suppHtml+noteBox("supp","","Supplement notes","Brand changes, how they sat…");
   {
     const back = viewDate!==tk ? `<button class="today-link" id="goToday">Today</button>` : "";
     const prog = total ? `<div class="progress"><span class="count">${taken}/${total}</span><div class="bar"><i style="width:${Math.round(taken/total*100)}%"></i></div>${back}</div>`
@@ -3866,7 +3868,7 @@ function buildCSV(start,end){
     "suspected_flare (1 = the user marked this day as a possible flare-up of their condition)",
     "flare_time (when the flare-up started)",
     "linked_symptoms (things the user connected to a symptom that day: item → symptom)",
-    "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells_other","notes_activity","notes_appointments",
+    "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells_other","notes_activity","notes_appointments","notes_supplements",
     "medication_changes (changes the user marked on this day)",
     "night_after_wakeups (times the user woke in the night after this day; blank before night tracking started)",
     "night_after_wake_details (each wake-up: time, what woke them, body, feelings, how hard 1-5, time since each dose taken that evening, comment)",
@@ -3922,7 +3924,7 @@ function buildCSV(start,end){
       isTrig(k,"syms")&&realTime(state.flare[k])?fmtTime(state.flare[k]):"",
       linkedText(k),
       MEALS.filter(m=>typed[m.id]).map(m=>m.label+": "+typed[m.id]).join(" | "),
-      state.notes[k]||"",...["food","meds","syms","mood","smell","act","appt"].map(n=>(state.pnotes[n]||{})[k]||""),
+      state.notes[k]||"",...["food","meds","syms","mood","smell","act","appt","supp"].map(n=>(state.pnotes[n]||{})[k]||""),
       changesOn(k).map(c=>c.txt).join("; "),
       /* The night after this day, next to this evening's doses */
       ...(()=>{const n=shiftKey(k,1), W=wakes(n), d=dreamOf(n), on=f0&&n>=f0&&n<=tk;
