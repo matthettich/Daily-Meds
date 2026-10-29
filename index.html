@@ -260,6 +260,8 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .supp-only{display:none}
 .is-supp .supp-only{display:block}
 .suppt{margin:10px}
+.srow{margin:0 10px 12px}
+.srow span{min-height:34px;padding:6px 8px;font-size:13px}
 .suppt .hint{margin:0 0 6px}
 .box .also{padding:8px 10px 0;font-size:12px;color:var(--muted)}
 .whorow{display:flex;margin-bottom:6px}
@@ -579,7 +581,7 @@ body{display:flex;flex-direction:column}
         <div class="lid"><h2>Supplements</h2><button class="act add" id="addSupp">Add</button></div>
         <label class="wxpick wide">On Today<select id="suppMode"><option value="list">Checklist, like medications</option><option value="log">Log each one as you take it</option></select></label>
         <div class="suppt" id="suppTimesF">
-          <p class="hint">Times to show on Today. With more than one, pick each supplement's times in its editor.</p>
+          <p class="hint">Times to show on Today. With more than one, tap each supplement's times below.</p>
           <div class="slotpick" id="suppTimePick"></div>
         </div>
         <div id="suppList"></div>
@@ -1853,10 +1855,10 @@ function render(){
      row(x,sub) draws the tappable row; sub is "archived Oct 16" for archived items, to show under the name. */
   const ds=(...p)=>{const t=p.filter(Boolean).join(" · ");return t?`<span class="ds">${esc(t)}</span>`:""};
   const typeNames=x=>liveOpts(x).map(o=>o.name).join(" / ");
-  const put=(id,kind,list,row,empty,every,sorted=true)=>{
+  const put=(id,kind,list,row,empty,every,sorted=true,after=()=>"")=>{
     const L=sorted?[...list].sort((a,b)=>a.name.localeCompare(b.name)):[...list], live=L.filter(x=>!x.archived), arch=L.filter(x=>x.archived);
     const one=(x,a)=>`<div class="prow${a?" arch":""}">${row(x,a?(typeof x.archived==="string"?("archived "+parseKey(x.archived).toLocaleDateString([], {month:"short",day:"numeric"})).replace(/ /g,"\u00a0"):"archived"):"")}
-        <button type="button" class="parch" data-arch="${kind}" data-id="${esc(x.id)}" aria-label="${a?"Unarchive":"Archive"} ${esc(x.name)}">${a?"Unarchive":"Archive"}</button></div>`;
+        <button type="button" class="parch" data-arch="${kind}" data-id="${esc(x.id)}" aria-label="${a?"Unarchive":"Archive"} ${esc(x.name)}">${a?"Unarchive":"Archive"}</button></div>${a?"":after(x)}`;
     document.getElementById(id).innerHTML=(live.length?live.map(x=>one(x,false)).join(""):`<div class="empty-row">${arch.length?every+" Tap Add for a new one.":empty}</div>`)
       +(arch.length?`<div class="psub">Archived · hidden from Today, history kept</div>`+arch.map(x=>one(x,true)).join(""):"");
   };
@@ -1875,8 +1877,10 @@ function render(){
     "As-needed meds like Tylenol. Tap Add.","Every additional medication is archived.");
   put("suppList","supp",state.supps,(m,a)=>`<button class="row" data-edit-supp="${esc(m.id)}">
         <span><span class="nm">${esc(m.name)}</span>${ds(m.dose,typeNames(m),a)}</span>
-        <span class="side">${suppList()&&suppTimesOn().length>1?esc(suppTimesOn().filter(s=>suppSlotsOf(m).includes(s.id)).map(s=>s.label).join(", ")):times(inMonth("suplog",m.id),"time","times")}</span></button>`,
-    "Vitamins, minerals and the like. Tap Add.","Every supplement is archived.");
+        <span class="side">${times(inMonth("suplog",m.id),"time","times")}</span></button>`,
+    "Vitamins, minerals and the like. Tap Add.","Every supplement is archived.",true,
+    /* With more than one time shown, each supplement's times are buttons right under it */
+    m=>suppList()&&suppTimesOn().length>1?`<div class="slotpick srow" role="group" aria-label="${esc(m.name)} times">${suppTimesOn().map(t=>`<label><input type="checkbox" data-stime="${esc(m.id)}" value="${t.id}"${suppSlotsOf(m).includes(t.id)?" checked":""}><span>${t.label}</span></label>`).join("")}</div>`:"");
   { const en=dayEnder(), bed=state.meds.filter(m=>Array.isArray(m.slots)&&m.slots.includes("bedtime")&&(!m.archived||m===en)).sort((a,b)=>a.name.localeCompare(b.name));
     const sel=document.getElementById("dayEnd");
     sel.innerHTML=`<option value="">At midnight</option>`+bed.map(m=>`<option value="${esc(m.id)}">When I check ${esc(m.name)}</option>`).join("");
@@ -3505,6 +3509,14 @@ document.getElementById("addMed").onclick=()=>openEditor("med",null);
 document.getElementById("addExtra").onclick=()=>openEditor("extra",null);
 document.getElementById("extraList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-extra]");if(b)openEditor("extra",b.dataset.editExtra)});
 document.getElementById("addSupp").onclick=()=>openEditor("supp",null);
+/* A time button on a supplement's row: at least one stays on; times hidden right now are kept */
+document.getElementById("suppList").addEventListener("change",e=>{
+  const c=e.target.closest("[data-stime]"), m=c&&suppOf(c.dataset.stime); if(!m) return;
+  const on=[...document.querySelectorAll(`[data-stime="${CSS.escape(m.id)}"]:checked`)].map(x=>x.value);
+  if(!on.length){ c.checked=true; return; }
+  const shown=suppTimesOn().map(t=>t.id);
+  m.slots=normSuppTimes([...(m.slots||[]).filter(id=>!shown.includes(id)),...on]); commit();
+});
 document.getElementById("suppList").addEventListener("click",e=>{const b=e.target.closest("[data-edit-supp]");if(b)openEditor("supp",b.dataset.editSupp)});
 document.getElementById("addSym").onclick=()=>openEditor("sym",null);
 document.getElementById("addFood").onclick=()=>openEditor("food",null);

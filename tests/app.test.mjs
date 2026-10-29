@@ -1408,7 +1408,12 @@ await test("Settings: turn on times, hide Once a day, pick each supplement's tim
   eq(await page.$$eval('#suppSlotPick input:checked', l => l.map(x => x.value)), ["morning"], "an older supplement starts in the first box");
   await page.click('#suppSlotPick input[value="bedtime"]'); await page.click('#saveItem');
   eq((await page.state()).supps.find(x => x.id === "fo").slots, ["morning", "bedtime"], "saved");
-  assert((await page.textContent("#suppList")).includes("Morning, Bedtime"), "list shows its times");
+  eq(await page.$$eval('[data-stime="fo"]:checked', l => l.map(x => x.value)), ["morning", "bedtime"], "list shows its times as buttons");
+  await page.click('[data-stime="vd"][value="lunch"]');
+  eq((await page.state()).supps.find(x => x.id === "vd").slots, ["morning", "lunch"], "a time button on the row saves it");
+  await page.click('[data-stime="vd"][value="morning"]'); await page.click('[data-stime="vd"][value="lunch"]');
+  eq((await page.state()).supps.find(x => x.id === "vd").slots, ["lunch"], "the last one stays on");
+  await page.click('[data-stime="vd"][value="morning"]'); await page.click('[data-stime="vd"][value="lunch"]');
   // A new one can't have no times
   await page.click("#addSupp"); await page.fill('input[name="name"]', "Zinc");
   await page.click('#suppSlotPick input[value="morning"]'); await page.click('#saveItem');
