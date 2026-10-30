@@ -1208,6 +1208,23 @@ await test("comments and linked symptoms: tap an Other entry, an additional med,
   eq(col("linked_symptoms"), "Tylenol → Headache; Air travel → Headache; Oatmeal (Lunch) → Nausea", "linked_symptoms column");
 }, { ...base, others: [{ id: "o1", name: "Air travel" }], hotAdded: true, extras: [{ id: "x1", name: "Tylenol" }], foods: [{ id: "f1", name: "Oatmeal" }] });
 
+await test("Possible flare: a food and an additional med can each be marked; chips show it and the export lists them", async page => {
+  await page.selectOption('select[data-pick="food"][data-meal="lunch"]', "f1");
+  await page.click('.box.meal.l-morning [data-ings="f1"]'); await page.check("#fpf"); await page.click('#fform button[type="submit"]');
+  eq((await page.state()).meals[today].lunch.fi.f1, { ings: [], pf: 1 }, "food marked");
+  eq(await page.textContent('.box.meal.l-morning [data-ings="f1"] .pf'), "Flare?", "food chip shows it");
+  await page.selectOption('select[data-pick="xmed"]', "x1");
+  await page.click(".box.l-extra button.nm"); assert(await page.isVisible("#xpfRow"), "flare row in the entry pop-up");
+  await page.check("#xpf"); await page.click('#xform button[type="submit"]');
+  eq((await page.state()).xlog[today][0].pf, 1, "additional med marked");
+  await page.click(".box.l-extra button.nm"); await page.uncheck("#xpf"); await page.click('#xform button[type="submit"]');
+  eq((await page.state()).xlog[today][0].pf, undefined, "unmarked");
+  await page.click(".box.l-extra button.nm"); await page.check("#xpf"); await page.click('#xform button[type="submit"]');
+  const col = csvRowOf(await page.evaluate(k => buildCSV(k, k), today));
+  eq(col("possible_flare_items"), "Tylenol; Oatmeal (Lunch)", "export column");
+  assert(col("additional_meds").includes("possible flare trigger"), "noted on the entry too");
+}, { ...base, extras: [{ id: "x1", name: "Tylenol" }], foods: [{ id: "f1", name: "Oatmeal" }] });
+
 await test("Flare-up checkbox in Symptoms logs a time with no symptoms; same mark as Suspected Flare; Recap and export show it", async page => {
   await page.check("[data-flare]");
   let s = await page.state();
@@ -1260,7 +1277,7 @@ await test("Overnight: Woke up now at 3:10 AM goes on last night with what woke 
   eq(await page.textContent(".box.night .lid .st"), "1 time", "count");
   const col = csvCols(await page.evaluate(k => buildCSV(k, k), EVE));
   eq(col("night_after_wakeups (times the user woke in the night after this day; blank before night tracking started)"), "1", "Monday's row has the night after it");
-  eq(col("night_after_wake_details (each wake-up: time, what woke them, body, feelings, how hard 1-5, time since each dose taken that evening, comment)"),
+  eq(col("night_after_wake_details (each wake-up: time, what woke them and which symptom, body, feelings, how hard 1-5, time since each dose taken that evening, comment)"),
     "3:10 AM (woke from: dream; body: Shaking; felt: Anxious, Teary; how hard 4/5; since last dose: Luteolin 4h 35m · Cromolyn 4h 40m · Zyrtec 6h 55m · Montelukast 9h 30m; note: up 40 min)", "details");
   await page.click("[data-wakeadd]"); await page.click("#ncancel");
   eq((await page.state()).nlog[MORN].w.length, 2, "Cancel keeps a quick wake-up with just its time");
@@ -1269,6 +1286,54 @@ await test("Overnight: Woke up now at 3:10 AM goes on last night with what woke 
   await page.click('.box.night [data-wake="0"].t'); await page.click("#nremove");
   eq((await page.state()).nlog[MORN], undefined, "Remove in the pop-up clears the night");
 }, nightSeed, { clock: new Date(2026, 9, 27, 3, 10) });
+
+await test("Wake-ups: defaults fill a new wake-up with a symptom; a single wake-up can pick its own; chip, export and Recap name it", async page => {
+  await page.click("[data-wakeadd]"); await page.waitForSelector("#ndlg[open]");
+  let w = (await page.state()).nlog[MORN].w[0];
+  eq([w.why, w.sym], ["sym", ["s2"]], "starts with the default: woken by Nausea");
+  assert(await page.isVisible("#nsym"), "symptom picker shows for Symptom");
+  eq(await page.getAttribute('#nsym [data-ns="s2"]', "aria-pressed"), "true", "default picked");
+  await page.click('#nsym [data-ns="s1"]');
+  await page.click('#nform button[type="submit"]');
+  w = (await page.state()).nlog[MORN].w[0];
+  eq(w.sym, ["s1", "s2"], "this one wake-up: Headache and Nausea");
+  assert((await page.textContent(".box.night .chip .nm")).startsWith("Headache, Nausea"), "chip names them");
+  await page.click('.box.night [data-wake="0"].nm'); await page.check('#nwhy input[value="dream"]');
+  assert(!(await page.isVisible("#nsym")), "picker hides for Dream");
+  await page.click('#nform button[type="submit"]');
+  eq((await page.state()).nlog[MORN].w[0].sym, undefined, "not woken by a symptom: none kept");
+  await page.click('.box.night [data-wake="0"].nm'); await page.check('#nwhy input[value="sym"]'); await page.click('#nsym [data-ns="s1"]');
+  await page.click('#nform button[type="submit"]');
+  const col = csvCols(await page.evaluate(k => buildCSV(k, k), EVE));
+  assert(col("night_after_wake_details (each wake-up: time, what woke them and which symptom, body, feelings, how hard 1-5, time since each dose taken that evening, comment)").startsWith("3:10 AM (woke from: symptom (Headache)"), "export");
+  await page.click('[data-tab="sum"][role="tab"]');
+  assert(/Woken by Headache1 time/.test(await page.locator("#sumBody .box", { hasText: "Overnight & dreams" }).textContent()), "Recap counts it");
+}, { ...nightSeed, wakeDef: { why: "sym", sym: ["s2"] } }, { clock: new Date(2026, 9, 27, 3, 10) });
+
+await test("Wake-ups: a symptom set to always log a wake-up adds one when noted while asleep, once; not in the day or for other symptoms", async page => {
+  await page.selectOption('select[data-pick="sym"]', "s1");
+  let s = await page.state();
+  eq(s.nlog[MORN].w.map(e => [hm(e.t), e.why, e.sym]), [[[MORN, 3, 10], "sym", ["s1"]]], "Headache at 3:10 AM logged a wake-up");
+  await page.selectOption('select[data-pick="sym"]', "s1");
+  eq((await page.state()).nlog[MORN].w.length, 1, "noting it again doesn't add another");
+  await page.selectOption('select[data-pick="sym"]', "s2");
+  eq((await page.state()).nlog[MORN].w[0].sym, ["s1"], "Nausea isn't set to wake");
+}, { ...nightSeed, wakeSyms: ["s1"] }, { clock: new Date(2026, 9, 27, 3, 10) });
+
+await test("Wake-ups: noted in the day, an always-wake symptom logs no wake-up; the Settings box sets the defaults and asleep hours", async page => {
+  await page.selectOption('select[data-pick="sym"]', "s1");
+  eq((await page.state()).nlog, {}, "2 PM is not asleep");
+  await page.click('[data-tab="set"][role="tab"]');
+  assert(await page.locator("#wakeDefSymF").isHidden(), "symptom defaults hidden until Symptom is the default");
+  await page.selectOption("#wakeDefWhy", "sym");
+  await page.click('#wakeDefSym [data-wds="s2"]'); await page.click('#wakeSymPick [data-wsy="s2"]');
+  await page.fill("#sleepFrom", "13:00"); await page.locator("#sleepFrom").dispatchEvent("change");
+  let s = await page.state();
+  eq([s.wakeDef, s.wakeSyms, s.sleepFrom, s.sleepTo], [{ why: "sym", sym: ["s2"] }, ["s1", "s2"], "13:00", "07:00"], "saved");
+  await page.click('[data-tab="today"][role="tab"]');
+  await page.selectOption('select[data-pick="sym"]', "s2");
+  eq((await page.state()).nlog[MORN].w[0].sym, ["s2"], "asleep from 1 PM: Nausea at 2 PM logged a wake-up");
+}, { ...nightSeed, wakeSyms: ["s1"] }, { clock: new Date(2026, 9, 27, 14, 0) });
 
 await test("Overnight after 6 PM shows Tonight and logs into the coming night; last night stays as a line; a past day shows the night before it", async page => {
   eq(await page.textContent('.box.night .lid .mtime'), "Tonight", "evening switches to tonight");

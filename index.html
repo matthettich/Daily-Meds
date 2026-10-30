@@ -409,6 +409,8 @@ input[type=time]:not(:disabled){cursor:pointer}
 .chip .typ{margin-left:4px;font-size:13px;color:var(--muted)}
 /* An entry's linked symptom and comment, on its chip */
 .chip .lnk{margin-left:6px;padding:0 5px;border:1px solid var(--rule);font-size:12px;line-height:18px;white-space:nowrap}
+.chip .pf{margin-left:6px;padding:0 5px;border:1px solid var(--ink);font-size:12px;line-height:18px;white-space:nowrap;font-weight:600}
+.chip button.nm .pf{margin-left:2px}
 .chip .cmt{margin-left:6px;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-style:italic;color:var(--muted)}
 .chip button.nm .lnk,.chip button.nm .cmt{margin-left:2px}
 label.f textarea{display:block;width:100%;margin-top:4px;padding:10px;border:1px solid var(--rule);border-radius:0;background:var(--white);
@@ -464,6 +466,11 @@ label.f textarea{display:block;width:100%;margin-top:4px;padding:10px;border:1px
 #nsince{margin:-4px 0 12px;font-size:13px;color:var(--muted)}
 .nwhy span{padding:8px 4px}
 .tagpick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.wkset{padding:12px 10px 0}
+.wkset .tagpick{margin:0}
+.wktimes{display:flex;gap:12px;flex-wrap:wrap}
+.wktimes label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.wktimes input{min-height:36px;border:1px solid var(--rule);border-radius:0;background:var(--white);font:inherit;font-size:14px;color:var(--ink);padding:4px 8px}
 .tagpick button{border:1px solid var(--rule);background:var(--white);padding:4px 10px;min-height:36px;font-size:14px}
 .tagpick button[aria-pressed="true"]{background:var(--ink);color:var(--white);border-color:var(--ink)}
 /* Medication changes: a line on Today on the day of a change, a mark on the Recap calendar, before/after on Recap */
@@ -658,6 +665,24 @@ body{display:flex;flex-direction:column}
         <div class="lid"><h2>Symptoms</h2><button class="act add" id="addSym">Add</button></div>
         <div id="symList"></div>
       </div>
+      <!-- Night wake-ups: what a new wake-up starts with, and symptoms that log a wake-up by themselves while you're asleep -->
+      <div class="box l-list" id="wakeBox">
+        <div class="lid"><h2>Night wake-ups</h2></div>
+        <label class="wxpick wide">New wake-ups start with<select id="wakeDefWhy"></select></label>
+        <div class="wkset" id="wakeDefSymF">
+          <p class="ilabel">Symptom a new wake-up starts with</p>
+          <div class="tagpick" id="wakeDefSym" role="group" aria-label="Symptoms a new wake-up starts with"></div>
+        </div>
+        <div class="wkset">
+          <p class="ilabel">Always log a wake-up when I note</p>
+          <div class="tagpick" id="wakeSymPick" role="group" aria-label="Symptoms that always log a wake-up"></div>
+        </div>
+        <div class="wkset wktimes">
+          <label>Asleep from<input type="time" id="sleepFrom"></label>
+          <label>to<input type="time" id="sleepTo"></label>
+        </div>
+        <p class="hint">Defaults fill in each new wake-up; you can still change any single one by tapping it. A symptom set to always log a wake-up adds one by itself when you note it during your asleep hours (or tie it to a wake-up already within 30 minutes).</p>
+      </div>
     </section>
 
     <section class="view pg-color pg-food sset lk-reg band" data-tab="set" style="display:none">
@@ -818,6 +843,7 @@ body{display:flex;flex-direction:column}
       <label class="f" id="xoptRow" style="display:none"><span>Which one</span><select id="xopt"></select></label>
       <label class="f" id="xtimeRow"><span id="xlabel">Time taken</span><input type="time" id="xtime"></label>
       <label class="f" id="xsymRow" style="display:none"><span>Linked symptom</span><select id="xsym"></select></label>
+      <label class="allday" id="xpfRow" style="display:none"><input type="checkbox" id="xpf"><span>Possible flare trigger</span></label>
       <label class="f" id="xcRow" style="display:none"><span>Comment</span><textarea id="xc" rows="2" maxlength="500" placeholder="Anything to remember about this one"></textarea></label>
       <div class="actions">
         <button type="button" class="danger" id="xremove">Remove dose</button>
@@ -878,6 +904,10 @@ body{display:flex;flex-direction:column}
       <p id="nsince"></p>
       <p class="ilabel">What woke you?</p>
       <div class="imode nwhy" role="radiogroup" aria-label="What woke you" id="nwhy"></div>
+      <div id="nsymWrap" hidden>
+        <p class="ilabel">Which symptom</p>
+        <div class="tagpick" id="nsym" role="group" aria-label="Which symptom woke you"></div>
+      </div>
       <p class="ilabel">In your body</p>
       <div class="tagpick" id="nbody" role="group" aria-label="In your body"></div>
       <p class="ilabel">Feelings</p>
@@ -945,6 +975,7 @@ body{display:flex;flex-direction:column}
       </div>
       <label class="f" id="fverRow">Version name<input id="fverName" placeholder="e.g. with banana" autocomplete="off"></label>
       <label class="f">Linked symptom<select id="fsym"></select></label>
+      <label class="allday"><input type="checkbox" id="fpf"><span>Possible flare trigger</span></label>
       <label class="f">Comment<textarea id="fc" rows="2" maxlength="500" placeholder="e.g. extra spicy, ate in a hurry"></textarea></label>
       <p class="err" id="fErr" role="alert"></p>
       <div class="actions">
@@ -1070,8 +1101,11 @@ const LATE_CUTOFF = 3;       // 3 AM: the latest a day can run past midnight whi
    ldet: {date:{"medId|slot":{o?,skip?}}} — for a checked dose: which type was taken, or skip:true when it was skipped
    (long-press). A skipped dose is checked (it counts as done) but exported as skipped.
    flare: {date:t} — when a flare-up started (the Flare-up checkbox in Symptoms; the flag itself is trig[date].syms)
-   nlog: {night:{w:[{t,why?,body?:[],feel?:[],i?,c?}],d:{v?,dis?,nm?,none?,c?}}} — wake-ups and dreams, each night keyed by
-   the morning it leads into (see "Overnight & dreams")
+   nlog: {night:{w:[{t,why?,sym?:[],body?:[],feel?:[],i?,c?}],d:{v?,dis?,nm?,none?,c?}}} — wake-ups and dreams, each night keyed by
+   the morning it leads into (see "Overnight & dreams"); sym = the symptoms that woke you (ids)
+   wakeDef: {why?,sym?:[]} — what a new wake-up starts with. wakeSyms: symptom ids that log a wake-up by themselves when
+   noted while asleep (sleepFrom–sleepTo, "HH:MM"), see wakeFromSym
+   Logged entries and a meal's food can carry pf:1 — marked as a possible flare trigger
    changes: [{id,d,txt}] — medication changes the user marked: the day (YYYY-MM-DD) and what changed
    medsOffSince: the day the medication checklist was turned off (Settings → Medications → On Today), unset while it's on.
    lastBackup: when Save backup last saved a file (ms). backupSnooze: the day the backup reminder was put off until
@@ -1102,7 +1136,7 @@ function secShown(id){ const e=state.layout.find(x=>x.id===id); return !e||e.sho
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{}, suppMode:"list", suppTimes:["once"],
   moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:defaultOthers(), olog:{}, trackOther:true, hotAdded:true, acts:[], aclog:{}, showSnacks:true, showAfter:true, trig:{}, trackTrig:true, altLook:true,
   appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, trackLoc:false, geo:{}, pollenKey:"", name:"", updated:0,
-  ldet:{}, flare:{}, nlog:{}, changes:[], medsOffSpells:[], lastBackup:0, backupSnooze:""};
+  ldet:{}, flare:{}, nlog:{}, wakeDef:{}, wakeSyms:[], sleepFrom:"22:00", sleepTo:"07:00", changes:[], medsOffSpells:[], lastBackup:0, backupSnooze:""};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
 
@@ -1228,6 +1262,8 @@ function normalize(s){
           medsOffSince:/^\d{4}-\d\d-\d\d$/.test(s.medsOffSince||"")?s.medsOffSince:undefined,
           medsOffSpells:(Array.isArray(s.medsOffSpells)?s.medsOffSpells:[]).filter(x=>Array.isArray(x)&&x.length===2&&x.every(d=>/^\d{4}-\d\d-\d\d$/.test(d))),
           nlog:normNlog(obj(s.nlog)), changes:normChanges(s.changes),
+          wakeDef:normWakeDef(s.wakeDef), wakeSyms:(Array.isArray(s.wakeSyms)?s.wakeSyms:[]).filter(x=>typeof x==="string"),
+          sleepFrom:/^\d\d:\d\d$/.test(s.sleepFrom||"")?s.sleepFrom:"22:00", sleepTo:/^\d\d:\d\d$/.test(s.sleepTo||"")?s.sleepTo:"07:00",
           updated:Number(s.updated)||0};
   normAppts(n); tidyDoses(n.meds); tidyDoses(n.extras); tidyDoses(n.supps); return n;
 }
@@ -1270,6 +1306,7 @@ function normNlog(nlog){
     const w=(Array.isArray(x.w)?x.w:[]).filter(e=>e&&realTime(e.t)).map(e=>{const r={t:e.t};
       if(ok(NIGHT_WHY,e.why)) r.why=e.why;
       for(const [f,L] of [["body",NIGHT_BODY],["feel",NIGHT_FEEL]]){ const a=(Array.isArray(e[f])?e[f]:[]).filter(k=>ok(L,k)); if(a.length) r[f]=[...new Set(a)]; }
+      const sy=(Array.isArray(e.sym)?e.sym:[]).filter(x=>typeof x==="string"); if(sy.length) r.sym=[...new Set(sy)];
       if(lv(e.i)) r.i=lv(e.i); if(txt(e.c)) r.c=txt(e.c); return r}).sort((a,b)=>a.t-b.t);
     if(w.length) o.w=w;
     if(x.d&&typeof x.d==="object"){ const d={};
@@ -1278,6 +1315,13 @@ function normNlog(nlog){
     if(Object.keys(o).length) out[n]=o;
   }
   return out;
+}
+/* Wake-up defaults: what a new wake-up starts with (why, and which symptoms) */
+function normWakeDef(v){
+  const o={}; if(!v||typeof v!=="object") return o;
+  if(NIGHT_WHY.some(x=>x[0]===v.why)) o.why=v.why;
+  const sy=(Array.isArray(v.sym)?v.sym:[]).filter(x=>typeof x==="string"); if(sy.length) o.sym=[...new Set(sy)];
+  return o;
 }
 function normChanges(L){
   return (Array.isArray(L)?L:[]).filter(c=>c&&/^\d{4}-\d\d-\d\d$/.test(c.d)&&typeof c.txt==="string"&&c.txt.trim())
@@ -1445,16 +1489,17 @@ function symOptions(cur){
   const syms=state.symptoms.filter(x=>!x.archived||x.id===cur).sort((a,b)=>a.name.localeCompare(b.name));
   return `<option value="">None</option>`+syms.map(x=>`<option value="${esc(x.id)}"${x.id===cur?" selected":""}>${esc(x.name)}</option>`).join("");
 }
+const PF_TAG=`<span class="pf" title="Possible flare trigger">Flare?</span>`;
 function entryTags(e){
   const sn=symName(e&&e.sym), c=e&&e.c;
-  return (sn?`<span class="lnk" title="Linked symptom">→ ${esc(sn)}</span>`:"")+(c?`<span class="cmt" title="${esc(c)}">${esc(c)}</span>`:"");
+  return (e&&e.pf?PF_TAG:"")+(sn?`<span class="lnk" title="Linked symptom">→ ${esc(sn)}</span>`:"")+(c?`<span class="cmt" title="${esc(c)}">${esc(c)}</span>`:"");
 }
 /* The same for a chip standing for several entries (an activity done twice): each linked symptom once, the latest comment */
 function groupTags(L){
   const syms=[...new Set(L.map(e=>symName(e.sym)).filter(Boolean))], c=[...L].reverse().map(e=>e.c).find(Boolean);
-  return syms.map(n=>`<span class="lnk" title="Linked symptom">→ ${esc(n)}</span>`).join("")+(c?`<span class="cmt" title="${esc(c)}">${esc(c)}</span>`:"");
+  return (L.some(e=>e.pf)?PF_TAG:"")+syms.map(n=>`<span class="lnk" title="Linked symptom">→ ${esc(n)}</span>`).join("")+(c?`<span class="cmt" title="${esc(c)}">${esc(c)}</span>`:"");
 }
-function entryNote(e){const sn=symName(e&&e.sym), p=[sn?"linked to "+sn:"",e&&e.c?"note: "+e.c:""].filter(Boolean);return p.length?" ("+p.join("; ")+")":""}
+function entryNote(e){const sn=symName(e&&e.sym), p=[e&&e.pf?"possible flare trigger":"",sn?"linked to "+sn:"",e&&e.c?"note: "+e.c:""].filter(Boolean);return p.length?" ("+p.join("; ")+")":""}
 function xdoses(date){return (state.xlog[date]||[]).filter(e=>anyMed(e.id))}
 function suppOf(id){return state.supps.find(x=>x.id===id)}
 function sdoses(date){return (state.suplog[date]||[]).filter(e=>suppOf(e.id))}
@@ -1553,7 +1598,7 @@ function evBox(kind){
   const E=EVLOGS[kind], hits=evHits(kind,viewDate), ap=kind==="appt";
   /* One chip per item; for appointments, one per item and practitioner */
   /* Entries with their own type, linked symptom or comment get their own chip */
-  const groups=new Map(); for(const e of hits){ const key=[e.id,ap?e.w||"":"",e.o||"",e.sym||"",e.c||""].join("|"), g=groups.get(key); if(g){g.n++;g.last=e} else groups.set(key,{n:1,last:e}) }
+  const groups=new Map(); for(const e of hits){ const key=[e.id,ap?e.w||"":"",e.o||"",e.sym||"",e.pf?1:"",e.c||""].join("|"), g=groups.get(key); if(g){g.n++;g.last=e} else groups.set(key,{n:1,last:e}) }
   const items=state[E.items].filter(m=>activeOn(m,viewDate)).sort((a,b)=>a.name.localeCompare(b.name));
   /* An appointment with practitioners is picked as "Therapy · Dr. Lee" (value id|who) */
   const opts=m=>{const ws=ap?whoLive(m):[];
@@ -1616,11 +1661,30 @@ function nightTime(n,v){ const h=+v.slice(0,2), mi=+v.slice(3,5), d=parseKey(h>=
 function wakeStamp(n){ const now=Date.now(); return nightOf(now)===n?now:nightTime(n,"03:00"); }
 function nlabel(L,k){ return (L.find(x=>x[0]===k)||[])[1]||""; }
 function wakeTags(e){ return [...(e.feel||[]).map(k=>nlabel(NIGHT_FEEL,k)),...(e.body||[]).map(k=>nlabel(NIGHT_BODY,k))]; }
-/* "Dream, Teary +2" on a wake-up's chip; the pop-up and export have everything */
+/* The symptoms that woke you, by name ("Itching, Cough"); empty when none are picked */
+function wakeSymNames(e){ return (e.sym||[]).map(symName).filter(Boolean); }
+/* "Dream, Teary +2" or "Itching, Teary" on a wake-up's chip; the pop-up and export have everything */
 function wakeShort(e){
-  const why=e.why==="dream"||e.why==="sym"?nlabel(NIGHT_WHY,e.why):"", tags=wakeTags(e), room=why?1:2;
+  const sn=wakeSymNames(e).join(", ");
+  const why=e.why==="sym"&&sn?sn:e.why==="dream"||e.why==="sym"?nlabel(NIGHT_WHY,e.why):"", tags=wakeTags(e), room=why?1:2;
   const p=[why,...tags.slice(0,room)].filter(Boolean), more=tags.length-room;
   return p.length?p.join(", ")+(more>0?" +"+more:""):"Woke up";
+}
+/* Asleep hours (Settings → Symptoms → Night wake-ups): is time t between sleepFrom and sleepTo, across midnight? */
+function asleepAt(t){
+  const d=new Date(t), m=d.getHours()*60+d.getMinutes(), mm=v=>+v.slice(0,2)*60+ +v.slice(3,5);
+  const a=mm(state.sleepFrom||"22:00"), b=mm(state.sleepTo||"07:00");
+  return a<=b?m>=a&&m<b:m>=a||m<b;
+}
+/* A symptom set to "always logs a wake-up", noted at time t while asleep, logs a wake-up woken by it. A wake-up already
+   within 30 minutes takes the symptom instead, so logging it twice (or changing its time) doesn't add another.
+   Returns true when a wake-up was added or changed. */
+function wakeFromSym(id,t){
+  if(!state.wakeSyms.includes(id)||!realTime(t)||!asleepAt(t)) return false;
+  const n=nightOf(t), r=nightRec(n), L=r.w||(r.w=[]), near=L.find(e=>Math.abs(e.t-t)<=30*60000);
+  if(near){ if((near.sym||[]).includes(id)) return false;
+    near.sym=[...(near.sym||[]),id]; if(!near.why||near.why==="none"||near.why==="unsure") near.why="sym"; return true; }
+  L.push({t,why:"sym",sym:[id]}); L.sort((a,b)=>a.t-b.t); return true;
 }
 /* What was taken from 3 PM the evening before night n until `upto` (5 AM that morning unless given): regular doses
    (not skipped), additional medication and supplements, with their times, in time order */
@@ -1986,6 +2050,7 @@ function render(){
   for(const c of document.querySelectorAll("#suppTimePick input")) c.checked=state.suppTimes.includes(c.value);
   document.getElementById("showSnacks").checked=state.showSnacks;
   document.getElementById("trackTrig").checked=state.trackTrig;
+  renderWakeSet();
   document.getElementById("altLook").checked=state.altLook;
   document.getElementById("showAfter").checked=state.showAfter;
   document.getElementById("trackSmells").checked=state.trackSmells;
@@ -2226,7 +2291,7 @@ function renderSummary(){
         nights++; const W=wakes(k), d=dreamOf(k);
         if(W.length) withW++; total+=W.length;
         for(const e of W){ const h=new Date(e.t).getHours(); hours.set(h,(hours.get(h)||0)+1); if(e.why) why[e.why]=(why[e.why]||0)+1;
-          for(const t of wakeTags(e)) tags.set(t,(tags.get(t)||0)+1); }
+          for(const t of [...(e.why==="sym"?wakeSymNames(e).map(x=>"Woken by "+x):[]),...wakeTags(e)]) tags.set(t,(tags.get(t)||0)+1); }
         if(d.v>=4) vivid++; if(d.dis) dis++; if(d.nm) nmr++;
       }
       const pct=x=>nights?Math.round(x/nights*100):0, top=[...hours].sort((x,y)=>y[1]-x[1]||x[0]-y[0])[0];
@@ -2276,7 +2341,7 @@ function renderSummary(){
   const yr=P.start.slice(0,4);
   html+=`<div class="box l-list"><div class="lid">Export for AI</div>
     <p class="hint">A spreadsheet with one row per day: each dose taken (with its time), doses missed, additional medication, supplements, symptoms (how many times and how strong), each meal's foods and restaurant, mood, smells and other things, activities (minutes and exertion), appointments, weather, air quality, pollen, your notes, medication changes, and the night after each day (wake-ups, how you felt, dreams). Upload it to an AI assistant and ask something like:</p>
-    <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses, moods, harder activities, pressure changes, air quality or pollen line up with symptoms? Do night-time wake-ups or nightmares follow certain evening doses, or change after a medication change? The suspected_triggers column is what I thought set off my symptoms, and suspected_flare marks days I thought were a flare-up; does the data back that up?"</p>
+    <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses, moods, harder activities, pressure changes, air quality or pollen line up with symptoms? Do night-time wake-ups or nightmares follow certain evening doses, or change after a medication change? The suspected_triggers column is what I thought set off my symptoms, suspected_flare marks days I thought were a flare-up, and possible_flare_items lists single foods and things I suspected; does the data back that up?"</p>
     <div class="backup-btns"><button class="ghost" data-export="year">Download ${esc(yr)}</button><button class="ghost" data-export="all">Download everything</button></div>
     <p class="hint" id="exportMsg" role="status"></p></div>`;
   body.innerHTML=html;
@@ -2735,7 +2800,8 @@ todayCol.addEventListener("click",e=>{
     if(rmw){ wakes(nn).splice(+rmw.dataset.rmwake,1); tidyNight(nn); commit(); return; }
     if(e.target.closest("[data-wakeadd]")){
       const r=nightRec(nn), L=r.w||(r.w=[]), t=wakeStamp(nn);
-      L.push({t}); L.sort((a,b)=>a.t-b.t); commit();
+      const def=state.wakeDef||{}, why=def.why||((def.sym||[]).length?"sym":""), sy=why==="sym"?(def.sym||[]).filter(id=>state.symptoms.some(x=>x.id===id&&!x.archived)):[];
+      L.push({t,...(why?{why}:{}),...(sy.length?{sym:sy}:{})}); L.sort((a,b)=>a.t-b.t); commit();
       openWake(nn,L.findIndex(x=>x.t===t)); return;   // logged already; the pop-up is for details, and Cancel keeps it
     }
     if(dv){ const r=nightRec(nn), d=r.d||(r.d={}), v=+dv.dataset.dv;
@@ -2857,7 +2923,7 @@ function symLabel(v){ return v===ALLDAY ? "All day" : realTime(v) ? fmtTime(v) :
 function sortSym(list){ return list.sort((a,b)=>symSortKey(a.t)-symSortKey(b.t)); }
 function symList(date,id){ return ((state.slog[date]||{})[id])||[]; }
 function symMax(list){ const v=list.map(e=>e.i).filter(Boolean); return v.length?Math.max(...v):0; }
-function logSym(date,id){ const d=state.slog[date]||(state.slog[date]={}); sortSym((d[id]||(d[id]=[]))).push({t:stampFor(date)}); sortSym(d[id]); }
+function logSym(date,id){ const d=state.slog[date]||(state.slog[date]={}), t=stampFor(date); sortSym((d[id]||(d[id]=[]))).push({t}); sortSym(d[id]); wakeFromSym(id,t); }
 function tidySyms(date){
   const d=state.slog[date]; if(!d) return;
   for(const [id,l] of Object.entries(d)) if(!Array.isArray(l)||!l.length) delete d[id];
@@ -2872,7 +2938,7 @@ function symText(name,list){
 const xdlg=document.getElementById("xdlg"); let xedit=null;
 function openTimeDialog(title,label,removeText,t,allDay){
   const d=new Date(realTime(t)?t:Date.now());
-  for(const id of ["xwhoRow","xoptRow","xsymRow","xcRow"]) document.getElementById(id).style.display="none";
+  for(const id of ["xwhoRow","xoptRow","xsymRow","xpfRow","xcRow"]) document.getElementById(id).style.display="none";
   document.getElementById("xnote").hidden=true;
   document.getElementById("xalldayRow").style.display = allDay===undefined ? "none" : "";
   document.getElementById("xallday").checked = !!allDay;
@@ -2903,6 +2969,7 @@ function showEntryExtras(item,e,{type=true,link=true}={}){
   const sel=document.getElementById("xsym");
   sel.innerHTML=symOptions(e.sym); sel.value=symName(e.sym)?e.sym:"";
   document.getElementById("xc").value=e.c||"";
+  document.getElementById("xpf").checked=!!e.pf; document.getElementById("xpfRow").style.display="";
   document.getElementById("xsymRow").style.display=""; document.getElementById("xcRow").style.display="";
 }
 function readEntryExtras(e){
@@ -2912,6 +2979,7 @@ function readEntryExtras(e){
   const v=document.getElementById("xsym").value, c=document.getElementById("xc").value.trim().slice(0,500);
   if(v) e.sym=v; else delete e.sym;
   if(c) e.c=c; else delete e.c;
+  if(document.getElementById("xpf").checked) e.pf=1; else delete e.pf;
 }
 function openFlareTime(date){
   if(!isTrig(date,"syms")) return;
@@ -3030,7 +3098,7 @@ function openSymDetail(date,id){
 function openActDetail(date,id,o=""){
   const x=evOf("act",id); if(!x) return;
   /* An activity with types (Walk → hike, treadmill): this pop-up holds the times of one type */
-  sedit={kind:"act",date,id,o,list:(state.aclog[date]||[]).filter(e=>e.id===id&&(e.o||"")===o).map(e=>({t:e.t,i:e.x,min:e.min,c:e.c,sym:e.sym}))};
+  sedit={kind:"act",date,id,o,list:(state.aclog[date]||[]).filter(e=>e.id===id&&(e.o||"")===o).map(e=>({t:e.t,i:e.x,min:e.min,c:e.c,sym:e.sym,pf:e.pf}))};
   if(!sedit.list.length) sedit.list.push({t:stampFor(date)});
   document.getElementById("sdlgTitle").textContent=x.name+(optOf(x,o)?" · "+optLabel(optOf(x,o)):"");
   renderSymDetail(); sdlg.showModal(); sdlg.querySelector('[type="submit"]').focus();
@@ -3047,6 +3115,7 @@ function renderSymDetail(){
     <div class="scale" role="group" aria-label="${act?"Exertion, 1 easy to 10 all-out":"Intensity, 1 mild to 10 severe"}">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button type="button" style="--i:${n}" data-oi="${i}" data-lv="${n}" aria-pressed="${e.i===n}">${n}</button>`).join("")}</div>
     <div class="scalelab">${act?"<span>Easy</span><span>All-out</span>":"<span>Mild</span><span>Severe</span>"}</div>
     ${act?`<label class="f occf">Linked symptom<select data-osym="${i}">${symOptions(e.sym)}</select></label>
+    <label class="allday occf"><input type="checkbox" data-opf="${i}" ${e.pf?"checked":""}><span>Possible flare trigger</span></label>
     <label class="f occf">Comment<input data-oc="${i}" value="${esc(e.c||"")}" maxlength="500" autocomplete="off" placeholder="Where, how it went…"></label>`:""}
   </div>`).join("") || `<p class="hint" style="margin:0 0 12px">All removed. Save to clear this ${act?"activity":"symptom"} from the day.</p>`;
 }
@@ -3060,6 +3129,7 @@ function readSymTimes(){
     if(n>=1&&n<=1440) e.min=n; else delete e.min;
   }
   for(const sel of sdlg.querySelectorAll("[data-osym]")){ const e=sedit.list[+sel.dataset.osym]; if(e){ if(sel.value) e.sym=sel.value; else delete e.sym; } }
+  for(const cb of sdlg.querySelectorAll("[data-opf]")){ const e=sedit.list[+cb.dataset.opf]; if(e){ if(cb.checked) e.pf=1; else delete e.pf; } }
   for(const inp of sdlg.querySelectorAll("[data-oc]")){ const e=sedit.list[+inp.dataset.oc], c=inp.value.trim().slice(0,500); if(e){ if(c) e.c=c; else delete e.c; } }
 }
 sdlg.addEventListener("click",e=>{
@@ -3082,12 +3152,13 @@ document.getElementById("sform").addEventListener("submit",ev=>{
   readSymTimes();
   if(sedit.kind==="act"){
     const {date,id,o}=sedit, rest=(state.aclog[date]||[]).filter(e=>!(e.id===id&&(e.o||"")===o));
-    const L=[...rest,...sedit.list.map(e=>({id,t:e.t,...(o?{o}:{}),...(e.i?{x:e.i}:{}),...(e.min?{min:e.min}:{}),...(e.sym?{sym:e.sym}:{}),...(e.c?{c:e.c}:{})}))].sort((a,b)=>a.t-b.t);
+    const L=[...rest,...sedit.list.map(e=>({id,t:e.t,...(o?{o}:{}),...(e.i?{x:e.i}:{}),...(e.min?{min:e.min}:{}),...(e.sym?{sym:e.sym}:{}),...(e.pf?{pf:1}:{}),...(e.c?{c:e.c}:{})}))].sort((a,b)=>a.t-b.t);
     if(L.length) state.aclog[date]=L; else delete state.aclog[date];
     sdlg.close(); commit(); return;
   }
   const d=state.slog[sedit.date]||(state.slog[sedit.date]={});
   d[sedit.id]=sortSym(sedit.list.map(e=>e.i?{t:e.t,i:e.i}:{t:e.t}));
+  for(const e of d[sedit.id]) wakeFromSym(sedit.id,e.t);
   tidySyms(sedit.date); sdlg.close(); commit();
 });
 function syncAllDay(){
@@ -3119,7 +3190,7 @@ document.getElementById("xform").addEventListener("submit",ev=>{
   if(se&&document.getElementById("xallday").checked){ se.t=ALLDAY; sortSym(symList(xedit.date,xedit.id)); }
   else if(/^\d\d:\d\d/.test(v)){
     const at=old=>timeOn(xedit.date,v,old);   // a small-hours time can belong to that night (see "end of day")
-    if(xedit.kind==="sym"){ if(se){ se.t=at(se.t); sortSym(symList(xedit.date,xedit.id)); } }
+    if(xedit.kind==="sym"){ if(se){ se.t=at(se.t); sortSym(symList(xedit.date,xedit.id)); wakeFromSym(xedit.id,se.t); } }
     else if(xedit.kind==="med"){ const day=state.log[xedit.date]; if(day&&day[xedit.k]) day[xedit.k]=at(day[xedit.k]); }
     else if(xedit.kind==="flare"){ if(isTrig(xedit.date,"syms")) state.flare[xedit.date]=at(state.flare[xedit.date]); }
     else if(xedit.kind==="mood"){ if((((state.mlog[xedit.date]||{})[xedit.mt])||[]).includes(xedit.id)){ const day=state.mtlog[xedit.date]||(state.mtlog[xedit.date]={}), o=day[xedit.mt]||(day[xedit.mt]={}); o[xedit.id]=at(o[xedit.id]); } }
@@ -3173,7 +3244,7 @@ const COPY={
       const d=state.meals[to]||(state.meals[to]={}), m={foods:[...p.foods]};
       if(p.place) m.place=p.place;
       if(p.foods.length) m.ft=Object.fromEntries(p.foods.map(id=>[id,t]));
-      const fi={}; for(const id of new Set(p.foods)) if(p.fi[id]){ const {c,sym,...rest}=JSON.parse(JSON.stringify(p.fi[id])); if(rest.v||(rest.ings||[]).length) fi[id]=rest; }   // comments and linked symptoms stay with their day
+      const fi={}; for(const id of new Set(p.foods)) if(p.fi[id]){ const {c,sym,pf,...rest}=JSON.parse(JSON.stringify(p.fi[id])); if(rest.v||(rest.ings||[]).length) fi[id]=rest; }   // comments and linked symptoms stay with their day
       if(Object.keys(fi).length) m.fi=fi;
       d[k]=m; tidyMeals(to); return p.foods.length; }},
   mood:{what:"Moods", q:"When did you feel this way?", time:"Time felt", logs:["mlog","mtlog","mxlog"], box:k=>MOODTIMES.find(x=>x.id===k).label,
@@ -3376,6 +3447,7 @@ function openIngredients(date,meal,id){
   document.getElementById("fsym").innerHTML=symOptions(fe.sym);
   document.getElementById("fsym").value=symName(fe.sym)?fe.sym:"";
   document.getElementById("fc").value=fe.c||"";
+  document.getElementById("fpf").checked=!!fe.pf;
   renderIngs(); fdlg.showModal();
 }
 function renderIngs(){
@@ -3432,8 +3504,8 @@ document.getElementById("fform").addEventListener("submit",ev=>{
     /* Logged once: still counts as the chosen version if its ingredients weren't changed */
     const v=verOf(f,vid); if(!v||!sameIngs(v.ings,fedit.ings)) vid=null;
   }
-  const fi=m.fi||(m.fi={}), c=document.getElementById("fc").value.trim().slice(0,500), sym=document.getElementById("fsym").value;
-  if(fedit.ings.length||vid||sym||c) fi[fedit.id]={...(vid?{v:vid}:{}),ings:[...fedit.ings],...(sym?{sym}:{}),...(c?{c}:{})}; else delete fi[fedit.id];
+  const fi=m.fi||(m.fi={}), c=document.getElementById("fc").value.trim().slice(0,500), sym=document.getElementById("fsym").value, pf=document.getElementById("fpf").checked;
+  if(fedit.ings.length||vid||sym||c||pf) fi[fedit.id]={...(vid?{v:vid}:{}),ings:[...fedit.ings],...(sym?{sym}:{}),...(pf?{pf:1}:{}),...(c?{c}:{})}; else delete fi[fedit.id];
   tidyMeals(fedit.date); fdlg.close(); commit();
 });
 todayCol.addEventListener("change",async e=>{
@@ -3587,12 +3659,22 @@ function onDreamInput(ta){
 const ndlg=document.getElementById("ndlg"); let nedit=null;
 function nsince(){ const s=sinceText(nedit.n,nedit.e.t); document.getElementById("nsince").textContent=s?"Since last dose: "+s:""; }
 function nlvlLabel(){ const i=nedit.e.i; document.getElementById("nlvlLab").innerHTML="How hard was it"+(i?": <b>"+i+"</b> of 5":""); }
+/* Which symptom woke you: your symptom list (archived ones only if this wake-up already has them), shown when
+   "Symptom" is picked; picking one picks "Symptom" too */
+function renderNsym(){
+  const cur=nedit.e.sym, L=state.symptoms.filter(x=>!x.archived||cur.includes(x.id)).sort((a,b)=>a.name.localeCompare(b.name));
+  const why=(ndlg.querySelector('[name="nwhy"]:checked')||{}).value;
+  document.getElementById("nsym").innerHTML=L.length?L.map(x=>`<button type="button" data-ns="${esc(x.id)}" aria-pressed="${cur.includes(x.id)}">${esc(x.name)}</button>`).join("")
+    :`<span class="none">Add symptoms in Settings → Symptoms</span>`;
+  document.getElementById("nsymWrap").hidden=why!=="sym";
+}
 function openWake(n,i){
   const e=wakes(n)[i]; if(!e) return;
-  nedit={n,i,e:{...e,body:[...(e.body||[])],feel:[...(e.feel||[])]}};
+  nedit={n,i,e:{...e,sym:[...(e.sym||[])],body:[...(e.body||[])],feel:[...(e.feel||[])]}};
   document.getElementById("ndlgTitle").textContent="Woke up · "+nightName(n);
   document.getElementById("ntime").value=hhmm(e.t);
   document.getElementById("nwhy").innerHTML=NIGHT_WHY.map(([k,l])=>`<label><input type="radio" name="nwhy" value="${k}" ${e.why===k?"checked":""}><span>${esc(l)}</span></label>`).join("");
+  renderNsym();
   document.getElementById("nbody").innerHTML=NIGHT_BODY.map(([k,l])=>`<button type="button" data-nb="${k}" aria-pressed="${nedit.e.body.includes(k)}">${esc(l)}</button>`).join("");
   document.getElementById("nfeel").innerHTML=NIGHT_FEEL.map(([k,l])=>`<button type="button" data-nf="${k}" aria-pressed="${nedit.e.feel.includes(k)}">${esc(l)}</button>`).join("");
   document.getElementById("nlvl").innerHTML=[1,2,3,4,5].map(v=>`<button type="button" style="--i:${v*2}" data-nl="${v}" aria-pressed="${e.i===v}">${v}</button>`).join("");
@@ -3603,8 +3685,10 @@ function openWake(n,i){
 }
 ndlg.addEventListener("click",ev=>{
   if(!nedit) return;
-  const b=ev.target.closest("[data-nb],[data-nf],[data-nl]"); if(!b) return;
+  const b=ev.target.closest("[data-nb],[data-nf],[data-nl],[data-ns]"); if(!b) return;
   const e=nedit.e;
+  if(b.dataset.ns){ const k=b.dataset.ns, j=e.sym.indexOf(k); if(j>=0) e.sym.splice(j,1); else e.sym.push(k);
+    b.setAttribute("aria-pressed",String(j<0)); return; }
   if(b.dataset.nl){ const v=+b.dataset.nl; if(e.i===v) delete e.i; else e.i=v;
     for(const x of ndlg.querySelectorAll("[data-nl]")) x.setAttribute("aria-pressed",String(+x.dataset.nl===e.i));
     nlvlLabel(); return; }
@@ -3612,6 +3696,7 @@ ndlg.addEventListener("click",ev=>{
   if(j>=0) a.splice(j,1); else a.push(k);
   b.setAttribute("aria-pressed",String(j<0));
 });
+ndlg.addEventListener("change",ev=>{ if(nedit&&ev.target.name==="nwhy") renderNsym(); });
 document.getElementById("ntime").addEventListener("change",()=>{
   const v=document.getElementById("ntime").value;
   if(nedit&&/^\d\d:\d\d/.test(v)){ nedit.e.t=nightTime(nedit.n,v); nsince(); }
@@ -3624,6 +3709,7 @@ document.getElementById("nform").addEventListener("submit",ev=>{
   const why=(ndlg.querySelector('[name="nwhy"]:checked')||{}).value, c=document.getElementById("nc").value.trim().slice(0,500);
   const out={t:e.t};
   if(why) out.why=why;
+  if(why==="sym"){ const sy=state.symptoms.map(x=>x.id).filter(id=>e.sym.includes(id)); if(sy.length) out.sym=sy; }
   /* kept in the order the pop-up lists them */
   const body=NIGHT_BODY.map(x=>x[0]).filter(k=>e.body.includes(k)), feel=NIGHT_FEEL.map(x=>x[0]).filter(k=>e.feel.includes(k));
   if(body.length) out.body=body; if(feel.length) out.feel=feel;
@@ -3697,6 +3783,32 @@ document.getElementById("suppTimePick").addEventListener("change",e=>{
 });
 for(const id of ["showSnacks","showAfter","trackTrig","altLook"]) document.getElementById(id).addEventListener("change",e=>{state[id]=e.target.checked;commit()});
 document.getElementById("showYearCal").addEventListener("change",e=>{state.showYearCal=e.target.checked;commit()});
+/* Settings → Symptoms → Night wake-ups */
+function renderWakeSet(){
+  const def=state.wakeDef||{}, live=state.symptoms.filter(x=>!x.archived).sort((a,b)=>a.name.localeCompare(b.name));
+  const sel=document.getElementById("wakeDefWhy");
+  sel.innerHTML=`<option value="">Nothing picked</option>`+NIGHT_WHY.map(([k,l])=>`<option value="${k}">${esc(l)}</option>`).join("");
+  sel.value=def.why||"";
+  const pick=(on,attr)=>live.length?live.map(x=>`<button type="button" ${attr}="${esc(x.id)}" aria-pressed="${on.includes(x.id)}">${esc(x.name)}</button>`).join("")
+    :`<span class="hint" style="padding:0">Add symptoms above first.</span>`;
+  document.getElementById("wakeDefSym").innerHTML=pick(def.sym||[],"data-wds");
+  document.getElementById("wakeDefSymF").hidden=def.why!=="sym";
+  document.getElementById("wakeSymPick").innerHTML=pick(state.wakeSyms,"data-wsy");
+  document.getElementById("sleepFrom").value=state.sleepFrom||"22:00";
+  document.getElementById("sleepTo").value=state.sleepTo||"07:00";
+}
+document.getElementById("wakeDefWhy").addEventListener("change",e=>{
+  const d={...(state.wakeDef||{})}; if(e.target.value) d.why=e.target.value; else delete d.why;
+  if(d.why!=="sym") delete d.sym; state.wakeDef=d; commit();
+});
+document.getElementById("wakeBox").addEventListener("click",e=>{
+  const b=e.target.closest("[data-wds],[data-wsy]"); if(!b) return;
+  if(b.dataset.wds){ const d={...(state.wakeDef||{})}, L=[...(d.sym||[])], j=L.indexOf(b.dataset.wds);
+    if(j>=0) L.splice(j,1); else L.push(b.dataset.wds); if(L.length) d.sym=L; else delete d.sym; state.wakeDef=d; }
+  else { const L=state.wakeSyms, j=L.indexOf(b.dataset.wsy); if(j>=0) L.splice(j,1); else L.push(b.dataset.wsy); }
+  commit();
+});
+for(const id of ["sleepFrom","sleepTo"]) document.getElementById(id).addEventListener("change",e=>{ if(/^\d\d:\d\d/.test(e.target.value)){ state[id]=e.target.value.slice(0,5); commit(); } });
 document.getElementById("dayEnd").addEventListener("change",e=>{state.dayEnd=e.target.value;commit();checkRollover()});
 document.getElementById("addOther").onclick=()=>openEditor("other",null);
 document.getElementById("addAct").onclick=()=>openEditor("act",null);
@@ -4013,6 +4125,16 @@ function linkedText(k){
     for(const [id,fe] of Object.entries(m.fi||{})){ const f=state.foods.find(x=>x.id===id), sn=symName(fe.sym), v=f&&verOf(f,fe.v); if(f&&sn) out.push(f.name+(v?" · "+v.name:"")+" ("+ml.label+") → "+sn); } }
   return [...new Set(out)].join("; ");
 }
+/* "Rice · jasmine (Dinner); Smoke; Tylenol": each item the user marked as a possible flare trigger on day k */
+function pfText(k){
+  const out=[], det=state.ldet[k]||{};
+  for(const [key,d] of Object.entries(det)){ const m=d&&d.pf&&anyMed(key.split("|")[0]); if(m) out.push(m.name+(optOf(m,d.o)?" · "+optOf(m,d.o).name:"")); }
+  for(const e of state.xlog[k]||[]){ const m=anyMed(e.id); if(m&&e.pf) out.push(m.name+(optOf(m,e.o)?" · "+optOf(m,e.o).name:"")); }
+  for(const kind of ["supp","smell","other","act","appt"]) for(const e of evHits(kind,k)) if(e.pf) out.push(evName(kind,e));
+  for(const ml of MEALS){ const m=(state.meals[k]||{})[ml.id]; if(!m) continue;
+    for(const [id,fe] of Object.entries(m.fi||{})){ const f=state.foods.find(x=>x.id===id), v=f&&verOf(f,fe.v); if(f&&fe.pf) out.push(f.name+(v?" · "+v.name:"")+" ("+ml.label+")"); } }
+  return [...new Set(out)].join("; ");
+}
 function buildCSV(start,end){
   const q=v=>{v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   const nameOf=(list,id)=>(list.find(x=>x.id===id)||{}).name;
@@ -4020,7 +4142,7 @@ function buildCSV(start,end){
   const places=[...state.places].sort((a,b)=>a.name.localeCompare(b.name));
   const acts=[...state.acts].sort((a,b)=>a.name.localeCompare(b.name));
   /* "Walk x2 at 2:00 PM (30 min, exertion 6/10), 6:15 PM" */
-  const actText=(m,L)=>m.name+(optOf(m,L[0].o)?" ("+optLabel(optOf(m,L[0].o))+")":"")+(L.length>1?" x"+L.length:"")+" at "+L.map(e=>{const sn=symName(e.sym), d=[e.min?e.min+" min":"",e.x?"exertion "+e.x+"/10":"",sn?"linked to "+sn:"",e.c?"note: "+e.c:""].filter(Boolean).join(", ");return fmtTime(e.t)+(d?" ("+d+")":"")}).join(", ");
+  const actText=(m,L)=>m.name+(optOf(m,L[0].o)?" ("+optLabel(optOf(m,L[0].o))+")":"")+(L.length>1?" x"+L.length:"")+" at "+L.map(e=>{const sn=symName(e.sym), d=[e.min?e.min+" min":"",e.x?"exertion "+e.x+"/10":"",e.pf?"possible flare trigger":"",sn?"linked to "+sn:"",e.c?"note: "+e.c:""].filter(Boolean).join(", ");return fmtTime(e.t)+(d?" ("+d+")":"")}).join(", ");
   /* "Antihistamine (Allegra 180 mg)": a med or supplement with its type, else its own dose */
   const withDose=(m,o)=>m.name+(o?" ("+optLabel(o)+")":m.dose?" ("+m.dose+")":"");
   const schedAll=state.meds.flatMap(m=>m.slots.map(sl=>({m,sl,key:m.id+"|"+sl,label:m.name+" ("+(SLOTS.find(x=>x.id===sl)||{}).label+")"})));
@@ -4039,10 +4161,11 @@ function buildCSV(start,end){
     "suspected_flare (1 = the user marked this day as a possible flare-up of their condition)",
     "flare_time (when the flare-up started)",
     "linked_symptoms (things the user connected to a symptom that day: item → symptom)",
+    "possible_flare_items (individual foods, doses and other things the user marked as a possible flare trigger)",
     "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells_other","notes_activity","notes_appointments","notes_supplements",
     "medication_changes (changes the user marked on this day)",
     "night_after_wakeups (times the user woke in the night after this day; blank before night tracking started)",
-    "night_after_wake_details (each wake-up: time, what woke them, body, feelings, how hard 1-5, time since each dose taken that evening, comment)",
+    "night_after_wake_details (each wake-up: time, what woke them and which symptom, body, feelings, how hard 1-5, time since each dose taken that evening, comment)",
     "night_after_dream_vividness (1 faint to 5 very vivid)","night_after_disturbing_dream (1 = yes)","night_after_nightmare (1 = yes)",
     "night_after_no_dreams_remembered (1 = yes)","night_after_dream_note"];
   const f0=firstNight();
@@ -4094,12 +4217,13 @@ function buildCSV(start,end){
       isTrig(k,"syms")?1:0,
       isTrig(k,"syms")&&realTime(state.flare[k])?fmtTime(state.flare[k]):"",
       linkedText(k),
+      pfText(k),
       MEALS.filter(m=>typed[m.id]).map(m=>m.label+": "+typed[m.id]).join(" | "),
       state.notes[k]||"",...["food","meds","syms","mood","smell","act","appt","supp"].map(n=>(state.pnotes[n]||{})[k]||""),
       changesOn(k).map(c=>c.txt).join("; "),
       /* The night after this day, next to this evening's doses */
       ...(()=>{const n=shiftKey(k,1), W=wakes(n), d=dreamOf(n), on=f0&&n>=f0&&n<=tk;
-        const det=e=>{const s=sinceText(n,e.t), p=[e.why?"woke from: "+nlabel(NIGHT_WHY,e.why).toLowerCase():"",
+        const det=e=>{const s=sinceText(n,e.t), sn=wakeSymNames(e), p=[e.why?"woke from: "+nlabel(NIGHT_WHY,e.why).toLowerCase()+(e.why==="sym"&&sn.length?" ("+sn.join(", ")+")":""):"",
             (e.body||[]).length?"body: "+e.body.map(x=>nlabel(NIGHT_BODY,x)).join(", "):"",(e.feel||[]).length?"felt: "+e.feel.map(x=>nlabel(NIGHT_FEEL,x)).join(", "):"",
             e.i?"how hard "+e.i+"/5":"",s?"since last dose: "+s:"",e.c?"note: "+e.c:""].filter(Boolean);
           return fmtTime(e.t)+(p.length?" ("+p.join("; ")+")":"")};
