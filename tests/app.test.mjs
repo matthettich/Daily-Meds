@@ -247,13 +247,40 @@ await test("Other logger in Smells & Other logs things like air travel", async p
   eq(s.olog[today].length, 2, "logged twice");
   eq(await page.textContent('[data-evbox="other"] .qty'), "×2", "chip count");
   await page.click('[data-evbox="other"] button.t');
-  await page.fill("#xtime", "06:30"); await page.click('#xform button[type="submit"]');
+  await page.waitForSelector("#sdlg[open]");
+  await page.fill('#sdlg [data-otime="0"]', "06:30"); await page.click('#sform button[type="submit"]');
   eq(new Date((await page.state()).olog[today][0].t).getHours(), 6, "time edited");
   const csv = await page.evaluate(k => buildCSV(k, k), today);
   assert(/Air travel x2 at 6:30 AM/.test(csv), "in spreadsheet");
   await page.click('[data-tab="sum"][role="tab"]');
   assert((await page.textContent("#sumBody")).includes("Air travel"), "on Recap");
 }, base);
+await test("a supplement logged 3 times: tapping the ×3 chip lists each time to change or remove, add another, or open one's details", async page => {
+  await page.click('[data-evbox="supp"] button.nm');
+  await page.waitForSelector("#sdlg[open]");
+  eq(await page.locator("#sdlg .evocc").count(), 3, "one row per time");
+  eq(await page.textContent("#sdlgTitle"), "Vitamin D · D3", "title");
+  await page.fill('#sdlg [data-otime="1"]', "11:15");
+  await page.click('#sdlg [data-orm="0"]');
+  await page.click('#sform button[type="submit"]');
+  let L = (await page.state()).suplog[today];
+  eq(L.map(e => [new Date(e.t).getHours(), new Date(e.t).getMinutes()]), [[11, 15], [16, 0]], "first removed, second moved to 11:15");
+  eq(await page.textContent('[data-evbox="supp"] .qty'), "×2", "chip now ×2");
+  await page.click('[data-evbox="supp"] button.nm'); await page.click("#sAgain"); await page.click('#sform button[type="submit"]');
+  L = (await page.state()).suplog[today];
+  eq([L.length, L.every(e => e.id === "sp1" && e.o === "o1")], [3, true], "Log again now adds another of the same type");
+  await page.click('[data-evbox="supp"] button.nm'); await page.click('#sdlg [data-odet="0"]');
+  await page.waitForSelector("#xdlg[open]");
+  await page.fill("#xc", "with food"); await page.click('#xform button[type="submit"]');
+  L = (await page.state()).suplog[today];
+  eq(L.filter(e => e.c === "with food").length, 1, "Details edits just that one");
+  eq(await page.locator('[data-evbox="supp"] .chip').count(), 2, "which gets its own chip");
+  await page.click('[data-evbox="supp"] .chip:has(.qty) button.nm');
+  await page.click('#sdlg [data-orm="1"]'); await page.click('#sdlg [data-orm="0"]'); await page.click('#sform button[type="submit"]');
+  eq((await page.state()).suplog[today].length, 1, "removing every time in the pop-up clears them");
+}, { ...base, suppMode: "log", supps: [{ id: "sp1", name: "Vitamin D", opts: [{ id: "o1", name: "D3" }] }],
+  suplog: { [today]: [{ id: "sp1", o: "o1", t: at(today, 8) }, { id: "sp1", o: "o1", t: at(today, 12) }, { id: "sp1", o: "o1", t: at(today, 16) }] } }, { clock: new Date(new Date().setHours(18, 0, 0, 0)) });
+
 await test("supplements and smells still work through the shared log", async page => {
   await page.selectOption('select[data-pick="ev"][data-ev="supp"]', "sp1");
   await page.selectOption('select[data-pick="ev"][data-ev="smell"]', "sm1");
@@ -1021,7 +1048,7 @@ await test("one appointment, two therapists: each visit keeps its own practition
   s = await page.state();
   eq(s.alog[today].map(e => e.w), [kim, kim], "first visit changed, second untouched");
   eq(s.appts[0].who.map(w => w.name), ["Dr. Lee", "Dr. Kim"], "the list itself is unchanged");
-  await page.click('[data-evbox="appt"] .chip >> nth=0 >> button.t');
+  await page.click('[data-evbox="appt"] .chip >> nth=0 >> button.who');   // Dr. Kim ×2: the who button opens the later visit
   await page.selectOption("#xwho", "w1"); await page.click('#xform [type="submit"]');
   /* Settings: rename one, remove the other (kept for its past visit, gone from the picker) */
   await page.evaluate(() => openEditor("appt", "a1"));
@@ -1039,7 +1066,7 @@ await test("one appointment, two therapists: each visit keeps its own practition
 }, { ...base, appts: [{ id: "a1", name: "Therapy", who: [{ id: "w1", name: "Dr. Lee" }] }] });
 
 await test("+ Add practitioner… in a visit's pop-up opens the appointment's editor; the new one goes on that visit", async page => {
-  await page.click('[data-evbox="appt"] .chip >> nth=0 >> button.t');   // Dr. Lee ×2: acts on the later visit
+  await page.click('[data-evbox="appt"] .chip >> nth=0 >> button.who');   // Dr. Lee ×2: acts on the later visit
   eq(await optVals(page, "#xwho"), ["w1", "__new"], "no Not listed; Add practitioner last");
   eq(await page.$eval('#xwho option[value="__new"]', o => o.textContent), "+ Add practitioner…", "label");
   await page.fill("#xtime", "15:45");

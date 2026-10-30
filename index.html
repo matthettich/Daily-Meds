@@ -393,6 +393,10 @@ input[type=time]:not(:disabled){cursor:pointer}
 .occhead .dur{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted)}
 .occhead .dur input{width:64px;min-height:40px;padding:6px 8px;border:1px solid var(--rule);background:var(--white);font:inherit;color:var(--ink)}
 .occn{display:inline-grid;place-items:center;width:24px;height:24px;border:1px solid var(--rule);font-size:13px}
+.evocc{padding:8px 10px}
+.evocc .occhead{margin:0}
+.occhead .odet{margin-left:auto;min-height:40px;padding:0 12px}
+.odet + .occx{margin-left:0}
 .occx{margin-left:auto;width:40px;height:40px;border:1px solid var(--rule);background:var(--white);font-size:18px;line-height:1}
 .scale{display:grid;grid-template-columns:repeat(10,1fr);border:1px solid var(--rule)}
 .scale button{border:0;min-height:40px;padding:0;font-size:14px;font-variant-numeric:tabular-nums}
@@ -1615,7 +1619,7 @@ function evBox(kind){
   const E=EVLOGS[kind], hits=evHits(kind,viewDate), ap=kind==="appt";
   /* One chip per item; for appointments, one per item and practitioner */
   /* Entries with their own type, linked symptom or comment get their own chip */
-  const groups=new Map(); for(const e of hits){ const key=[e.id,ap?e.w||"":"",e.o||"",e.sym||"",e.pf?1:"",e.c||""].join("|"), g=groups.get(key); if(g){g.n++;g.last=e} else groups.set(key,{n:1,last:e}) }
+  const groups=new Map(); for(const e of hits){ const key=[e.id,ap?e.w||"":"",e.o||"",e.sym||"",e.pf?1:"",e.c||""].join("|"), g=groups.get(key); if(g){g.n++;g.last=e;g.ix.push(e.i)} else groups.set(key,{n:1,last:e,ix:[e.i]}) }
   const items=state[E.items].filter(m=>activeOn(m,viewDate)).sort((a,b)=>a.name.localeCompare(b.name));
   /* An appointment with practitioners is picked as "Therapy · Dr. Lee" (value id|who) */
   const opts=m=>{const ws=ap?whoLive(m):[];
@@ -1625,7 +1629,9 @@ function evBox(kind){
       <div class="lid">${COPY[kind]?copyName(kind,kind,E.title):E.title}<span class="st">${hits.length?E.count(hits.length):"None"}</span></div>
       <div class="chips">${groups.size?[...groups.values()].map(g=>{const e=g.last, m=evOf(kind,e.id), w=ap&&whoOf(m,e.w), nm=esc(evName(kind,e));
         const tn=optLabel(optOf(m,e.o));
-        return `<span class="chip"><button class="nm" data-evt="${kind}" data-i="${e.i}" aria-label="${nm}. Tap for time, ${ap?"who":"type"}, linked symptom and comment">${esc(m.name)}${tn?`<span class="typ">${esc(tn)}</span>`:""}${entryTags(e)}</button>${w?`<button class="who" data-evt="${kind}" data-i="${e.i}" aria-label="${nm}. Tap to change who or where">${esc(w.name)}</button>`:""}${g.n>1?`<span class="qty">×${g.n}</span>`:""}<button class="t" data-evt="${kind}" data-i="${e.i}" aria-label="Change time of ${nm}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-evrm="${kind}" data-i="${e.i}" aria-label="Remove ${g.n>1?"one ":""}${nm}">×</button></span>`}).join(""):`<span class="none">${E.none}</span>`}</div>
+        /* ×2 and up: the name and time open every time it was logged (change or remove each one) */
+        const tap=g.n>1?`data-evg="${kind}" data-ix="${g.ix.join(",")}"`:`data-evt="${kind}" data-i="${e.i}"`;
+        return `<span class="chip"><button class="nm" ${tap} aria-label="${nm}${g.n>1?", "+g.n+" times. Tap to change or remove each time":". Tap for time, "+(ap?"who":"type")+", linked symptom and comment"}">${esc(m.name)}${tn?`<span class="typ">${esc(tn)}</span>`:""}${entryTags(e)}</button>${w?`<button class="who" data-evt="${kind}" data-i="${e.i}" aria-label="${nm}. Tap to change who or where">${esc(w.name)}</button>`:""}${g.n>1?`<span class="qty">×${g.n}</span>`:""}<button class="t" ${tap} aria-label="Change time of ${nm}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-evrm="${kind}" data-i="${e.i}" aria-label="Remove ${g.n>1?"one ":""}${nm}">×</button></span>`}).join(""):`<span class="none">${E.none}</span>`}</div>
       <div class="pickers one">
         <select data-pick="ev" data-ev="${kind}" aria-label="${E.add.replace("…","")}">
           <option value="">${E.add}</option>
@@ -2856,6 +2862,8 @@ todayCol.addEventListener("click",e=>{
   if(rmx){ const list=state.xlog[viewDate]||[]; list.splice(+rmx.dataset.rmx,1); if(!list.length) delete state.xlog[viewDate]; commit(); return; }
   const evt=e.target.closest("[data-evt]"), evrm=e.target.closest("[data-evrm]");
   if(evt){ openEvTime(evt.dataset.evt,viewDate,+evt.dataset.i); return; }
+  const evg=e.target.closest("[data-evg]");
+  if(evg){ openEvTimes(evg.dataset.evg,viewDate,evg.dataset.ix.split(",").map(Number)); return; }
   if(evrm){ const L=state[EVLOGS[evrm.dataset.evrm].log], list=L[viewDate]||[]; list.splice(+evrm.dataset.i,1); if(!list.length) delete L[viewDate]; commit(); return; }
   const rmmood=e.target.closest("[data-rmmood]");
   if(rmmood){ unlogMood(viewDate,rmmood.dataset.mt,rmmood.dataset.rmmood); commit(); return; }
@@ -3124,8 +3132,34 @@ function openActDetail(date,id,o=""){
   document.getElementById("sdlgTitle").textContent=x.name+(optOf(x,o)?" · "+optLabel(optOf(x,o)):"");
   renderSymDetail(); sdlg.showModal(); sdlg.querySelector('[type="submit"]').focus();
 }
+/* Something logged more than once (a supplement ×3, Smoke ×2): one row per time, to change or remove each,
+   + Log again now for another, and Details for one time's type, linked symptom and comment */
+function openEvTimes(kind,date,ix){
+  const L=state[EVLOGS[kind].log][date]||[], first=L[ix[0]], m=first&&evOf(kind,first.id); if(!m) return;
+  sedit={kind:"ev",ev:kind,date,ix:ix.filter(i=>L[i]),proto:{...L[ix[ix.length-1]]},list:ix.filter(i=>L[i]).map(i=>({t:L[i].t,src:i}))};
+  document.getElementById("sdlgTitle").textContent=evName(kind,first);
+  renderSymDetail(); sdlg.showModal(); sdlg.querySelector('[type="submit"]').focus();
+}
+/* Writes the times pop-up back: kept times on their own entries, new ones copied from the chip's entry. Returns the
+   entry objects in pop-up order, so Details can find one after the list is re-sorted. */
+function saveEvTimes(){
+  const {ev,date,ix,proto}=sedit, LG=state[EVLOGS[ev].log], old=LG[date]||[];
+  const mine=sedit.list.map(e=>e.src!=null&&old[e.src]?{...old[e.src],t:e.t}:{...proto,t:e.t});
+  const L=[...old.filter((_,i)=>!ix.includes(i)),...mine].sort((a,b)=>a.t-b.t);
+  if(L.length) LG[date]=L; else delete LG[date];
+  return mine;
+}
 function renderSymDetail(){
   const many=sedit.list.length>1, act=sedit.kind==="act";
+  if(sedit.kind==="ev"){
+    document.getElementById("sOcc").innerHTML=sedit.list.map((e,i)=>`<div class="occ evocc">
+      <div class="occhead">${many?`<span class="occn">${i+1}</span>`:""}
+        <input type="time" data-otime="${i}" value="${hhmm(e.t)}" aria-label="Time ${i+1}">
+        <button type="button" class="ghost odet" data-odet="${i}">Details</button>
+        <button type="button" class="occx" data-orm="${i}" aria-label="Remove this one">×</button></div></div>`).join("")
+      || `<p class="hint" style="margin:0 0 12px">All removed. Save to clear it from the day.</p>`;
+    return;
+  }
   document.getElementById("sOcc").innerHTML=sedit.list.map((e,i)=>`<div class="occ">
     <div class="occhead">${many?`<span class="occn">${i+1}</span>`:""}
       <input type="time" data-otime="${i}" value="${hhmm(e.t)}" ${e.t===ALLDAY?"disabled":""} aria-label="${act?"Time started":"Time noticed"}">
@@ -3155,7 +3189,9 @@ function readSymTimes(){
 }
 sdlg.addEventListener("click",e=>{
   if(!sedit) return;
-  const lv=e.target.closest("[data-lv]"), rm=e.target.closest("[data-orm]");
+  const lv=e.target.closest("[data-lv]"), rm=e.target.closest("[data-orm]"), det=e.target.closest("[data-odet]");
+  if(det){ readSymTimes(); const {ev,date}=sedit, mine=saveEvTimes(), x=mine[+det.dataset.odet];
+    sdlg.close(); commit(); const i=(state[EVLOGS[ev].log][date]||[]).indexOf(x); if(i>=0) openEvTime(ev,date,i); return; }
   if(lv){ readSymTimes(); const o=sedit.list[+lv.dataset.oi], n=+lv.dataset.lv; if(o){ if(o.i===n) delete o.i; else o.i=n; } renderSymDetail(); return; }
   if(rm){ readSymTimes(); sedit.list.splice(+rm.dataset.orm,1); renderSymDetail(); return; }
 });
@@ -3171,6 +3207,7 @@ sdlg.addEventListener("close",()=>{sedit=null});
 document.getElementById("sform").addEventListener("submit",ev=>{
   ev.preventDefault(); if(!sedit) return;
   readSymTimes();
+  if(sedit.kind==="ev"){ saveEvTimes(); sdlg.close(); commit(); return; }
   if(sedit.kind==="act"){
     const {date,id,o}=sedit, rest=(state.aclog[date]||[]).filter(e=>!(e.id===id&&(e.o||"")===o));
     const L=[...rest,...sedit.list.map(e=>({id,t:e.t,...(o?{o}:{}),...(e.i?{x:e.i}:{}),...(e.min?{min:e.min}:{}),...(e.sym?{sym:e.sym}:{}),...(e.pf?{pf:1}:{}),...(e.c?{c:e.c}:{})}))].sort((a,b)=>a.t-b.t);
