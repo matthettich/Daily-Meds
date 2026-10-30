@@ -190,6 +190,7 @@ header.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justi
 .jump button{border:1px solid var(--rule);background:var(--white);color:var(--ink);font:inherit;font-size:13px;padding:5px 10px;min-height:34px}
 .jump button:active{background:var(--ink);color:var(--white)}
 .sset .sect{scroll-margin-top:72px}
+.tsec{scroll-margin-top:72px}
 /* Undo: a bar above the tabs for a few seconds after something is removed */
 .undo{position:fixed;left:12px;right:12px;bottom:16px;z-index:20;display:flex;align-items:center;gap:10px;max-width:480px;margin:0 auto;
   padding:0 0 0 14px;border:3px solid var(--rule);background:var(--white);color:var(--ink);font-size:15px;box-shadow:0 5px 0 hsl(var(--h) var(--s) 78%)}
@@ -294,6 +295,11 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .no-types .types-f{display:none}
 .supp-only{display:none}
 .is-supp .supp-only{display:block}
+.symptom-only{display:none}
+.is-symptom .symptom-only{display:block}
+.wakef{margin:4px 0 12px}
+.wakef .allday{margin:0}
+.wakef .thint{margin:2px 0 0 32px}
 .suppt{margin:10px}
 .suppt .hint{margin:0 0 6px}
 .whorow{display:flex;margin-bottom:6px}
@@ -654,6 +660,10 @@ body{display:flex;flex-direction:column}
         <div class="backup-btns"><button class="ghost" id="layoutReset">Reset order</button></div>
       </div>
       <div class="box l-list">
+        <label class="toggle"><input type="checkbox" id="todayJump"><span>Section links</span></label>
+        <p class="hint">Show links to each section at the top of Today, like the ones at the top of Settings.</p>
+      </div>
+      <div class="box l-list">
         <label class="toggle"><input type="checkbox" id="trackTrig"><span>Suspected triggers</span></label>
         <p class="hint">On Today, tap a box's name (Breakfast, Morning, Symptoms, Smells…) and tick <b>Suspected trigger</b> when you think it set off your symptoms. It's marked on the box and listed in the spreadsheet export.</p>
       </div>
@@ -1004,6 +1014,10 @@ body{display:flex;flex-direction:column}
         <legend>Times</legend>
         <div class="slotpick" id="suppSlotPick"></div>
       </fieldset>
+      <div class="symptom-only wakef">
+        <label class="allday"><input type="checkbox" id="edWake"><span>Wakes me up</span></label>
+        <p class="thint">Noting it during your asleep hours logs a wake-up for it. Asleep hours are in Settings → Symptoms → Night wake-ups.</p>
+      </div>
       <label class="f med-only timed-only">Note<input name="notes" placeholder="e.g. with food" autocomplete="off"></label>
       <fieldset class="types-f">
         <legend>Types <span class="opt">(optional)</span></legend>
@@ -1091,6 +1105,7 @@ const LATE_CUTOFF = 3;       // 3 AM: the latest a day can run past midnight whi
    showSnacks / showAfter: show the Snacks & Other Meals / After dinner boxes on Today (both on unless turned off)
    trig: {date:{boxKey:true}} — boxes marked as a suspected trigger that day (keys from trigKey: "breakfast", "mood-morning",
    "syms", "supp", "smell", "other", "act", "appt"). trackTrig: show the Suspected trigger checkbox and tags (on unless turned off)
+   todayJump: links to each Today section at the top of Today, like Settings' (off unless turned on)
    altLook: Recap and Settings boxes alternate like Today's (on unless turned off)
    name: who this tracking is for — shown on Recap and in exported files
    dayEnd: the id of the bedtime med whose check-off ends the day (see "end of day"); "" = midnight; unset = a bedtime Cromolyn
@@ -1134,7 +1149,7 @@ function normLayout(saved,hidden){
 }
 function secShown(id){ const e=state.layout.find(x=>x.id===id); return !e||e.show; }
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{}, suppMode:"list", suppTimes:["once"],
-  moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:defaultOthers(), olog:{}, trackOther:true, hotAdded:true, acts:[], aclog:{}, showSnacks:true, showAfter:true, trig:{}, trackTrig:true, altLook:true,
+  moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:defaultOthers(), olog:{}, trackOther:true, hotAdded:true, acts:[], aclog:{}, showSnacks:true, showAfter:true, trig:{}, trackTrig:true, altLook:true, todayJump:false,
   appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, trackLoc:false, geo:{}, pollenKey:"", name:"", updated:0,
   ldet:{}, flare:{}, nlog:{}, wakeDef:{}, wakeSyms:[], sleepFrom:"22:00", sleepTo:"07:00", changes:[], medsOffSpells:[], lastBackup:0, backupSnooze:""};
 let viewDate = todayKey();
@@ -1248,7 +1263,7 @@ function normalize(s){
           others:s.hotAdded===true?(Array.isArray(s.others)?s.others:[]):defaultOthers(s.others), olog:obj(s.olog), trackOther:s.trackOther!==false, hotAdded:true,
           acts:Array.isArray(s.acts)?s.acts:[], aclog:obj(s.aclog),
           showSnacks:s.showSnacks!==false, showAfter:s.showAfter!==false,
-          trig:obj(s.trig), trackTrig:s.trackTrig!==false, altLook:s.altLook!==false,
+          trig:obj(s.trig), trackTrig:s.trackTrig!==false, altLook:s.altLook!==false, todayJump:s.todayJump===true,
           appts:Array.isArray(s.appts)?s.appts:[], alog:obj(s.alog),
           layout:normLayout(s.layout,s.trackAppts===false?["appts"]:[]), folded:obj(s.folded),
           showYearCal:s.showYearCal!==false,
@@ -1429,6 +1444,8 @@ function noteBox(key,cls,label,ph){
     return `<div class="box ${cls} l-notes"><div class="lid">${name}</div><button type="button" class="noteadd" data-noteopen="${key}" aria-label="Add ${esc(label.toLowerCase())}">+ Add note<span>${esc(ph)}</span></button></div>`;
   return `<div class="box ${cls} l-notes"><div class="lid">${name}<span class="saved" data-saved="note-${key}">Saved</span></div><textarea id="n-${key}" data-note="${key}" rows="2" placeholder="${ph}" aria-label="${esc(label)}"></textarea></div>`;
 }
+/* Shorter names for Today's section links */
+const TJUMP_SHORT={meds:"Meds & supplements",mood:"Mood",smells:"Smells & other"};
 /* A Today section: its heading folds it away (remembered); folded, the heading shows a quick count */
 const CHEV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
 function todaySect(id,body,sum,look){
@@ -1996,6 +2013,9 @@ function render(){
   let nth=0;   // sections alternate inverted / regular down the page, starting inverted
   for(const e of state.layout) if(e.show&&S[e.id]) html+=todaySect(e.id,S[e.id],SUM[e.id],nth++%2?"reg":"inv");
   html=backupNudge()+html;
+  /* Section links at the top of Today (Settings → Today page), like the ones at the top of Settings */
+  if(state.todayJump){ const on=state.layout.filter(e=>e.show&&S[e.id]);
+    if(on.length>1) html=`<nav class="jump" id="tjumpNav" aria-label="Today sections">${on.map(e=>`<button type="button" data-tjump="${e.id}">${esc(TJUMP_SHORT[e.id]||SECTIONS.find(x=>x.id===e.id).label)}</button>`).join("")}</nav>`+html; }
   if(!html) html=`<div class="box l-list"><p class="hint">Every section is hidden. Turn some back on in Settings, under Today page.</p></div>`;
 
   const slotsEl=document.getElementById("slots");
@@ -2050,6 +2070,7 @@ function render(){
   for(const c of document.querySelectorAll("#suppTimePick input")) c.checked=state.suppTimes.includes(c.value);
   document.getElementById("showSnacks").checked=state.showSnacks;
   document.getElementById("trackTrig").checked=state.trackTrig;
+  document.getElementById("todayJump").checked=state.todayJump;
   renderWakeSet();
   document.getElementById("altLook").checked=state.altLook;
   document.getElementById("showAfter").checked=state.showAfter;
@@ -3645,6 +3666,8 @@ todayCol.addEventListener("click",e=>{ const b=e.target.closest(RM_SEL); if(!b) 
   const what=(b.getAttribute("aria-label")||"").replace(/^Remove (one |the )?/,"").replace(/ at \d.*$/,"");
   watchRemoval(what?"Removed "+what:"Removed"); },true);
 todayCol.addEventListener("click",e=>{ const b=e.target.closest("[data-noteopen]"); if(b) openNote(b.dataset.noteopen); });
+todayCol.addEventListener("click",e=>{ const b=e.target.closest("[data-tjump]"); if(!b) return;
+  const t=document.querySelector(`.tsec[data-sec="${b.dataset.tjump}"]`); if(t) t.scrollIntoView({behavior:"smooth",block:"start"}); });
 todayCol.addEventListener("focusout",e=>{ const ta=e.target; if(ta.matches&&ta.matches("textarea[data-note]")&&!ta.value.trim()) noteOpen.delete(ta.dataset.note+"|"+viewDate); });
 todayCol.addEventListener("input",e=>{ if(e.target.matches("textarea[data-note]")) onTextInput(e.target); else if(e.target.matches("textarea[data-dreamc]")) onDreamInput(e.target); });
 /* Dream notes save as you type, like the notes boxes */
@@ -3781,7 +3804,7 @@ document.getElementById("suppTimePick").addEventListener("change",e=>{
   if(!on.length){ e.target.checked=true; return; }
   state.suppTimes=normSuppTimes(on); commit();
 });
-for(const id of ["showSnacks","showAfter","trackTrig","altLook"]) document.getElementById(id).addEventListener("change",e=>{state[id]=e.target.checked;commit()});
+for(const id of ["showSnacks","showAfter","trackTrig","altLook","todayJump"]) document.getElementById(id).addEventListener("change",e=>{state[id]=e.target.checked;commit()});
 document.getElementById("showYearCal").addEventListener("change",e=>{state.showYearCal=e.target.checked;commit()});
 /* Settings → Symptoms → Night wake-ups */
 function renderWakeSet(){
@@ -3888,6 +3911,8 @@ function openEditor(kind,id,pending){
   form.classList.toggle("is-sym",!isMed&&!isExtra);
   form.classList.toggle("is-extra",isExtra);
   form.classList.toggle("is-appt",kind==="appt");
+  form.classList.toggle("is-symptom",kind==="sym");
+  document.getElementById("edWake").checked=kind==="sym"&&!!item&&state.wakeSyms.includes(item.id);
   /* Supplements in the checklist style pick their times, when more than one is shown */
   form.classList.toggle("is-supp",kind==="supp"&&suppList()&&suppTimesOn().length>1);
   if(kind==="supp"){ const mine=item?suppSlotsOf(item):[suppTimesOn()[0].id];
@@ -4000,6 +4025,9 @@ form.addEventListener("submit",e=>{
     if(!item){item={id:uid(),name};K.list().push(item)}
     else if(item.archived) setArchived(item,false);   // adding an archived item's name again brings it back
   }
+  /* A symptom's Wakes me up: the same list as Settings → Symptoms → Night wake-ups (set before a pending log below) */
+  if(item&&kind==="sym"){ const on=document.getElementById("edWake").checked, L=state.wakeSyms.filter(x=>x!==item.id);
+    state.wakeSyms=on?[...L,item.id]:L; }
   /* Types; a new one typed here is the answer when the editor was opened from Which one? → + New type… */
   const fresh=item&&TYPED.includes(kind)?saveOpts(kind,item):null;
   /* Started from Today's "+ New…": log it there too (an item with types gets the first one) */

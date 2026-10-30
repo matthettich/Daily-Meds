@@ -1225,6 +1225,21 @@ await test("Possible flare: a food and an additional med can each be marked; chi
   assert(col("additional_meds").includes("possible flare trigger"), "noted on the entry too");
 }, { ...base, extras: [{ id: "x1", name: "Tylenol" }], foods: [{ id: "f1", name: "Oatmeal" }] });
 
+await test("Today section links: off by default; on, they sit above the first section and jump to each one", async page => {
+  eq(await page.locator("#tjumpNav").count(), 0, "off by default");
+  await page.click('[data-tab="set"][role="tab"]'); await page.check("input#todayJump");
+  eq((await page.state()).todayJump, true, "setting saved");
+  await page.click('[data-tab="today"][role="tab"]');
+  const labels = await page.$$eval("nav#tjumpNav button", l => l.map(b => b.textContent));
+  eq(labels[0], "Meds & supplements", "first link is meds");
+  assert(labels.includes("Symptoms") && labels.includes("Overnight & dreams"), "links: " + labels.join(", "));
+  eq(await page.evaluate(() => document.querySelector("#slots").firstElementChild.id), "tjumpNav", "at the top, before meds");
+  await page.click(`nav#tjumpNav [data-tjump="night"]`); await page.waitForTimeout(2500);
+  const r = await page.evaluate(() => ({ top: document.querySelector('.tsec[data-sec="night"]').getBoundingClientRect().top, y: scrollY,
+    bottom: Math.ceil(scrollY + innerHeight) >= document.documentElement.scrollHeight - 2 }));
+  assert(r.y > 0 && (r.top < 200 || r.bottom), "scrolled to Overnight & dreams: " + JSON.stringify(r));
+}, base);
+
 await test("Flare-up checkbox in Symptoms logs a time with no symptoms; same mark as Suspected Flare; Recap and export show it", async page => {
   await page.check("[data-flare]");
   let s = await page.state();
@@ -1334,6 +1349,27 @@ await test("Wake-ups: noted in the day, an always-wake symptom logs no wake-up; 
   await page.selectOption('select[data-pick="sym"]', "s2");
   eq((await page.state()).nlog[MORN].w[0].sym, ["s2"], "asleep from 1 PM: Nausea at 2 PM logged a wake-up");
 }, { ...nightSeed, wakeSyms: ["s1"] }, { clock: new Date(2026, 9, 27, 14, 0) });
+
+await test("Wake-ups: a symptom's editor sets Wakes me up, matching the Night wake-ups box; a symptom added that way wakes too", async page => {
+  await page.click('[data-tab="set"][role="tab"]');
+  await page.click('[data-edit-sym="s2"]');
+  assert(await page.isVisible("#edWake"), "toggle shows for a symptom");
+  assert(!(await page.isChecked("#edWake")), "off to start");
+  await page.check("#edWake"); await page.click("#saveItem");
+  eq((await page.state()).wakeSyms, ["s1", "s2"], "turned on");
+  eq(await page.getAttribute('#wakeSymPick [data-wsy="s2"]', "aria-pressed"), "true", "Settings box agrees");
+  await page.click('[data-edit-sym="s1"]'); assert(await page.isChecked("#edWake"), "already on from Settings");
+  await page.uncheck("#edWake"); await page.click("#saveItem");
+  eq((await page.state()).wakeSyms, ["s2"], "turned off");
+  await page.click("#addSym"); await page.fill('#itemForm [name="name"]', "Cough"); await page.check("#edWake"); await page.click("#saveItem");
+  const s = await page.state(), c = s.symptoms.find(x => x.name === "Cough");
+  assert(s.wakeSyms.includes(c.id), "a new symptom can wake too");
+  await page.click('[data-tab="today"][role="tab"]');
+  await page.selectOption('select[data-pick="sym"]', c.id);
+  eq((await page.state()).nlog[MORN].w[0].sym, [c.id], "and logs a wake-up at night");
+  await page.click('[data-tab="set"][role="tab"]'); await page.click('[data-edit-supp="lu"]');
+  assert(!(await page.isVisible("#edWake")), "not shown for other kinds");
+}, { ...nightSeed, wakeSyms: ["s1"] }, { clock: new Date(2026, 9, 27, 3, 10) });
 
 await test("Overnight after 6 PM shows Tonight and logs into the coming night; last night stays as a line; a past day shows the night before it", async page => {
   eq(await page.textContent('.box.night .lid .mtime'), "Tonight", "evening switches to tonight");
