@@ -721,8 +721,8 @@ await test("Smells, Other and Appointments copy too; Medications has no copy men
   alog: { [yday]: [{ id: "a1", t: at(yday, 14) }] } });
 
 await test("Snacks & Other Meals sits between Lunch and Dinner; logs foods, copies and exports", async page => {
-  const order = await page.$$eval('.tsec[data-sec="food"] .box .lid', els => els.map(e => e.querySelector(".cpn,label").textContent));
-  eq(order, ["Breakfast", "Lunch", "Snacks & Other Meals", "Dinner", "After dinner", "Food notes"], "box order");
+  const order = await page.$$eval('.tsec[data-sec="food"] .box .lid', els => els.map(e => (e.querySelector(".cpn,label") || e.childNodes[0]).textContent));
+  eq(order, ["Breakfast", "Lunch", "Snacks & Other Meals", "Dinner", "After dinner", "Water", "Food notes"], "box order");
   await page.selectOption('select[data-pick="food"][data-meal="snacks"]', "f1");
   eq((await page.state()).meals[today].snacks.foods, ["f1"], "food logged to snacks");
   const m = await copyFrom(page, '[data-copy="meal"][data-key="snacks"]');
@@ -1763,13 +1763,46 @@ await test("after an update, What's new lists the changes once; a first install 
   await page.evaluate(() => { localStorage.setItem("daily-meds-ver", String(APP_VER - 1)); whatsNew(); });
   await page.waitForSelector("#askDlg[open]");
   eq(await page.textContent("#askTitle"), "What's new", "title");
-  assert((await askText(page)).includes("Move a supplement to Medications"), "lists this version's changes");
+  assert((await askText(page)).includes(await page.evaluate(() => WHATS_NEW[0].items[0].slice(0, 20))), "lists this version's changes");
   await page.click("#askYes");
   await page.evaluate(() => whatsNew());
   eq(await page.$("#askDlg[open]"), null, "not shown again");
   await page.evaluate(() => { localStorage.clear(); whatsNew(); });
   eq(await page.$("#askDlg[open]"), null, "fresh install: nothing shown");
 }, base);
+
+/* ---------- Water ---------- */
+await test("water: quick buttons log drinks with a total, electrolyte is marked, and it's in the spreadsheet", async page => {
+  const ml = await page.evaluate(() => waterSizes().map(z => z.ml));
+  await page.click(`[data-wadd="${ml[1]}"]`);
+  await page.click("#wElec");
+  await page.click(`[data-wadd="${ml[2]}"]`);
+  let w = (await page.state()).wlog[today];
+  eq(w.map(e => [e.ml, !!e.e]), [[ml[1], false], [ml[2], true]], "two drinks, second electrolyte");
+  assert((await page.textContent(".water .lid")).includes(await page.evaluate(t => fmtWater(t), ml[1] + ml[2])), "total shown");
+  await page.click('.water [data-wt="0"]'); await page.click("#xremove");
+  eq((await page.state()).wlog[today].length, 1, "removed from the time pop-up");
+  const csv = await page.evaluate(d => buildCSV(d, d), today);
+  const lines = csv.replace(/^\ufeff/, "").split("\r\n"), head = parseCSVLine(lines[0]), row = parseCSVLine(lines[1]);
+  const col = head.findIndex(h => /^water_(oz|ml)$/.test(h));
+  assert(col > 0, "water column"); assert(row[col] !== "", "total exported");
+  assert(row[head.indexOf("water_drinks")].includes("electrolyte"), "drinks listed");
+}, base);
+
+/* ---------- Before flare-ups ---------- */
+await test("Recap's Before flare-ups finds what keeps showing up in the days before a flare-up", async page => {
+  const box = async () => page.evaluate(() => { const m = sumMode; const P = periodOf(m, sumAnchor); return flareSummary(shiftKey(todayKey(), -40), todayKey()); });
+  const h = await box();
+  assert(h.includes("Before flare-ups"), "box drawn");
+  assert(/Air freshener<\/span><span class="num">2 of 2 flare-ups · \d+% of other days/.test(h), "air freshener stands out: " + h.slice(0, 600));
+  assert(!/Rice<\/span><span class="num">/.test(h.split("Unusual in")[0]), "everyday food isn't flagged");
+  assert(h.split("Unusual in")[1].includes("Air freshener"), "listed on the flare's own line");
+  assert(!h.split("Unusual in")[1].includes("Rice"), "everyday food left out of the flare line");
+}, (() => { const meals = {}, trig = {}, smlog = {};
+  for (let i = 0; i < 40; i++) meals[shift(today, -i)] = { lunch: { foods: ["rice"] } };
+  for (const d of [-20, -5]) { trig[shift(today, d)] = { syms: true }; smlog[shift(today, d - 1)] = [{ id: "af", t: at(shift(today, d - 1), 12) }]; }
+  return { ...base, foods: [{ id: "rice", name: "Rice" }], smells: [{ id: "af", name: "Air freshener" }], trackSmells: true, meals, trig, smlog,
+    log: { [shift(today, -39)]: { "m1|morning": at(shift(today, -39), 8) } } }; })());
 
 /* ---------- 10. Wide screen (unfolded) still renders ---------- */
 await test("unfolded width renders Today and Recap side by side", async page => {

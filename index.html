@@ -351,6 +351,11 @@ label.f select{display:block;width:100%;margin-top:4px;appearance:none;-webkit-a
 .chips .none{font-size:13px;color:var(--muted);padding:6px 0}
 .legacy{margin:8px 10px 0;font-size:13px;color:var(--muted);white-space:pre-wrap}
 .pickers{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px}
+.water .wamt{font-size:14px;font-variant-numeric:tabular-nums}
+.water .wamt .ver{font-size:13px;color:var(--muted)}
+.wadd{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px}
+.wadd .ghost{flex:1 1 0;min-width:72px}
+.wadd .toggle{flex:1 0 100%;min-height:40px;padding:0 2px}
 .pickers.one{grid-template-columns:1fr}
 .pickers select{appearance:none;-webkit-appearance:none;width:100%;min-height:40px;border:1px solid var(--rule);border-radius:0;
   background:var(--white) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23111' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 8px center/14px;
@@ -1051,6 +1056,23 @@ const MEALS = [
 ];
 /* A meal with `opt` can be hidden on Today from Settings → Food (state[opt]); what's logged in it is kept */
 function mealShown(ml){return !ml.opt||state[ml.opt]!==false}
+/* ---------- water ----------
+   A box under the meals: quick buttons add a drink (water, or an electrolyte drink when that's ticked), each with its
+   time; tap a time to change or remove it. Amounts are kept in ml and shown in oz in the US. */
+const OZ=29.5735;
+let waterElec=false;
+function waterSizes(){return US_UNITS?[8,16,32].map(o=>({ml:Math.round(o*OZ),label:o+" oz"})):[250,500,1000].map(m=>({ml:m,label:m<1000?m+" ml":"1 L"}))}
+function fmtWater(ml){return US_UNITS?Math.round(ml/OZ)+" oz":ml>=1000?(Math.round(ml/100)/10)+" L":ml+" ml"}
+function waterTotal(date){return (state.wlog[date]||[]).reduce((n,e)=>n+e.ml,0)}
+function waterBox(date){
+  const L=state.wlog[date]||[], tot=waterTotal(date);
+  return `<div class="box meal l-lunch water"><div class="lid">Water${tot?`<span class="mtime">${fmtWater(tot)}</span>`:""}</div>
+    <div class="chips">${L.length?L.map((e,i)=>`<span class="chip"><span class="wamt">${fmtWater(e.ml)}${e.e?` <span class="ver">electrolyte</span>`:""}</span><button class="t" data-wt="${i}" aria-label="Change time of ${fmtWater(e.ml)}, now ${fmtTime(e.t)}">${fmtTime(e.t)}</button><button data-wrm="${i}" aria-label="Remove ${fmtWater(e.ml)}">×</button></span>`).join(""):`<span class="none">Nothing logged</span>`}</div>
+    <div class="wadd">${waterSizes().map(z=>`<button type="button" class="ghost" data-wadd="${z.ml}">+ ${z.label}</button>`).join("")}
+      <label class="toggle"><input type="checkbox" id="wElec" ${waterElec?"checked":""}><span>Electrolyte</span></label></div>
+  </div>`;
+}
+function logWater(date,ml){const L=state.wlog[date]||(state.wlog[date]=[]); L.push({t:stampFor(date),ml,...(waterElec?{e:1}:{})}); L.sort((a,b)=>a.t-b.t)}
 const MOODTIMES = [
   {id:"morning",label:"Morning",l:"l-mmorning"},{id:"afternoon",label:"Afternoon",l:"l-mafternoon"},{id:"evening",label:"Evening",l:"l-mevening"}
 ];
@@ -1132,7 +1154,8 @@ const LATE_CUTOFF = 3;       // 3 AM: the latest a day can run past midnight whi
    changes: [{id,d,txt}] — medication changes the user marked: the day (YYYY-MM-DD) and what changed
    medsOffSince: the day the medication checklist was turned off (Settings → Medications → On Today), unset while it's on.
    lastBackup: when Save backup last saved a file (ms). backupSnooze: the day the backup reminder was put off until
-   medsOffSpells: finished off spells [[from,to)], kept so those days aren't counted as missed doses (see dueOn) */
+   medsOffSpells: finished off spells [[from,to)], kept so those days aren't counted as missed doses (see dueOn)
+   wlog: {date:[{t,ml,e?}]} — each drink of water logged under the meals: when, how much (ml), e:1 = an electrolyte drink */
 /* ---------- Today page sections ----------
    Default order tells the day's story: what you took, ate and were around, then how you felt. */
 const SECTIONS=[
@@ -1159,7 +1182,7 @@ function secShown(id){ const e=state.layout.find(x=>x.id===id); return !e||e.sho
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{}, suppMode:"list", suppTimes:["once"],
   moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:defaultOthers(), olog:{}, trackOther:true, hotAdded:true, acts:[], aclog:{}, showSnacks:true, showAfter:true, trig:{}, trackTrig:true, altLook:true, todayJump:false,
   appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, trackLoc:false, geo:{}, pollenKey:"", name:"", updated:0,
-  ldet:{}, flare:{}, nlog:{}, wakeDef:{}, wakeSyms:[], sleepFrom:"22:00", sleepTo:"07:00", changes:[], medsOffSpells:[], lastBackup:0, backupSnooze:""};
+  ldet:{}, flare:{}, nlog:{}, wakeDef:{}, wakeSyms:[], sleepFrom:"22:00", sleepTo:"07:00", changes:[], medsOffSpells:[], lastBackup:0, backupSnooze:"", wlog:{}};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
 
@@ -1259,7 +1282,7 @@ document.getElementById("oNew").onclick=()=>{
 /* ---------- storage ---------- */
 function normalize(s){
   const obj=v=>(v&&typeof v==="object"&&!Array.isArray(v))?v:{};
-  const n={meds:Array.isArray(s.meds)?s.meds:[], log:obj(s.log),
+  const n={meds:Array.isArray(s.meds)?s.meds:[], log:obj(s.log), wlog:normWlog(obj(s.wlog)),
           symptoms:Array.isArray(s.symptoms)?s.symptoms:[], slog:normSlog(obj(s.slog)),
           food:obj(s.food), notes:obj(s.notes), pnotes:obj(s.pnotes),
           foods:Array.isArray(s.foods)?s.foods:[], places:Array.isArray(s.places)?s.places:[], meals:obj(s.meals),
@@ -1308,6 +1331,13 @@ function normAppts(st){
    missed doses, so adding a med doesn't make every earlier day look missed. Meds without one count from when you
    started using the app, as before. */
 function medStarts(n){ for(const m of n.meds) if(!/^\d{4}-\d\d-\d\d$/.test(m.since||"")) delete m.since; }
+function normWlog(w){
+  const out={};
+  for(const [k,l] of Object.entries(w)){ if(!/^\d{4}-\d\d-\d\d$/.test(k)||!Array.isArray(l)) continue;
+    const L=l.filter(e=>e&&realTime(e.t)&&+e.ml>0).map(e=>({t:e.t,ml:Math.round(+e.ml),...(e.e?{e:1}:{})})).sort((a,b)=>a.t-b.t);
+    if(L.length) out[k]=L; }
+  return out;
+}
 /* Symptoms used to hold one value per day (a timestamp or "all"); now each is a list of times, so the same
    symptom can be logged more than once a day. Older data and backups are converted here. */
 function normSlog(slog){
@@ -1973,6 +2003,7 @@ function render(){
     </div>`;
   }
 
+  html+=waterBox(viewDate);
   html+=noteBox("food","meal","Food notes","How did food sit today?");
   S.food=html; SUM.food=MEALS.filter(mealShown).reduce((n,ml)=>n+((mday[ml.id]||{}).foods||[]).filter(id=>byId(state.foods,id)).length,0)||"";
 
@@ -2365,6 +2396,7 @@ function renderSummary(){
   if(empties.length) html+=`<div class="box l-list"><div class="lid">Nothing logged this ${unit}</div><p class="hint empties">${esc(empties.join(" · "))}</p></div>`;
 
   /* Weather vs symptoms */
+  html+=flareSummary(from,upto);
   html+=wxSummary(from,upto);
   html+=travelSummary(from,upto);
   html+=exertionSummary(from,upto);
@@ -2377,7 +2409,7 @@ function renderSummary(){
   /* Export for AI */
   const yr=P.start.slice(0,4);
   html+=`<div class="box l-list"><div class="lid">Export for AI</div>
-    <p class="hint">A spreadsheet with one row per day: each dose taken (with its time), doses missed, additional medication, supplements, symptoms (how many times and how strong), each meal's foods and restaurant, mood, smells and other things, activities (minutes and exertion), appointments, weather, air quality, pollen, your notes, medication changes, and the night after each day (wake-ups, how you felt, dreams). Upload it to an AI assistant and ask something like:</p>
+    <p class="hint">A spreadsheet with one row per day: each dose taken (with its time), doses missed, additional medication, supplements, symptoms (how many times and how strong), each meal's foods and restaurant, water, mood, smells and other things, activities (minutes and exertion), appointments, weather, air quality, pollen, your notes, medication changes, and the night after each day (wake-ups, how you felt, dreams). Upload it to an AI assistant and ask something like:</p>
     <p class="hint" style="color:var(--ink)">"Each row is one day. Do any symptoms tend to show up 1–3 days after eating certain foods or at certain restaurants? Do missed doses, moods, harder activities, pressure changes, air quality or pollen line up with symptoms? Do night-time wake-ups or nightmares follow certain evening doses, or change after a medication change? The suspected_triggers column is what I thought set off my symptoms, suspected_flare marks days I thought were a flare-up, and possible_flare_items lists single foods and things I suspected; does the data back that up?"</p>
     <div class="backup-btns"><button class="ghost" data-export="year">Download ${esc(yr)}</button><button class="ghost" data-export="all">Download everything</button></div>
     <p class="hint" id="exportMsg" role="status"></p></div>`;
@@ -2739,6 +2771,50 @@ document.getElementById("trackLoc").addEventListener("change",async e=>{
 
 /* Recap: did symptoms show up more in the days after a big move? */
 let trSym="any";
+/* ---------- before flare-ups ----------
+   Flare reactions can build over a day or more, so each flare-up day is compared with what you ate, where, what you
+   smelled, did and took that day and the BEFORE_DAYS days before it. "Often before flare-ups" lists things in that window
+   for at least two flare-ups that turn up much less around other days (days not within BEFORE_DAYS days before a
+   flare-up). Each flare-up's own line leaves out things you have most days, so the unusual ones stand out. */
+const BEFORE_DAYS=3;
+function dayItems(k){
+  const m=new Map(), add=(key,label)=>{ if(label) m.set(key,label); }, nameOf=(list,id)=>(list.find(x=>x.id===id)||{}).name;
+  for(const ml of Object.values(state.meals[k]||{})){
+    for(const id of ml.foods||[]) add("f:"+id,nameOf(state.foods,id));
+    if(ml.place) add("p:"+ml.place,(n=>n&&"at "+n)(nameOf(state.places,ml.place)));
+  }
+  for(const kind of ["smell","other","act"]) for(const e of evHits(kind,k)) add(kind+":"+e.id,evOf(kind,e.id).name);
+  for(const e of xdoses(k)) add("x:"+e.id,anyMed(e.id).name);
+  for(const e of sdoses(k)) add("u:"+e.id,suppOf(e.id).name);
+  if((state.wlog[k]||[]).some(e=>e.e)) add("w:e","Electrolyte drink");
+  return m;
+}
+function flareSummary(from,upto){
+  const tk=todayKey(), fu=firstUse(), lo=from<fu?fu:from, hi=upto<tk?upto:tk;
+  const flares=[]; for(let k=lo;k<=hi;k=shiftKey(k,1)) if(isTrig(k,"syms")) flares.push(k);
+  const head=`<div class="box l-list"><div class="lid">Before flare-ups<span class="st">${flares.length} ${flares.length===1?"flare-up":"flare-ups"}</span></div>`;
+  if(!flares.length) return head+`<div class="empty-row">Tick Flare-up in Symptoms on days you flare, and this shows what came in the ${BEFORE_DAYS} days before.</div></div>`;
+  const memo=new Map(), day=k=>memo.get(k)||(memo.set(k,dayItems(k)),memo.get(k));
+  const win=k=>{const m=new Map(); for(let i=BEFORE_DAYS;i>=0;i--) for(const [a,b] of day(shiftKey(k,-i))) m.set(a,b); return m};
+  const inWin=new Set(); for(const f of flares) for(let i=0;i<=BEFORE_DAYS;i++) inWin.add(shiftKey(f,-i));
+  const others=[]; for(let k=lo;k<=hi;k=shiftKey(k,1)) if(!inWin.has(k)) others.push(k);
+  const names=new Map(), nb=new Map(), no=new Map(), bump=(M,key)=>M.set(key,(M.get(key)||0)+1);
+  const fw=flares.map(f=>{const w=win(f); for(const [a,b] of w){ names.set(a,b); bump(nb,a); } return [f,w]});
+  for(const k of others) for(const [a,b] of win(k)){ names.set(a,b); bump(no,a); }
+  const rateO=key=>others.length?(no.get(key)||0)/others.length:0;
+  const pct=x=>Math.round(x*100)+"%", dt=k=>parseKey(k).toLocaleDateString([], {month:"short",day:"numeric"});
+  const often=flares.length<2?[]:[...nb].filter(([key,n])=>n>=2&&n/flares.length-rateO(key)>=0.25)
+    .sort((a,b)=>(b[1]/flares.length-rateO(b[0]))-(a[1]/flares.length-rateO(a[0]))||names.get(a[0]).localeCompare(names.get(b[0]))).slice(0,8);
+  const recent=fw.slice(-5).reverse().map(([f,w])=>{
+    const odd=[...w].filter(([key])=>rateO(key)<0.5).map(([,b])=>b);
+    return `<div class="stat"><span class="nm">${dt(f)}</span><span class="num">${odd.length?esc(odd.slice(0,10).join(", "))+(odd.length>10?` +${odd.length-10} more`:""):"Nothing unusual logged"}</span></div>`}).join("");
+  return head+`
+    ${often.length?`<div class="lid" style="border:0;padding-bottom:0">Often before flare-ups</div>`+often.map(([key,n])=>`<div class="stat"><span class="nm">${esc(names.get(key))}</span><span class="num">${n} of ${flares.length} flare-ups · ${others.length?pct(rateO(key))+" of other days":"no other days yet"}</span></div>`).join("")
+      :flares.length>=2?`<div class="empty-row">Nothing stands out yet across these flare-ups.</div>`:""}
+    <div class="lid" style="border:0;padding-bottom:0">Unusual in the ${BEFORE_DAYS} days before</div>${recent}
+    <p class="hint">Each flare-up counts the day it happened and the ${BEFORE_DAYS} days before: foods, restaurants, smells, other things, activities, additional medication, supplements and electrolyte drinks. A flare-up's line leaves out things that show up around most other days. ${others.length?`Other days: ${others.length} days not in the ${BEFORE_DAYS} days before a flare-up.`:""} These are patterns to look into, not proof.</p>
+  </div>`;
+}
 function travelSummary(from,upto){
   if(!state.trackLoc&&!Object.keys(state.geo).length) return `<div class="box l-list"><div class="lid">Travel &amp; symptoms</div>
     <p class="hint">Turn on <b>Track location</b> in Settings (in the Weather box) to see whether big trips or altitude changes line up with symptoms.</p></div>`;
@@ -2867,6 +2943,14 @@ todayCol.addEventListener("click",e=>{
   const actd=e.target.closest("[data-actd]");
   if(actd){ openActDetail(viewDate,actd.dataset.actd,actd.dataset.o||""); return; }
   if(e.target.closest("[data-flaret]")){ openFlareTime(viewDate); return; }
+  if(e.target.id==="wElec"){ waterElec=e.target.checked; return; }
+  const wadd=e.target.closest("[data-wadd]");
+  if(wadd){ logWater(viewDate,+wadd.dataset.wadd); commit(); return; }
+  const wt=e.target.closest("[data-wt]");
+  if(wt){ const w=(state.wlog[viewDate]||[])[+wt.dataset.wt]; if(!w) return; xedit={kind:"water",date:viewDate,i:+wt.dataset.wt};
+    openTimeDialog(fmtWater(w.ml)+(w.e?" electrolyte":" water"),"Time","Remove",w.t); return; }
+  const wrm=e.target.closest("[data-wrm]");
+  if(wrm){ const L=state.wlog[viewDate]||[]; L.splice(+wrm.dataset.wrm,1); if(!L.length) delete state.wlog[viewDate]; commit(); return; }
   const editx=e.target.closest("[data-editx]");
   if(editx){ openDoseTime(viewDate,+editx.dataset.editx); return; }
   if(rmx){ const list=state.xlog[viewDate]||[]; list.splice(+rmx.dataset.rmx,1); if(!list.length) delete state.xlog[viewDate]; commit(); return; }
@@ -3263,7 +3347,7 @@ document.getElementById("xform").addEventListener("submit",ev=>{
     else if(xedit.kind==="flare"){ if(isTrig(xedit.date,"syms")) state.flare[xedit.date]=at(state.flare[xedit.date]); }
     else if(xedit.kind==="mood"){ if((((state.mlog[xedit.date]||{})[xedit.mt])||[]).includes(xedit.id)){ const day=state.mtlog[xedit.date]||(state.mtlog[xedit.date]={}), o=day[xedit.mt]||(day[xedit.mt]={}); o[xedit.id]=at(o[xedit.id]); } }
     else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&(m.foods||[]).includes(xedit.id)){ const ft=m.ft||(m.ft={}); ft[xedit.id]=at(ft[xedit.id]); } }
-    else { const list=(xedit.kind==="ev"?state[EVLOGS[xedit.ev].log]:state.xlog)[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=at(e.t); list.sort((a,b)=>a.t-b.t); } }
+    else { const list=(xedit.kind==="ev"?state[EVLOGS[xedit.ev].log]:xedit.kind==="water"?state.wlog:state.xlog)[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=at(e.t); list.sort((a,b)=>a.t-b.t); } }
   }
   xdlg.close(); commit();
 });
@@ -3278,7 +3362,7 @@ document.getElementById("xremove").onclick=()=>{
   else if(xedit.kind==="flare") setFlare(xedit.date,false);
   else if(xedit.kind==="mood"){ delete moodTimes(xedit.date,xedit.mt)[xedit.id]; tidyMoods(xedit.date); }
   else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&m.ft){ delete m.ft[xedit.id]; tidyMeals(xedit.date); } }
-  else { const log=xedit.kind==="ev"?state[EVLOGS[xedit.ev].log]:state.xlog, list=log[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete log[xedit.date]; }
+  else { const log=xedit.kind==="ev"?state[EVLOGS[xedit.ev].log]:xedit.kind==="water"?state.wlog:state.xlog, list=log[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete log[xedit.date]; }
   xdlg.close(); commit();
 };
 
@@ -4291,7 +4375,7 @@ function buildCSV(start,end){
   const head=["date","weekday","doses_taken","doses_scheduled","doses_taken_list","missed_doses","skipped_doses (checked off as skipped, not taken)","doses_not_yet_taken","additional_meds","additional_med_count","supplements","supplement_count","symptoms","symptom_count",
     ...syms.map(x=>"symptom: "+x.name),...syms.map(x=>"intensity: "+x.name),
     ...MEALS.flatMap(m=>{const b=m.label.toLowerCase().replace(/[^a-z0-9]+/g,"_");return [b+"_time",b+"_foods",b+"_restaurant"]}),
-    "restaurants_today",...places.map(x=>"ate at: "+x.name),
+    "restaurants_today",...places.map(x=>"ate at: "+x.name),"water_"+(US_UNITS?"oz":"ml"),"water_drinks",
     ...MOODTIMES.flatMap(m=>["mood_"+m.id+"_time","mood_"+m.id]),
     "smells","smell_count","other","other_count",
     "activities","activity_count","activity_minutes","max_exertion",...acts.map(x=>"activity: "+x.name),...acts.map(x=>"exertion: "+x.name),
@@ -4336,6 +4420,8 @@ function buildCSV(start,end){
         return nm&&(n>1?nm+(fv?" · "+fv.name:"")+ing+" x"+n:nm+(fv?" · "+fv.name:"")+ing)+(ts.length>1?" at "+ts.map(fmtTime).join(", "):ft&&ft!==mt?" at "+fmtTime(ft):"")+entryNote(fe)}).filter(Boolean).join("; "),nameOf(state.places,e.place)||""]}),
       placesToday.map(id=>nameOf(state.places,id)).filter(Boolean).join("; "),
       ...places.map(x=>placesToday.includes(x.id)?1:0),
+      (()=>{const t=waterTotal(k);return t?(US_UNITS?Math.round(t/OZ):t):""})(),
+      (state.wlog[k]||[]).map(e=>fmtWater(e.ml)+(e.e?" electrolyte":"")+" at "+fmtTime(e.t)).join("; "),
       ...MOODTIMES.flatMap(m=>{const all=(state.mlog[k]||{})[m.id]||[], c=countFoods(all), ids=[...c.keys()], tt=moodTimes(k,m.id), gt=groupTime(tt,ids);
         return [gt?fmtTime(gt):"",ids.map(id=>{const nm=nameOf(state.moods,id); if(!nm) return "";
           const ts=[realTime(tt[id])?tt[id]:0,...moodExtra(k,m.id,id)].filter(Boolean).sort((a,b)=>a-b), n=c.get(id);
@@ -4551,8 +4637,11 @@ setTimeout(checkUpdate,3000);
    After an update, a pop-up lists what changed since the version this phone last opened, dismissed with OK.
    APP_VER must match the number in sw.js's CACHE; add a WHATS_NEW entry (newest first) whenever you bump them.
    A first install sees nothing, since there's nothing new to it. */
-const APP_VER=112, VER_KEY="daily-meds-ver";
+const APP_VER=113, VER_KEY="daily-meds-ver";
 const WHATS_NEW=[
+  {v:113,items:[
+    "Water: a box under your meals with quick + buttons. Tick Electrolyte for an electrolyte drink. Tap a time to change or remove it. Totals are in the spreadsheet too.",
+    "Recap → Before flare-ups: what you ate, smelled, did and took in the 3 days before each flare-up, and anything that shows up much more often before flare-ups than on other days."]},
   {v:112,items:[
     "This pop-up: after an update, Daily meds tells you what changed.",
     "Move a supplement to Medications (or back) from its Edit screen. Its logged doses move with it, and if the other list already has one with the same name, the two are joined into one history.",
