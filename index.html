@@ -2781,6 +2781,8 @@ function dayItems(k){
   const m=new Map(), add=(key,label)=>{ if(label) m.set(key,label); }, nameOf=(list,id)=>(list.find(x=>x.id===id)||{}).name;
   for(const ml of Object.values(state.meals[k]||{})){
     for(const id of ml.foods||[]) add("f:"+id,nameOf(state.foods,id));
+    /* Ingredients typed on a food (sour cream in mashed potatoes) count on their own, matched by name across foods */
+    for(const fe of Object.values(ml.fi||{})) for(const ing of (fe&&fe.ings)||[]){ const t=String(ing).trim(); if(t) add("i:"+t.toLowerCase(),t.charAt(0).toUpperCase()+t.slice(1)); }
     if(ml.place) add("p:"+ml.place,(n=>n&&"at "+n)(nameOf(state.places,ml.place)));
   }
   for(const kind of ["smell","other","act"]) for(const e of evHits(kind,k)) add(kind+":"+e.id,evOf(kind,e.id).name);
@@ -2812,7 +2814,7 @@ function flareSummary(from,upto){
     ${often.length?`<div class="lid" style="border:0;padding-bottom:0">Often before flare-ups</div>`+often.map(([key,n])=>`<div class="stat"><span class="nm">${esc(names.get(key))}</span><span class="num">${n} of ${flares.length} flare-ups · ${others.length?pct(rateO(key))+" of other days":"no other days yet"}</span></div>`).join("")
       :flares.length>=2?`<div class="empty-row">Nothing stands out yet across these flare-ups.</div>`:""}
     <div class="lid" style="border:0;padding-bottom:0">Unusual in the ${BEFORE_DAYS} days before</div>${recent}
-    <p class="hint">Each flare-up counts the day it happened and the ${BEFORE_DAYS} days before: foods, restaurants, smells, other things, activities, additional medication, supplements and electrolyte drinks. A flare-up's line leaves out things that show up around most other days. ${others.length?`Other days: ${others.length} days not in the ${BEFORE_DAYS} days before a flare-up.`:""} These are patterns to look into, not proof.</p>
+    <p class="hint">Each flare-up counts the day it happened and the ${BEFORE_DAYS} days before: foods and their ingredients, restaurants, smells, other things, activities, additional medication, supplements and electrolyte drinks. A flare-up's line leaves out things that show up around most other days. ${others.length?`Other days: ${others.length} days not in the ${BEFORE_DAYS} days before a flare-up.`:""} These are patterns to look into, not proof.</p>
   </div>`;
 }
 function travelSummary(from,upto){
@@ -4634,11 +4636,12 @@ document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpd
 setTimeout(checkUpdate,3000);
 
 /* ---------- what's new ----------
-   After an update, a pop-up lists what changed since the version this phone last opened, dismissed with OK.
+   After an update, one pop-up lists what's new in this version only (not every version skipped), dismissed with OK.
    APP_VER must match the number in sw.js's CACHE; add a WHATS_NEW entry (newest first) whenever you bump them.
    A first install sees nothing, since there's nothing new to it. */
-const APP_VER=113, VER_KEY="daily-meds-ver";
+const APP_VER=114, VER_KEY="daily-meds-ver";
 const WHATS_NEW=[
+  {v:114,items:["Recap → Before flare-ups now counts ingredients too, like sour cream in mashed potatoes, matched by name across foods."]},
   {v:113,items:[
     "Water: a box under your meals with quick + buttons. Tick Electrolyte for an electrolyte drink. Tap a time to change or remove it. Totals are in the spreadsheet too.",
     "Recap → Before flare-ups: what you ate, smelled, did and took in the 3 days before each flare-up, and anything that shows up much more often before flare-ups than on other days."]},
@@ -4652,7 +4655,8 @@ function whatsNew(){
   try{ seen=+localStorage.getItem(VER_KEY)||0; had=!!localStorage.getItem(LS_KEY); localStorage.setItem(VER_KEY,String(APP_VER)); }catch(e){ return; }
   if(!seen&&had) seen=APP_VER-1;   // updated from a version before this pop-up existed
   if(!seen) return;
-  const L=WHATS_NEW.filter(x=>x.v>seen&&x.v<=APP_VER).flatMap(x=>x.items);
+  if(seen>=APP_VER) return;
+  const L=(WHATS_NEW.find(x=>x.v===APP_VER)||{}).items||[];
   if(L.length) tell(L.map(x=>"• "+x).join("\n\n"),"What's new");
 }
 

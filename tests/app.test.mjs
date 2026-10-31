@@ -1761,14 +1761,19 @@ await test("after an update, What's new lists the changes once; a first install 
   eq(+sw.match(/daily-meds-v(\d+)/)[1], await page.evaluate(() => APP_VER), "APP_VER matches sw.js CACHE");
   eq(await page.evaluate(() => WHATS_NEW[0].v), await page.evaluate(() => APP_VER), "newest notes are for this version");
   await page.evaluate(() => { localStorage.setItem("daily-meds-ver", String(APP_VER - 1)); whatsNew(); });
-  await page.waitForSelector("#askDlg[open]");
+  await page.waitForFunction(() => document.getElementById("askDlg").open);
   eq(await page.textContent("#askTitle"), "What's new", "title");
-  assert((await askText(page)).includes(await page.evaluate(() => WHATS_NEW[0].items[0].slice(0, 20))), "lists this version's changes");
-  await page.click("#askYes");
+  assert((await page.evaluate(() => document.getElementById("askMsg").textContent)).includes(await page.evaluate(() => WHATS_NEW[0].items[0].slice(0, 20))), "lists this version's changes");
+  await page.evaluate(() => document.getElementById("askYes").click());
   await page.evaluate(() => whatsNew());
-  eq(await page.$("#askDlg[open]"), null, "not shown again");
+  eq(await page.evaluate(() => document.getElementById("askDlg").open), false, "not shown again");
+  await page.evaluate(() => { localStorage.setItem("daily-meds-ver", String(APP_VER - 5)); whatsNew(); });
+  await page.waitForFunction(() => document.getElementById("askDlg").open);
+  const msg = await page.evaluate(() => document.getElementById("askMsg").textContent);
+  eq(msg.split("•").length - 1, await page.evaluate(() => WHATS_NEW[0].items.length), "only this version's notes after skipping updates");
+  await page.evaluate(() => document.getElementById("askYes").click());
   await page.evaluate(() => { localStorage.clear(); whatsNew(); });
-  eq(await page.$("#askDlg[open]"), null, "fresh install: nothing shown");
+  eq(await page.evaluate(() => document.getElementById("askDlg").open), false, "fresh install: nothing shown");
 }, base);
 
 /* ---------- Water ---------- */
@@ -1798,10 +1803,13 @@ await test("Recap's Before flare-ups finds what keeps showing up in the days bef
   assert(!/Rice<\/span><span class="num">/.test(h.split("Unusual in")[0]), "everyday food isn't flagged");
   assert(h.split("Unusual in")[1].includes("Air freshener"), "listed on the flare's own line");
   assert(!h.split("Unusual in")[1].includes("Rice"), "everyday food left out of the flare line");
+  assert(/Sour cream<\/span><span class="num">2 of 2 flare-ups/.test(h), "ingredient counted across different foods");
 }, (() => { const meals = {}, trig = {}, smlog = {};
   for (let i = 0; i < 40; i++) meals[shift(today, -i)] = { lunch: { foods: ["rice"] } };
   for (const d of [-20, -5]) { trig[shift(today, d)] = { syms: true }; smlog[shift(today, d - 1)] = [{ id: "af", t: at(shift(today, d - 1), 12) }]; }
-  return { ...base, foods: [{ id: "rice", name: "Rice" }], smells: [{ id: "af", name: "Air freshener" }], trackSmells: true, meals, trig, smlog,
+  meals[shift(today, -21)].dinner = { foods: ["mash"], fi: { mash: { ings: ["Sour cream"] } } };
+  meals[shift(today, -6)].dinner = { foods: ["taco"], fi: { taco: { ings: ["sour cream", "salsa"] } } };
+  return { ...base, foods: [{ id: "rice", name: "Rice" }, { id: "mash", name: "Mashed potatoes" }, { id: "taco", name: "Tacos" }], smells: [{ id: "af", name: "Air freshener" }], trackSmells: true, meals, trig, smlog,
     log: { [shift(today, -39)]: { "m1|morning": at(shift(today, -39), 8) } } }; })());
 
 /* ---------- 10. Wide screen (unfolded) still renders ---------- */
