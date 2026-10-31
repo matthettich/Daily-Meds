@@ -74,7 +74,7 @@ async function open(seed, { width = 412, height = 900, geo = null, clock = null 
   // Any browser confirm()/alert() would show the website address; the app must never use them.
   page.on("dialog", d => { errors.push("native browser dialog: " + d.message()); d.dismiss(); });
   if (clock) await page.clock.install({ time: clock });   // a set time of day, e.g. just after midnight
-  await page.addInitScript(s => { if (!sessionStorage.getItem("seeded")) { localStorage.clear(); localStorage.setItem("daily-meds-welcomed", "1"); if (s) localStorage.setItem("daily-meds-v1", JSON.stringify(s)); sessionStorage.setItem("seeded", "1"); } }, seed || null);
+  await page.addInitScript(s => { if (!sessionStorage.getItem("seeded")) { localStorage.clear(); localStorage.setItem("daily-meds-welcomed", "1"); localStorage.setItem("daily-meds-ver", "99999"); if (s) localStorage.setItem("daily-meds-v1", JSON.stringify(s)); sessionStorage.setItem("seeded", "1"); } }, seed || null);
   await page.goto(URL0);
   page.state = () => page.evaluate(() => JSON.parse(JSON.stringify(state)));
   page.saved = () => page.evaluate(() => JSON.parse(localStorage.getItem("daily-meds-v1")));
@@ -1715,6 +1715,61 @@ await test("checking off a med and adding a food still work", async page => {
   await page.click("#prevDay");
   eq(await page.evaluate(() => viewDate), shift(today, -1), "arrow still works");
 }, { ...base, foods: [{ id: "f1", name: "Oatmeal" }] });
+
+/* ---------- Moving between Medications and Supplements ---------- */
+const atT = (k, h, m = 0) => { const [y, mo, d] = k.split("-").map(Number); return new Date(y, mo - 1, d, h, m).getTime(); };
+await test("moving a supplement to medications joins a med of the same name and keeps its doses", async page => {
+  await page.evaluate(() => openEditor("supp", "p1"));
+  assert(await page.isVisible("#moveItem"), "move button shows");
+  eq(await page.textContent("#moveItem"), "Move to medications", "button label");
+  await page.click("#moveItem");
+  assert((await askText(page)).includes("joins the medication Luteolin"), "says it joins");
+  await page.click("#askYes");
+  const s = await page.state(), d3 = shift(today, -3), d2 = shift(today, -2);
+  eq(s.supps.map(x => x.name), ["Zinc"], "supplement gone");
+  eq(s.log[d3]["lu|bedtime"], atT(d3, 22, 30), "late dose went to Bedtime");
+  eq(s.log[d2]["lu|evening"], atT(d2, 18, 5), "early-evening dose went to Evening");
+  eq(s.suplog[d3].map(e => e.id), ["p2"], "other supplements untouched");
+  eq(s.meds.find(m => m.id === "lu").since, d3, "start day moves back to the first moved dose");
+}, { ...base, meds: [...base.meds, { id: "lu", name: "Luteolin", dose: "100 mg", slots: ["evening", "bedtime"], since: today }],
+  supps: [{ id: "p1", name: "luteolin", dose: "100 mg", slots: ["bedtime"] }, { id: "p2", name: "Zinc" }], suppTimes: ["once", "bedtime"],
+  suplog: { [shift(today, -3)]: [{ id: "p1", t: atT(shift(today, -3), 22, 30), s: "bedtime" }, { id: "p2", t: atT(shift(today, -3), 9) }],
+            [shift(today, -2)]: [{ id: "p1", t: atT(shift(today, -2), 18, 5) }] } });
+await test("a medication moved to supplements keeps its doses there", async page => {
+  await page.evaluate(() => openEditor("med", "m1"));
+  eq(await page.textContent("#moveItem"), "Move to supplements", "button label");
+  await page.click("#moveItem"); await page.click("#askYes");
+  const s = await page.state(), d1 = shift(today, -1);
+  eq(s.meds.length, 0, "med gone");
+  eq(s.supps.map(x => x.name), ["Lisinopril"], "supplement made");
+  eq(s.suplog[d1].map(e => [e.t, e.s]), [[atT(d1, 8), "morning"]], "dose kept with its box");
+  assert(!s.log[d1], "med log cleared");
+}, { ...base, log: { [shift(today, -1)]: { "m1|morning": atT(shift(today, -1), 8) } } });
+await test("a med doesn't count as missed before its start day, but can still be checked off then", async page => {
+  const r = await page.evaluate(([d5, d2]) => { const m = state.meds[0]; return [dueOn(m, "morning", d5), dueOn(m, "morning", d2), medsFor("morning", d5).length]; }, [shift(today, -5), shift(today, -2)]);
+  eq(r, [false, true, 1], "due only from its start day; still shown earlier");
+  await page.evaluate(() => openEditor("med", "m1"));
+  eq(await page.inputValue('[name="since"]'), shift(today, -3), "editor shows the start day");
+  await page.fill('[name="since"]', ""); await page.click("#saveItem");
+  eq((await page.state()).meds[0].since, undefined, "clearing it counts from the start again");
+  await page.evaluate(() => openEditor("med", null));
+  eq(await page.inputValue('[name="since"]'), today, "a new med starts today");
+}, { ...base, meds: [{ ...base.meds[0], since: shift(today, -3) }] });
+
+await test("after an update, What's new lists the changes once; a first install sees nothing", async page => {
+  const sw = await page.evaluate(() => fetch("sw.js").then(r => r.text()));
+  eq(+sw.match(/daily-meds-v(\d+)/)[1], await page.evaluate(() => APP_VER), "APP_VER matches sw.js CACHE");
+  eq(await page.evaluate(() => WHATS_NEW[0].v), await page.evaluate(() => APP_VER), "newest notes are for this version");
+  await page.evaluate(() => { localStorage.setItem("daily-meds-ver", String(APP_VER - 1)); whatsNew(); });
+  await page.waitForSelector("#askDlg[open]");
+  eq(await page.textContent("#askTitle"), "What's new", "title");
+  assert((await askText(page)).includes("Move a supplement to Medications"), "lists this version's changes");
+  await page.click("#askYes");
+  await page.evaluate(() => whatsNew());
+  eq(await page.$("#askDlg[open]"), null, "not shown again");
+  await page.evaluate(() => { localStorage.clear(); whatsNew(); });
+  eq(await page.$("#askDlg[open]"), null, "fresh install: nothing shown");
+}, base);
 
 /* ---------- 10. Wide screen (unfolded) still renders ---------- */
 await test("unfolded width renders Today and Recap side by side", async page => {

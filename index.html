@@ -285,6 +285,7 @@ legend{font-size:13px;color:var(--muted);margin-bottom:4px;padding:0}
 .askmsg{margin:0 0 16px;white-space:pre-line}
 .err{color:var(--danger);font-size:13px;min-height:1.2em;margin:0 0 8px}
 .actions{display:flex;gap:8px;align-items:center;justify-content:flex-end}
+#askMsg{white-space:pre-line}
 .actions .danger{margin-right:auto}
 .is-sym .med-only{display:none}
 .is-extra .timed-only{display:none}
@@ -1023,6 +1024,8 @@ body{display:flex;flex-direction:column}
         <p class="thint">Noting it during your asleep hours logs a wake-up for it. Asleep hours are in Settings → Symptoms → Night wake-ups.</p>
       </div>
       <label class="f med-only timed-only">Note<input name="notes" placeholder="e.g. with food" autocomplete="off"></label>
+      <label class="f med-only timed-only">Started <span class="opt">(optional)</span><input type="date" name="since" aria-describedby="sinceHint"></label>
+      <p class="thint med-only timed-only" id="sinceHint">Days before this aren't counted as missed doses.</p>
       <fieldset class="types-f">
         <legend>Types <span class="opt">(optional)</span></legend>
         <p class="thint" id="typeHint">For something you switch between. Each time you log it, you'll be asked which one.</p>
@@ -1032,6 +1035,7 @@ body{display:flex;flex-direction:column}
       <p class="err" id="formErr" role="alert"></p>
       <div class="actions">
         <button type="button" class="danger" id="delItem">Delete</button>
+        <button type="button" class="ghost" id="moveItem">Move to medications</button>
         <button type="button" class="ghost" id="cancel">Cancel</button>
         <button type="submit" class="primary" id="saveItem">Save</button>
       </div>
@@ -1284,7 +1288,7 @@ function normalize(s){
           wakeDef:normWakeDef(s.wakeDef), wakeSyms:(Array.isArray(s.wakeSyms)?s.wakeSyms:[]).filter(x=>typeof x==="string"),
           sleepFrom:/^\d\d:\d\d$/.test(s.sleepFrom||"")?s.sleepFrom:"22:00", sleepTo:/^\d\d:\d\d$/.test(s.sleepTo||"")?s.sleepTo:"07:00",
           updated:Number(s.updated)||0};
-  normAppts(n); tidyDoses(n.meds); tidyDoses(n.extras); tidyDoses(n.supps); return n;
+  normAppts(n); tidyDoses(n.meds); tidyDoses(n.extras); tidyDoses(n.supps); medStarts(n); return n;
 }
 /* Appointments used to hold one Who or where (appt.dose), shared by every visit, so two therapists under one Therapy
    overwrote each other. Now each appointment lists its people or places (appt.who) and each visit keeps its own (e.w).
@@ -1300,6 +1304,10 @@ function normAppts(st){
     delete m.dose;
   }
 }
+/* A med's start day (m.since, set when it's added, changeable in its editor): before it, its times aren't counted as
+   missed doses, so adding a med doesn't make every earlier day look missed. Meds without one count from when you
+   started using the app, as before. */
+function medStarts(n){ for(const m of n.meds) if(!/^\d{4}-\d\d-\d\d$/.test(m.since||"")) delete m.since; }
 /* Symptoms used to hold one value per day (a timestamp or "all"); now each is a list of times, so the same
    symptom can be logged more than once a day. Older data and backups are converted here. */
 function normSlog(slog){
@@ -1473,7 +1481,9 @@ function setArchived(x,on){
   delete x.archived;
 }
 /* A regular med is due on day k when it was active then, or when a dose was checked off anyway */
-function dueOn(m,sl,k){return (activeOn(m,k)&&!medsOffOn(k))||!!(state.log[k]||{})[m.id+"|"+sl]}
+function listedOn(m,sl,k){return (activeOn(m,k)&&!medsOffOn(k))||!!(state.log[k]||{})[m.id+"|"+sl]}
+/* Counted as due (so missed when not taken) only from its start day, m.since; it can still be checked off before that */
+function dueOn(m,sl,k){return listedOn(m,sl,k)&&(!m.since||k>=m.since||!!(state.log[k]||{})[m.id+"|"+sl])}
 /* ---------- medication checklist off ----------
    Settings → Medications → On Today can turn the checklist off, leaving only Additional medication (as-needed doses).
    Like archiving, the days it's off aren't counted as missed doses, and turning it back on doesn't fill them in. */
@@ -1485,7 +1495,7 @@ function setMedsOn(on){
   if(state.medsOffSince&&state.medsOffSince<tk) state.medsOffSpells.push([state.medsOffSince,tk]);
   delete state.medsOffSince;
 }
-function medsFor(slot,k=viewDate){return state.meds.filter(m=>m.slots&&m.slots.includes(slot)&&dueOn(m,slot,k))}
+function medsFor(slot,k=viewDate){return state.meds.filter(m=>m.slots&&m.slots.includes(slot)&&listedOn(m,slot,k))}
 /* An additional dose can point at an as-needed med or a regular one */
 function anyMed(id){return state.extras.find(x=>x.id===id)||state.meds.find(x=>x.id===id)}
 /* ---------- types ----------
@@ -3960,9 +3970,11 @@ function openEditor(kind,id,pending){
   document.getElementById("dlgTitle").textContent=(item?"Edit ":"Add ")+K.word;
   document.getElementById("saveItem").textContent=item?"Save":"Add";
   document.getElementById("delItem").style.visibility=item?"visible":"hidden";
+  { const mv=document.getElementById("moveItem"); mv.hidden=!item||!(isMed||kind==="supp"); mv.textContent=isMed?"Move to supplements":"Move to medications"; }
   F("name").value=item?item.name:"";
   F("dose").value=item&&(isMed||isExtra)?item.dose||"":"";
   F("notes").value=item&&isMed?item.notes||"":"";
+  F("since").value=item&&isMed?item.since||"":isMed?todayKey():"";
   for(const c of form.querySelectorAll('[name="slot"]')) c.checked=item&&isMed?item.slots.includes(c.value):false;
   F("name").placeholder=K.ph;
   document.getElementById("formErr").textContent="";
@@ -4038,12 +4050,13 @@ form.addEventListener("submit",e=>{
   if(kind==="med"){
     const slots=[...form.querySelectorAll('[name="slot"]:checked')].map(c=>c.value);
     if(!slots.length){err.textContent="Pick at least one time.";return}
-    const data={name,dose:tidyDose(F("dose").value.trim()),notes:F("notes").value.trim(),slots};
+    const since=F("since").value, data={name,dose:tidyDose(F("dose").value.trim()),notes:F("notes").value.trim(),slots,since:/^\d{4}-\d\d-\d\d$/.test(since)?since:undefined};
     /* Adding a med with the name of an archived one restarts that med, so its history stays together */
     const back=!editing.id&&state.meds.find(x=>x.archived&&x.name.toLowerCase()===name.toLowerCase());
     if(editing.id) item=Object.assign(state.meds.find(x=>x.id===editing.id),data);
     else if(back){ item=Object.assign(back,data); setArchived(back,false); }
-    else state.meds.push(item={id:uid(),...data});
+    else state.meds.push(item={id:uid(),...data,since:data.since||todayKey()});
+    if(!item.since) delete item.since;
   } else if(kind==="extra"||kind==="supp"){
     const pickT=kind==="supp"&&form.classList.contains("is-supp"), picked=[...form.querySelectorAll('[name="sslot"]:checked')].map(c=>c.value);
     if(pickT&&!picked.length){err.textContent="Pick at least one time.";return}
@@ -4088,6 +4101,68 @@ document.getElementById("delItem").onclick=async()=>{
   dlg.close(); commit();
 };
 
+/* Move between Medications and Supplements, keeping every logged dose. Moving into a list that already has an item
+   with the same name joins the two, so a supplement re-added as a medication (or back) gets one history.
+   Supplement doses go into the medication time nearest when they were taken (its own times first; Lunch counts as
+   Afternoon); medication doses go into the supplement's matching checklist box. Comments on supplement doses
+   can't be kept on a medication dose, so moving one that has comments asks first. */
+const SLOT_HOUR={waking:6.5,morning:9,lunch:12.5,afternoon:14,evening:18,bedtime:22};
+function slotForTime(t,prefer,taken){
+  const d=new Date(t), h=d.getHours()+d.getMinutes()/60, near=L=>L.filter(x=>!taken.has(x)).sort((a,b)=>Math.abs(SLOT_HOUR[a]-h)-Math.abs(SLOT_HOUR[b]-h))[0];
+  return near(prefer)||near(SLOTS.map(x=>x.id));
+}
+function moveSuppToMed(sup){
+  const nm=sup.name.toLowerCase();
+  let med=state.meds.find(x=>x.name.toLowerCase()===nm);
+  const slots0=normSuppTimes(sup.slots).map(id=>id==="lunch"?"afternoon":id).filter(id=>SLOTS.some(x=>x.id===id));
+  if(!med) state.meds.push(med={id:uid(),name:sup.name,dose:sup.dose||"",notes:"",slots:slots0.length?slots0:["morning"],since:todayKey()});
+  else if(med.archived) setArchived(med,false);
+  let moved=0, first="";
+  for(const [k,list] of Object.entries(state.suplog)){
+    const mine=list.filter(e=>e.id===sup.id); if(!mine.length) continue;
+    const day=state.log[k]||(state.log[k]={}), taken=new Set(Object.keys(day).filter(key=>key.split("|")[0]===med.id&&day[key]).map(key=>key.split("|")[1]));
+    for(const e of mine){
+      const want=e.s&&(e.s==="lunch"?"afternoon":e.s), sl=realTime(e.t)?slotForTime(e.t,want&&!taken.has(want)?[want]:med.slots,taken):(want&&!taken.has(want)?want:med.slots.find(x=>!taken.has(x)));
+      if(!sl) continue;   // every time of day already checked: leave it as a supplement entry
+      day[med.id+"|"+sl]=e.t; taken.add(sl); list.splice(list.indexOf(e),1); moved++; if(!first||k<first) first=k;
+    }
+    if(!list.length) delete state.suplog[k];
+    if(!Object.keys(day).length) delete state.log[k];
+  }
+  if(first&&(!med.since||first<med.since)) med.since=first;
+  const left=Object.values(state.suplog).some(l=>l.some(e=>e.id===sup.id));
+  if(!left) state.supps=state.supps.filter(x=>x!==sup); else setArchived(sup,true);
+  return {to:med,moved,left};
+}
+function moveMedToSupp(med){
+  const nm=med.name.toLowerCase();
+  let sup=state.supps.find(x=>x.name.toLowerCase()===nm);
+  if(!sup) state.supps.push(sup={id:uid(),name:med.name,dose:med.dose||"",slots:normSuppTimes(med.slots)});
+  else if(sup.archived) setArchived(sup,false);
+  let moved=0;
+  for(const [k,day] of Object.entries(state.log)){
+    for(const [key,t] of Object.entries(day)){ const [id,sl]=key.split("|"); if(id!==med.id) continue;
+      const det=(state.ldet[k]||{})[key]||{};
+      if(t&&!det.skip){ const list=state.suplog[k]||(state.suplog[k]=[]); list.push({id:sup.id,t,s:sl}); list.sort((a,b)=>(+a.t||0)-(+b.t||0)); moved++; }
+      delete day[key]; setDoseDet(k,key,null); }
+    if(!Object.keys(day).length) delete state.log[k];
+  }
+  state.meds=state.meds.filter(x=>x!==med);
+  return {to:sup,moved,left:false};
+}
+document.getElementById("moveItem").onclick=async()=>{
+  const kind=editing.kind, item=KINDS[kind].list().find(x=>x.id===editing.id);
+  if(!item) return;
+  const toMed=kind==="supp", other=toMed?state.meds:state.supps, join=other.find(x=>x.name.toLowerCase()===item.name.toLowerCase());
+  const notes=toMed&&Object.values(state.suplog).some(l=>l.some(e=>e.id===item.id&&(e.c||e.sym||e.pf||e.o)));
+  if(!await ask(`Move ${item.name} to ${toMed?"medications":"supplements"}?`
+    +(join?` It joins the ${toMed?"medication":"supplement"} ${join.name} you already have, and its logged doses move with it.`:" Its logged doses move with it.")
+    +(toMed?" Each dose goes in the medication time nearest when it was taken.":" Skipped doses aren't kept.")
+    +(notes?" Comments, types and links to symptoms on its doses can't be kept.":""),{ok:"Move"})) return;
+  const r=toMed?moveSuppToMed(item):moveMedToSupp(item);
+  dlg.close(); commit();
+  if(r.left) tell(`Moved ${r.moved} dose${r.moved===1?"":"s"}. A few days already had every time of ${r.to.name} checked, so those stay under the archived supplement.`);
+}
 /* Appointment editor: one row per person or place. Existing rows carry their id, so renaming one renames it on every visit. */
 function whoRowsFill(list,blank){
   const rows=(list.length?(blank?[...list,{id:"",name:""}]:list):[{id:"",name:""}]).map(w=>`<div class="whorow"><input data-wid="${esc(w.id)}" value="${esc(w.name)}" placeholder="e.g. Dr. Lee, City Clinic" autocomplete="off" aria-label="Who or where"><button type="button" class="whorm" aria-label="Remove">×</button></div>`);
@@ -4472,6 +4547,26 @@ if(navigator.serviceWorker) navigator.serviceWorker.addEventListener("controller
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) checkUpdate(); });
 setTimeout(checkUpdate,3000);
 
+/* ---------- what's new ----------
+   After an update, a pop-up lists what changed since the version this phone last opened, dismissed with OK.
+   APP_VER must match the number in sw.js's CACHE; add a WHATS_NEW entry (newest first) whenever you bump them.
+   A first install sees nothing, since there's nothing new to it. */
+const APP_VER=112, VER_KEY="daily-meds-ver";
+const WHATS_NEW=[
+  {v:112,items:[
+    "This pop-up: after an update, Daily meds tells you what changed.",
+    "Move a supplement to Medications (or back) from its Edit screen. Its logged doses move with it, and if the other list already has one with the same name, the two are joined into one history.",
+    "Medications have a Started day. Days before it aren't counted as missed doses, so adding a med no longer makes every earlier day look missed. New meds start today; set or clear it on the med's Edit screen."]}
+];
+function whatsNew(){
+  let seen=0, had=false;
+  try{ seen=+localStorage.getItem(VER_KEY)||0; had=!!localStorage.getItem(LS_KEY); localStorage.setItem(VER_KEY,String(APP_VER)); }catch(e){ return; }
+  if(!seen&&had) seen=APP_VER-1;   // updated from a version before this pop-up existed
+  if(!seen) return;
+  const L=WHATS_NEW.filter(x=>x.v>seen&&x.v<=APP_VER).flatMap(x=>x.items);
+  if(L.length) tell(L.map(x=>"• "+x).join("\n\n"),"What's new");
+}
+
 loadLocal();
 lastToday=viewDate=todayKey();   // the saved day-ending dose decides whether yesterday is still running
 render();
@@ -4486,6 +4581,7 @@ render();
   document.getElementById("welcomeLater").onclick=()=>w.close();
   document.getElementById("welcomeStart").onclick=()=>{w.close();openEditor("med",null)};
 }
+whatsNew();
 wxWhereText();
 installUI();
 trackToday();
