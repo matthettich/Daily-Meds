@@ -1267,25 +1267,67 @@ await test("Today section links: off by default; on, they sit above the first se
   assert(r.y > 0 && (r.top < 200 || r.bottom), "scrolled to Overnight & dreams: " + JSON.stringify(r));
 }, base);
 
-await test("Flare-up checkbox in Symptoms logs a time with no symptoms; same mark as Suspected Flare; Recap and export show it", async page => {
-  await page.check("[data-flare]");
+await test("+ Flare-up logs one straight away (Later keeps it); several a day; same mark as Suspected Flare; Recap and export show them", async page => {
+  await page.click("[data-flareadd]");
+  assert(await page.isVisible("#fldlg"), "pop-up opens"); assert(await page.isVisible("#flhint"), "says it's saved");
+  await page.click("#flcancel");
   let s = await page.state();
-  eq([s.trig[today], s.flare[today] > 1e11, s.slog[today]], [{ syms: true }, true, undefined], "flare marked with a time, no symptoms");
-  await page.click("[data-flaret]"); await page.fill("#xtime", "07:45"); await page.click('#xform button[type="submit"]');
-  eq(new Date((await page.state()).flare[today]).getHours(), 7, "time changed");
+  eq([s.trig[today], s.flares[today].length, s.flares[today][0].t > 1e11, s.slog[today]], [{ syms: true }, 1, true, undefined], "logged with a time, no symptoms needed");
+  await page.click("[data-flareadd]");
+  await page.fill("#fltime", "07:45"); await page.click('#flsym [data-fls="s2"]'); await page.fill("#flc", "after the smoke");
+  await page.click('#flform button[type="submit"]');
+  s = await page.state();
+  eq(s.flares[today].length, 2, "two flare-ups");
+  const f = s.flares[today].find(x => new Date(x.t).getHours() === 7);
+  eq([f.sym, f.c], [["s2"], "after the smoke"], "symptoms and notes saved");
+  eq(new Date(s.slog[today].s2[0].t).getHours(), 7, "picked symptom logged at the flare-up's time");
+  eq(await page.locator(".fchip").count(), 2, "a chip each");
+  /* tap a chip later to edit it */
+  await page.click('.fchip:has-text("Nausea") button.nm'); assert(!(await page.isVisible("#flhint")), "no 'saved' hint when editing");
+  eq(await page.inputValue("#flc"), "after the smoke", "notes shown again");
+  await page.click('#flsym [data-fls="s1"]'); await page.click('#flform button[type="submit"]');
+  eq((await page.state()).flares[today].find(x => x.c).sym, ["s1", "s2"], "edited");
   const col = csvRowOf(await page.evaluate(k => buildCSV(k, k), today));
-  eq([col("suspected_flare"), col("flare_time")], ["1", "7:45 AM"], "exported");
+  eq(col("suspected_flare"), "1", "exported flag");
+  assert(col("flare_time").includes("7:45 AM") && col("flare_time").includes(";"), "both times: " + col("flare_time"));
+  assert(col("flares").includes("7:45 AM: Headache, Nausea (note: after the smoke)"), "flares column: " + col("flares"));
   await page.click('[data-tab="sum"][role="tab"]');
-  assert((await page.textContent("#sumBody")).includes("Flare-ups"), "Recap counts flare-ups");
+  assert(/Flare-ups2 on 1 day/.test(await page.textContent("#sumBody")), "Recap counts flare-ups");
   assert(await page.$(`.cal button.fl[data-goto="${today}"]`), "outlined on the calendar");
   await page.click('[role="tab"][data-tab="today"]');
-  await page.uncheck("[data-flare]");
+  await page.click("[data-rmflr]"); await page.click("[data-rmflr]");
   s = await page.state();
-  eq([s.trig[today], s.flare[today]], [undefined, undefined], "unchecking clears both");
+  eq([s.trig[today], s.flares[today]], [undefined, undefined], "removing both clears the mark");
   await page.click('[data-copy="syms"]'); await page.check("#cmTrig"); await page.keyboard.press("Escape");
-  assert(await page.isChecked("[data-flare]"), "Suspected Flare in the menu ticks the box");
-  assert((await page.state()).flare[today] > 1e11, "and gives it a time");
+  eq((await page.state()).flares[today].length, 1, "Suspected Flare in the menu logs one");
 }, base);
+
+await test("A symptom set to Starts a flare-up logs one and opens it; a second within 2 hours joins it; its pop-up links to the flare-up", async page => {
+  await page.evaluate(() => { state.flareSyms = ["s1", "s2"]; commit(); });
+  await page.selectOption('[data-pick="sym"]', "s1");
+  assert(await page.isVisible("#fldlg"), "flare-up pop-up opens");
+  eq(await page.getAttribute('#flsym [data-fls="s1"]', "aria-pressed"), "true", "with the symptom picked");
+  await page.click("#flcancel");
+  await page.selectOption('[data-pick="sym"]', "s2"); await page.click("#flcancel");
+  let s = await page.state();
+  eq([s.flares[today].length, s.flares[today][0].sym], [1, ["s1", "s2"]], "joined into one flare-up");
+  await page.click('.box.l-sym button.nm[data-symd="s1"]');
+  await page.click("[data-sflr]");
+  assert(await page.isVisible("#fldlg"), "symptom pop-up opens its flare-up");
+}, base);
+
+await test("Starts a flare-up is set from the symptom's edit page", async page => {
+  await page.evaluate(() => openEditor("sym", "s1"));
+  await page.check("#edFlare"); await page.click("#saveItem");
+  eq((await page.state()).flareSyms, ["s1"], "saved");
+}, base);
+
+await test("Older one-flare-a-day data becomes a list", async page => {
+  const s = await page.state();
+  eq(s.flares[today], [{ t: at(today, 8, 30) }], "time kept");
+  eq(s.flares["2026-01-05"], [{}], "a day marked without a time keeps a flare-up");
+  assert(!("flare" in s), "old field dropped");
+}, { ...base, trig: { [today]: { syms: true }, "2026-01-05": { syms: true } }, flare: { [today]: at(today, 8, 30) } });
 
 /* ---------- Overnight & dreams ---------- */
 const EVE = "2026-10-26", MORN = "2026-10-27", NEXTN = "2026-10-28";   // Monday evening, Tuesday morning, Wednesday morning

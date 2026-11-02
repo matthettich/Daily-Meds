@@ -453,12 +453,15 @@ label.f textarea{display:block;width:100%;margin-top:4px;padding:10px;border:1px
 #fsdlg .fgrp+button{border-top:0}
 #fsdlg .fn{font-size:12px;font-weight:400;color:var(--muted);margin-left:auto;white-space:nowrap}
 #fsdlg .fnone{padding:14px 12px;color:var(--muted);font-size:14px}
-/* Flare-up: a checkbox in the Symptoms box that logs when a flare started, without naming symptoms */
-.flare{display:flex;align-items:center;gap:10px;padding:4px 10px 0}
-.flare .toggle{min-height:44px;padding:0;font-size:15px}
-.flare .t{border:0;background:transparent;padding:6px 2px;font-size:13px;font-weight:400;color:var(--muted);font-variant-numeric:tabular-nums;
-  text-decoration:underline dotted;text-underline-offset:3px}
-.flare .t svg{width:14px;height:14px;display:block}
+/* Flare-ups in the Symptoms box: one chip each (tap to edit), and + Flare-up to log one straight away */
+.flare{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:8px 10px 0}
+.flare .fchips{padding:0}
+.fchip{border-width:2px;border-color:var(--ink)}
+.fchip button.nm .typ.add{font-style:italic}
+.fchip button.t svg{width:14px;height:14px;display:block}
+.flare .fadd{min-height:44px;font-size:15px}
+.sflares{margin:0 0 4px}
+#fldlg .fhint{margin:0 0 12px;font-size:13px;color:var(--muted)}
 .cal button.fl,.ycal button.fl{box-shadow:inset 0 0 0 2px var(--ink)}
 /* ---------- Overnight & dreams ----------
    Same boxes, chips and scales as the rest of Today, in the section's own hue */
@@ -907,6 +910,7 @@ body{display:flex;flex-direction:column}
     <h3 id="sdlgTitle">Symptom</h3>
     <div class="body">
       <div id="sOcc"></div>
+      <div id="sFlares" class="tagpick sflares" hidden></div>
       <div class="actions sagain"><button type="button" class="ghost" id="sAgain">+ Log again now</button></div>
       <div class="actions">
         <button type="button" class="ghost" id="scancel">Cancel</button>
@@ -939,6 +943,24 @@ body{display:flex;flex-direction:column}
       <div class="actions">
         <button type="button" class="danger" id="nremove">Remove</button>
         <button type="button" class="ghost" id="ncancel">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+<!-- A flare-up: when it started, which symptoms and notes. It's saved before this opens, so nothing here is required. -->
+<dialog id="fldlg">
+  <form method="dialog" id="flform">
+    <h3 id="fldlgTitle">Flare-up</h3>
+    <div class="body">
+      <p class="fhint" id="flhint">Saved. Add details now or tap it later.</p>
+      <label class="f"><span>Started</span><input type="time" id="fltime"></label>
+      <p class="ilabel">Symptoms</p>
+      <div class="tagpick" id="flsym" role="group" aria-label="Symptoms in this flare-up"></div>
+      <label class="f">Notes<textarea id="flc" rows="3" maxlength="1000" placeholder="What it was like, what helped…"></textarea></label>
+      <div class="actions">
+        <button type="button" class="danger" id="flremove">Remove</button>
+        <button type="button" class="ghost" id="flcancel">Later</button>
         <button type="submit" class="primary">Save</button>
       </div>
     </div>
@@ -1027,6 +1049,10 @@ body{display:flex;flex-direction:column}
       <div class="symptom-only wakef">
         <label class="allday"><input type="checkbox" id="edWake"><span>Wakes me up</span></label>
         <p class="thint">Noting it during your asleep hours logs a wake-up for it. Asleep hours are in Settings → Symptoms → Night wake-ups.</p>
+      </div>
+      <div class="symptom-only wakef">
+        <label class="allday"><input type="checkbox" id="edFlare"><span>Starts a flare-up</span></label>
+        <p class="thint">Logging it on Today also logs a flare-up and opens it, so you can add other symptoms and notes now or later. Within 2 hours of another flare-up, it joins that one.</p>
       </div>
       <label class="f med-only timed-only">Note<input name="notes" placeholder="e.g. with food" autocomplete="off"></label>
       <label class="f med-only timed-only">Started <span class="opt">(optional)</span><input type="date" name="since" aria-describedby="sinceHint"></label>
@@ -1145,7 +1171,9 @@ const LATE_CUTOFF = 3;       // 3 AM: the latest a day can run past midnight whi
    so can a meal's food (m.fi[foodId].c / .sym).
    ldet: {date:{"medId|slot":{o?,skip?}}} — for a checked dose: which type was taken, or skip:true when it was skipped
    (long-press). A skipped dose is checked (it counts as done) but exported as skipped.
-   flare: {date:t} — when a flare-up started (the Flare-up checkbox in Symptoms; the flag itself is trig[date].syms)
+   flares: {date:[{t?,sym?:[ids],c?}]} — each flare-up that day: when it started, its symptoms and notes (all optional, so
+   one can be logged half asleep and filled in later). trig[date].syms is kept on while a day has any (see setFlare).
+   flareSyms: symptom ids that start a flare-up by themselves when logged (see flareFromSym)
    nlog: {night:{w:[{t,why?,sym?:[],body?:[],feel?:[],i?,c?}],d:{v?,dis?,nm?,none?,c?}}} — wake-ups and dreams, each night keyed by
    the morning it leads into (see "Overnight & dreams"); sym = the symptoms that woke you (ids)
    wakeDef: {why?,sym?:[]} — what a new wake-up starts with. wakeSyms: symptom ids that log a wake-up by themselves when
@@ -1182,7 +1210,7 @@ function secShown(id){ const e=state.layout.find(x=>x.id===id); return !e||e.sho
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{}, suppMode:"list", suppTimes:["once"],
   moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:defaultOthers(), olog:{}, trackOther:true, hotAdded:true, acts:[], aclog:{}, showSnacks:true, showAfter:true, trig:{}, trackTrig:true, altLook:true, todayJump:false,
   appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, trackLoc:false, geo:{}, pollenKey:"", name:"", updated:0,
-  ldet:{}, flare:{}, nlog:{}, wakeDef:{}, wakeSyms:[], sleepFrom:"22:00", sleepTo:"07:00", changes:[], medsOffSpells:[], lastBackup:0, backupSnooze:"", wlog:{}};
+  ldet:{}, flares:{}, flareSyms:[], nlog:{}, wakeDef:{}, wakeSyms:[], sleepFrom:"22:00", sleepTo:"07:00", changes:[], medsOffSpells:[], lastBackup:0, backupSnooze:"", wlog:{}};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
 
@@ -1303,7 +1331,8 @@ function normalize(s){
           trackLoc:s.trackLoc===true, geo:obj(s.geo),
           name:typeof s.name==="string"?s.name.trim().slice(0,60):"",
           dayEnd:typeof s.dayEnd==="string"?s.dayEnd:undefined,
-          ldet:obj(s.ldet), flare:obj(s.flare),
+          ldet:obj(s.ldet), flares:obj(s.flares),
+          flareSyms:(Array.isArray(s.flareSyms)?s.flareSyms:[]).filter(x=>typeof x==="string"),
           lastBackup:Number(s.lastBackup)||0, backupSnooze:typeof s.backupSnooze==="string"?s.backupSnooze:"",
           medsOffSince:/^\d{4}-\d\d-\d\d$/.test(s.medsOffSince||"")?s.medsOffSince:undefined,
           medsOffSpells:(Array.isArray(s.medsOffSpells)?s.medsOffSpells:[]).filter(x=>Array.isArray(x)&&x.length===2&&x.every(d=>/^\d{4}-\d\d-\d\d$/.test(d))),
@@ -1311,7 +1340,25 @@ function normalize(s){
           wakeDef:normWakeDef(s.wakeDef), wakeSyms:(Array.isArray(s.wakeSyms)?s.wakeSyms:[]).filter(x=>typeof x==="string"),
           sleepFrom:/^\d\d:\d\d$/.test(s.sleepFrom||"")?s.sleepFrom:"22:00", sleepTo:/^\d\d:\d\d$/.test(s.sleepTo||"")?s.sleepTo:"07:00",
           updated:Number(s.updated)||0};
+  n.flares=normFlares(n.flares,obj(s.flare),n.trig);
   normAppts(n); tidyDoses(n.meds); tidyDoses(n.extras); tidyDoses(n.supps); medStarts(n); return n;
+}
+/* Flare-ups used to be one per day (s.flare = {date:t}, flagged by trig[date].syms). Now a day holds a list
+   (s.flares); older data and backups become a one-item list with that time. A day flagged without a time keeps a
+   flare-up with no time. Any day with flare-ups has its flag set, so Recap and the export see it. */
+function normFlares(fl,old,trig){
+  const out={};
+  for(const [k,L] of Object.entries(fl)){ if(!/^\d{4}-\d\d-\d\d$/.test(k)||!Array.isArray(L)) continue;
+    const ok=L.filter(e=>e&&typeof e==="object").map(e=>{const o={};
+      if(typeof e.t==="number"&&e.t>1e11) o.t=e.t;
+      const sy=(Array.isArray(e.sym)?e.sym:[]).filter(x=>typeof x==="string"); if(sy.length) o.sym=[...new Set(sy)];
+      if(typeof e.c==="string"&&e.c.trim()) o.c=e.c.slice(0,1000);
+      return o;});
+    if(ok.length) out[k]=ok.sort((a,b)=>(a.t||0)-(b.t||0)); }
+  for(const [k,d] of Object.entries(trig)){ if(!d||!d.syms||out[k]) continue;
+    out[k]=[typeof old[k]==="number"&&old[k]>1e11?{t:old[k]}:{}]; }
+  for(const k of Object.keys(out)){ const d=trig[k]&&typeof trig[k]==="object"?trig[k]:(trig[k]={}); d.syms=true; }
+  return out;
 }
 /* Appointments used to hold one Who or where (appt.dose), shared by every visit, so two therapists under one Therapy
    overwrote each other. Now each appointment lists its people or places (appt.who) and each visit keeps its own (e.w).
@@ -1428,7 +1475,7 @@ function watchRemoval(msg){
   const snap=JSON.stringify(state);
   setTimeout(()=>{ if(JSON.stringify(state)!==snap) offerUndo(msg,snap); },0);
 }
-const RM_SEL="[data-rm],[data-rmsym],[data-rmx],[data-evrm],[data-rmmood],[data-rmwake]";
+const RM_SEL="[data-rm],[data-rmsym],[data-rmx],[data-evrm],[data-rmmood],[data-rmwake],[data-rmflr]";
 
 /* Text boxes save as you type, without redrawing the page */
 let textTimer=null;
@@ -1950,9 +1997,12 @@ function render(){
         const L=sday[x.id], last=L.length-1, lb=symLabel(L[last].t), mx=symMax(L);
         const nb=`<button class="nm" data-symd="${esc(x.id)}" aria-label="${esc(x.name)}${mx?", intensity "+mx+" of 10":""}. Tap to set intensity and times">${esc(x.name)}${mx?`<span class="lvl" style="--i:${mx}">${mx}</span>`:""}</button>`;
         return `<span class="chip">${nb}${L.length>1?`<span class="qty">×${L.length}</span>`:""}${lb?`<button class="t" data-editsym="${esc(x.id)}" data-si="${last}" aria-label="Change time of ${esc(x.name)}, now ${lb}">${lb}</button>`:""}<button data-rmsym="${esc(x.id)}" data-si="${last}" aria-label="Remove ${L.length>1?"one ":""}${esc(x.name)}">×</button></span>`}).join(""):`<span class="none">No symptoms today</span>`}</div>
-      ${(()=>{const fl=isTrig(viewDate,"syms"), ft=state.flare[viewDate];
-        /* Flare-up: logs when a flare started, without naming symptoms (the same mark as Suspected Flare in the box's menu) */
-        return `<div class="flare"><label class="toggle"><input type="checkbox" data-flare ${fl?"checked":""}><span>Flare-up</span></label>${fl?`<button type="button" class="t" data-flaret aria-label="${realTime(ft)?"Change when the flare-up started, now "+fmtTime(ft):"Add when the flare-up started"}">${realTime(ft)?fmtTime(ft):CLOCK}</button>`:""}</div>`})()}
+      ${(()=>{const FL=flaresOn(viewDate);
+        /* Flare-ups: + Flare-up logs one straight away (nothing else needed, for the middle of the night) and opens its
+           pop-up; tap one later to add when, which symptoms and notes */
+        return `<div class="flare">${FL.length?`<div class="chips fchips">${FL.map((f,i)=>{const sn=(f.sym||[]).map(symName).filter(Boolean), tm=realTime(f.t)?fmtTime(f.t):"";
+          return `<span class="chip fchip"><button class="nm" data-flr="${i}" aria-label="Flare-up${tm?" at "+tm:""}${sn.length?", "+esc(sn.join(", ")):""}${f.c?", has notes":""}. Tap to edit">Flare-up${sn.length?`<span class="typ">${esc(sn.join(", "))}</span>`:`<span class="typ add">+ details</span>`}${f.c?`<span class="cmt" title="${esc(f.c)}">${esc(f.c)}</span>`:""}</button><button class="t" data-flr="${i}" aria-label="${tm?"Change when it started, now "+tm:"Add when it started"}">${tm||CLOCK}</button><button data-rmflr="${i}" aria-label="Remove flare-up${tm?" at "+tm:""}">×</button></span>`}).join("")}</div>`:""}
+          <button type="button" class="ghost fadd" data-flareadd>+ Flare-up</button></div>`})()}
       <div class="pickers one">
         <select data-pick="sym" aria-label="Add a symptom">
           <option value="">Add symptom…</option>
@@ -1964,7 +2014,7 @@ function render(){
   }
 
   html+=noteBox("syms","l-sym","Symptom notes","Anything about how you felt…");
-  S.syms=html; SUM.syms=[state.symptoms.filter(x=>(sday[x.id]||[]).length).length||"",isTrig(viewDate,"syms")?"flare":""].filter(Boolean).join(" · ");
+  S.syms=html; SUM.syms=[state.symptoms.filter(x=>(sday[x.id]||[]).length).length||"",(n=>n?n+(n===1?" flare":" flares"):"")(flaresOn(viewDate).length)].filter(Boolean).join(" · ");
 
   /* Food */
   html="";
@@ -2232,10 +2282,10 @@ function renderSummary(){
     html+=`<div class="box l-list"><div class="lid">Top symptoms</div><div class="empty-row">Add symptoms in Settings to see them here.</div></div>`;
   } else {
     const ranked=[...state.symptoms].map(x=>({x,n:now.c[x.id]||0,p:before.c[x.id]||0})).sort((a,b)=>b.n-a.n||a.x.name.localeCompare(b.x.name));
-    let flares=0; for(const k of Object.keys(state.trig)) if(k>=from&&k<=upto&&isTrig(k,"syms")) flares++;
+    let flares=0, flareN=0; for(const k of Object.keys(state.trig)) if(k>=from&&k<=upto&&isTrig(k,"syms")){ flares++; flareN+=Math.max(1,flaresOn(k).length); }
     html+=`<div class="box l-list"><div class="lid">Top symptoms<span class="st">${elapsed} ${elapsed===1?"day":"days"} tracked</span></div>
       <div class="big">${now.anyDays}<small>${now.anyDays===1?"day":"days"} with any symptom</small></div>
-      ${flares?`<div class="stat"><span class="nm">Flare-ups</span><span class="num">${flares} ${flares===1?"day":"days"} · outlined on the calendar</span></div>`:""}
+      ${flares?`<div class="stat"><span class="nm">Flare-ups</span><span class="num">${flareN>flares?flareN+" on ":""}${flares} ${flares===1?"day":"days"} · outlined on the calendar</span></div>`:""}
       ${ranked.filter(r=>r.n>0).length?"":`<div class="empty-row">No symptoms logged this ${unit}.</div>`}
       ${ranked.filter(r=>r.n>0).map(r=>{
         const pct=elapsed?Math.round(r.n/elapsed*100):0, d=r.n-r.p;
@@ -2795,7 +2845,7 @@ function flareSummary(from,upto){
   const tk=todayKey(), fu=firstUse(), lo=from<fu?fu:from, hi=upto<tk?upto:tk;
   const flares=[]; for(let k=lo;k<=hi;k=shiftKey(k,1)) if(isTrig(k,"syms")) flares.push(k);
   const head=`<div class="box l-list"><div class="lid">Before flare-ups<span class="st">${flares.length} ${flares.length===1?"flare-up":"flare-ups"}</span></div>`;
-  if(!flares.length) return head+`<div class="empty-row">Tick Flare-up in Symptoms on days you flare, and this shows what came in the ${BEFORE_DAYS} days before.</div></div>`;
+  if(!flares.length) return head+`<div class="empty-row">Tap + Flare-up in Symptoms when you flare, and this shows what came in the ${BEFORE_DAYS} days before.</div></div>`;
   const memo=new Map(), day=k=>memo.get(k)||(memo.set(k,dayItems(k)),memo.get(k));
   const win=k=>{const m=new Map(); for(let i=BEFORE_DAYS;i>=0;i--) for(const [a,b] of day(shiftKey(k,-i))) m.set(a,b); return m};
   const inWin=new Set(); for(const f of flares) for(let i=0;i<=BEFORE_DAYS;i++) inWin.add(shiftKey(f,-i));
@@ -2944,7 +2994,12 @@ todayCol.addEventListener("click",e=>{
   if(symd){ openSymDetail(viewDate,symd.dataset.symd); return; }
   const actd=e.target.closest("[data-actd]");
   if(actd){ openActDetail(viewDate,actd.dataset.actd,actd.dataset.o||""); return; }
-  if(e.target.closest("[data-flaret]")){ openFlareTime(viewDate); return; }
+  const flr=e.target.closest("[data-flr]");
+  if(flr){ openFlare(viewDate,+flr.dataset.flr); return; }
+  if(e.target.closest("[data-flareadd]")){ const f=addFlare(viewDate); commit(); openFlare(viewDate,flaresOn(viewDate).indexOf(f),true); return; }
+  const rmflr=e.target.closest("[data-rmflr]");
+  if(rmflr){ const L=flaresOn(viewDate), f=L[+rmflr.dataset.rmflr];
+    if(f){ L.splice(+rmflr.dataset.rmflr,1); tidyFlares(viewDate); commit(); } return; }
   if(e.target.id==="wElec"){ waterElec=e.target.checked; return; }
   const wadd=e.target.closest("[data-wadd]");
   if(wadd){ logWater(viewDate,+wadd.dataset.wadd); commit(); return; }
@@ -3048,7 +3103,8 @@ function symLabel(v){ return v===ALLDAY ? "All day" : realTime(v) ? fmtTime(v) :
 function sortSym(list){ return list.sort((a,b)=>symSortKey(a.t)-symSortKey(b.t)); }
 function symList(date,id){ return ((state.slog[date]||{})[id])||[]; }
 function symMax(list){ const v=list.map(e=>e.i).filter(Boolean); return v.length?Math.max(...v):0; }
-function logSym(date,id){ const d=state.slog[date]||(state.slog[date]={}), t=stampFor(date); sortSym((d[id]||(d[id]=[]))).push({t}); sortSym(d[id]); wakeFromSym(id,t); }
+/* Returns the flare-up it started or joined (a symptom set to Starts a flare-up), so Today can open it */
+function logSym(date,id){ const d=state.slog[date]||(state.slog[date]={}), t=stampFor(date); sortSym((d[id]||(d[id]=[]))).push({t}); sortSym(d[id]); wakeFromSym(id,t); return flareFromSym(date,id,t); }
 function tidySyms(date){
   const d=state.slog[date]; if(!d) return;
   for(const [id,l] of Object.entries(d)) if(!Array.isArray(l)||!l.length) delete d[id];
@@ -3105,11 +3161,6 @@ function readEntryExtras(e){
   if(v) e.sym=v; else delete e.sym;
   if(c) e.c=c; else delete e.c;
   if(document.getElementById("xpf").checked) e.pf=1; else delete e.pf;
-}
-function openFlareTime(date){
-  if(!isTrig(date,"syms")) return;
-  xedit={kind:"flare",date};
-  openTimeDialog("Flare-up","Started","Remove flare-up",state.flare[date]);
 }
 function openEvTime(kind,date,i){
   const E=EVLOGS[kind], e=(state[E.log][date]||[])[i], m=e&&evOf(kind,e.id); if(!m) return;
@@ -3216,8 +3267,13 @@ function openSymDetail(date,id){
   sedit={date,id,list:symList(date,id).map(e=>({...e}))};
   if(!sedit.list.length) sedit.list.push({t:stampFor(date)});
   document.getElementById("sdlgTitle").textContent=x.name;
+  /* Flare-ups this symptom is part of that day: tap one to edit it (this pop-up's changes are saved first) */
+  const FL=flaresOn(date).map((f,i)=>({f,i})).filter(o=>(o.f.sym||[]).includes(id)), box=document.getElementById("sFlares");
+  box.innerHTML=FL.map(o=>`<button type="button" data-sflr="${o.i}">Flare-up${realTime(o.f.t)?" "+fmtTime(o.f.t):""} ›</button>`).join("");
+  box.hidden=!FL.length;
   renderSymDetail(); sdlg.showModal(); sdlg.querySelector('[type="submit"]').focus();
 }
+function hideSymFlares(){ const b=document.getElementById("sFlares"); b.hidden=true; b.innerHTML=""; }
 /* The same pop-up for an activity: each time it was done gets a start time, minutes and a 1–10 exertion
    (kept in the pop-up's list as i, saved as x) */
 function openActDetail(date,id,o=""){
@@ -3226,7 +3282,7 @@ function openActDetail(date,id,o=""){
   sedit={kind:"act",date,id,o,list:(state.aclog[date]||[]).filter(e=>e.id===id&&(e.o||"")===o).map(e=>({t:e.t,i:e.x,min:e.min,c:e.c,sym:e.sym,pf:e.pf}))};
   if(!sedit.list.length) sedit.list.push({t:stampFor(date)});
   document.getElementById("sdlgTitle").textContent=x.name+(optOf(x,o)?" · "+optLabel(optOf(x,o)):"");
-  renderSymDetail(); sdlg.showModal(); sdlg.querySelector('[type="submit"]').focus();
+  hideSymFlares(); renderSymDetail(); sdlg.showModal(); sdlg.querySelector('[type="submit"]').focus();
 }
 /* Something logged more than once (a supplement ×3, Smoke ×2): one row per time, to change or remove each,
    + Log again now for another, and Details for one time's type, linked symptom and comment */
@@ -3234,7 +3290,7 @@ function openEvTimes(kind,date,ix){
   const L=state[EVLOGS[kind].log][date]||[], first=L[ix[0]], m=first&&evOf(kind,first.id); if(!m) return;
   sedit={kind:"ev",ev:kind,date,ix:ix.filter(i=>L[i]),proto:{...L[ix[ix.length-1]]},list:ix.filter(i=>L[i]).map(i=>({t:L[i].t,src:i}))};
   document.getElementById("sdlgTitle").textContent=evName(kind,first);
-  renderSymDetail(); sdlg.showModal(); sdlg.querySelector('[type="submit"]').focus();
+  hideSymFlares(); renderSymDetail(); sdlg.showModal(); sdlg.querySelector('[type="submit"]').focus();
 }
 /* Writes the times pop-up back: kept times on their own entries, new ones copied from the chip's entry. Returns the
    entry objects in pop-up order, so Details can find one after the list is re-sorted. */
@@ -3285,6 +3341,10 @@ function readSymTimes(){
 }
 sdlg.addEventListener("click",e=>{
   if(!sedit) return;
+  const sf=e.target.closest("[data-sflr]");
+  if(sf){ const {date}=sedit, f=flaresOn(date)[+sf.dataset.sflr];
+    document.getElementById("sform").requestSubmit();
+    const i=flaresOn(date).indexOf(f); if(i>=0) openFlare(date,i); return; }
   const lv=e.target.closest("[data-lv]"), rm=e.target.closest("[data-orm]"), det=e.target.closest("[data-odet]");
   if(det){ readSymTimes(); const {ev,date}=sedit, mine=saveEvTimes(), x=mine[+det.dataset.odet];
     sdlg.close(); commit(); const i=(state[EVLOGS[ev].log][date]||[]).indexOf(x); if(i>=0) openEvTime(ev,date,i); return; }
@@ -3297,7 +3357,7 @@ sdlg.addEventListener("change",e=>{
   if(o) o.t = a.checked ? ALLDAY : stampFor(sedit.date);
   renderSymDetail();
 });
-document.getElementById("sAgain").onclick=()=>{ readSymTimes(); sedit.list.push({t:stampFor(sedit.date)}); renderSymDetail(); };
+document.getElementById("sAgain").onclick=()=>{ readSymTimes(); sedit.list.push({t:stampFor(sedit.date),fresh:1}); renderSymDetail(); };
 document.getElementById("scancel").onclick=()=>sdlg.close();
 sdlg.addEventListener("close",()=>{sedit=null});
 document.getElementById("sform").addEventListener("submit",ev=>{
@@ -3313,7 +3373,11 @@ document.getElementById("sform").addEventListener("submit",ev=>{
   const d=state.slog[sedit.date]||(state.slog[sedit.date]={});
   d[sedit.id]=sortSym(sedit.list.map(e=>e.i?{t:e.t,i:e.i}:{t:e.t}));
   for(const e of d[sedit.id]) wakeFromSym(sedit.id,e.t);
-  tidySyms(sedit.date); sdlg.close(); commit();
+  /* A time added with + Log again now, for a symptom set to Starts a flare-up, logs a flare-up too and opens it */
+  let fl=null; for(const e of sedit.list) if(e.fresh) fl=flareFromSym(sedit.date,sedit.id,e.t)||fl;
+  const date=sedit.date;
+  tidySyms(date); sdlg.close(); commit();
+  if(fl){ const i=flaresOn(date).indexOf(fl); if(i>=0) openFlare(date,i,true); }
 });
 function syncAllDay(){
   const on=document.getElementById("xallday").checked && document.getElementById("xalldayRow").style.display!=="none";
@@ -3346,7 +3410,6 @@ document.getElementById("xform").addEventListener("submit",ev=>{
     const at=old=>timeOn(xedit.date,v,old);   // a small-hours time can belong to that night (see "end of day")
     if(xedit.kind==="sym"){ if(se){ se.t=at(se.t); sortSym(symList(xedit.date,xedit.id)); wakeFromSym(xedit.id,se.t); } }
     else if(xedit.kind==="med"){ const day=state.log[xedit.date]; if(day&&day[xedit.k]) day[xedit.k]=at(day[xedit.k]); }
-    else if(xedit.kind==="flare"){ if(isTrig(xedit.date,"syms")) state.flare[xedit.date]=at(state.flare[xedit.date]); }
     else if(xedit.kind==="mood"){ if((((state.mlog[xedit.date]||{})[xedit.mt])||[]).includes(xedit.id)){ const day=state.mtlog[xedit.date]||(state.mtlog[xedit.date]={}), o=day[xedit.mt]||(day[xedit.mt]={}); o[xedit.id]=at(o[xedit.id]); } }
     else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&(m.foods||[]).includes(xedit.id)){ const ft=m.ft||(m.ft={}); ft[xedit.id]=at(ft[xedit.id]); } }
     else { const list=(xedit.kind==="ev"?state[EVLOGS[xedit.ev].log]:xedit.kind==="water"?state.wlog:state.xlog)[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=at(e.t); list.sort((a,b)=>a.t-b.t); } }
@@ -3361,7 +3424,6 @@ document.getElementById("xremove").onclick=()=>{
   if(xedit.kind==="copy") copyRestore(xedit);
   else if(xedit.kind==="sym"){ symList(xedit.date,xedit.id).splice(xedit.si,1); tidySyms(xedit.date); }
   else if(xedit.kind==="med"){ const day=state.log[xedit.date]||{}; delete day[xedit.k]; if(!Object.keys(day).length) delete state.log[xedit.date]; setDoseDet(xedit.date,xedit.k,null); }
-  else if(xedit.kind==="flare") setFlare(xedit.date,false);
   else if(xedit.kind==="mood"){ delete moodTimes(xedit.date,xedit.mt)[xedit.id]; tidyMoods(xedit.date); }
   else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&m.ft){ delete m.ft[xedit.id]; tidyMeals(xedit.date); } }
   else { const log=xedit.kind==="ev"?state[EVLOGS[xedit.ev].log]:xedit.kind==="water"?state.wlog:state.xlog, list=log[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete log[xedit.date]; }
@@ -3446,10 +3508,35 @@ function setTrig(date,key,on){
   if(on) d[key]=true; else delete d[key];
   if(!Object.keys(d).length) delete state.trig[date];
 }
-/* A flare-up: the Symptoms box's mark, plus when it started (state.flare[date]) */
+/* Flare-ups: a day can have several (state.flares[date]), each with an optional time, symptoms and notes.
+   The Symptoms box's mark (trig[date].syms, Suspected Flare in its menu) stays on while the day has any. */
+function flaresOn(date){ return state.flares[date]||[]; }
+function sortFlares(L){ return L.sort((a,b)=>(realTime(a.t)?a.t:0)-(realTime(b.t)?b.t:0)); }
+function tidyFlares(date){
+  const L=state.flares[date]; if(L&&!L.length) delete state.flares[date];
+  setTrig(date,"syms",flaresOn(date).length>0);
+}
+/* Logs a flare-up now (or at t) and returns it; the pop-up can fill in the rest later */
+function addFlare(date,t,sym){
+  const e={t:realTime(t)?t:stampFor(date)}; if(sym&&sym.length) e.sym=[...sym];
+  sortFlares(state.flares[date]||(state.flares[date]=[])).push(e); sortFlares(state.flares[date]); tidyFlares(date); return e;
+}
+/* Suspected Flare in the box's menu: on adds one flare-up if the day has none; off removes them all */
 function setFlare(date,on){
-  setTrig(date,"syms",on);
-  if(on){ if(!realTime(state.flare[date])) state.flare[date]=stampFor(date); } else delete state.flare[date];
+  if(on){ if(!flaresOn(date).length) addFlare(date); }
+  else delete state.flares[date];
+  tidyFlares(date);
+}
+/* A symptom set to "Starts a flare-up", logged on `date` at t, joins a flare-up that started within FLARE_JOIN of it
+   (so Headache then Nausea twenty minutes later is one flare-up), or starts a new one. Returns that flare-up, or null
+   when nothing changed. */
+const FLARE_JOIN=2*3600000;
+function flareFromSym(date,id,t){
+  if(!state.flareSyms.includes(id)) return null;
+  const L=flaresOn(date), real=realTime(t);
+  const near=L.find(e=>real?realTime(e.t)&&Math.abs(e.t-t)<=FLARE_JOIN:(e.sym||[]).includes(id))||(!real&&L[0]);
+  if(near){ if((near.sym||[]).includes(id)) return null; near.sym=[...(near.sym||[]),id]; return near; }
+  return addFlare(date,real?t:stampFor(date),[id]);
 }
 /* Every box whose mark is exported as a suspected trigger, in Today's order, with a label for the export.
    Symptoms isn't here: its mark means a suspected flare and has its own suspected_flare column. */
@@ -3663,9 +3750,6 @@ document.getElementById("fform").addEventListener("submit",ev=>{
   tidyMeals(fedit.date); fdlg.close(); commit();
 });
 todayCol.addEventListener("change",async e=>{
-  /* Flare-up checkbox in Symptoms: logs when it started (the same mark as Suspected Flare in the box's menu) */
-  const fl=e.target.closest("[data-flare]");
-  if(fl){ setFlare(viewDate,fl.checked); commit(); return; }
   /* Dreams: Disturbing, Nightmare, None remembered (which clears the rest) */
   const df=e.target.closest("[data-dflag]");
   if(df){ const n=df.closest("[data-n]").dataset.n, r=nightRec(n), d=r.d||(r.d={}), f=df.dataset.dflag;
@@ -3696,7 +3780,7 @@ todayCol.addEventListener("change",async e=>{
   if(sel.dataset.pick==="sym"){
     const v=sel.value;
     if(v==="__new"){ sel.value=""; openEditor("sym",null,{date,sym:true}); return; }
-    if(v){ logSym(date,v); commit(); }
+    if(v){ const f=logSym(date,v); commit(); if(f) openFlare(date,flaresOn(date).indexOf(f),true); }
     return;
   }
   const meal=sel.dataset.meal, v=sel.value, kind=sel.dataset.pick;
@@ -3880,6 +3964,58 @@ document.getElementById("nremove").onclick=()=>{
 };
 ndlg.addEventListener("close",()=>{nedit=null});
 
+/* Flare-up pop-up: when it started, its symptoms and notes. The flare-up is already saved when this opens (from
+   + Flare-up or a symptom set to Starts a flare-up), so Later (or closing it) keeps it as it is; Save keeps the changes.
+   Picking a symptom here that isn't logged near the flare-up's time logs it there too, so it counts in Symptoms. */
+const fldlg=document.getElementById("fldlg"); let fledit=null;
+function renderFlSym(){
+  const cur=fledit.sym, L=state.symptoms.filter(x=>!x.archived||cur.includes(x.id)).sort((a,b)=>a.name.localeCompare(b.name));
+  document.getElementById("flsym").innerHTML=L.length?L.map(x=>`<button type="button" data-fls="${esc(x.id)}" aria-pressed="${cur.includes(x.id)}">${esc(x.name)}</button>`).join("")
+    :`<span class="none">Add symptoms in Settings → Symptoms</span>`;
+}
+function openFlare(date,i,fresh){
+  const e=flaresOn(date)[i]; if(!e) return;
+  fledit={date,e,sym:[...(e.sym||[])]};
+  document.getElementById("fldlgTitle").textContent="Flare-up"+(date===todayKey()?"":" · "+parseKey(date).toLocaleDateString(undefined,{month:"short",day:"numeric"}));
+  document.getElementById("flhint").hidden=!fresh;
+  document.getElementById("fltime").value=realTime(e.t)?hhmm(e.t):"";
+  document.getElementById("flc").value=e.c||"";
+  renderFlSym();
+  fldlg.showModal();
+  fldlg.querySelector('[type="submit"]').focus();
+}
+fldlg.addEventListener("click",ev=>{
+  const b=fledit&&ev.target.closest("[data-fls]"); if(!b) return;
+  const k=b.dataset.fls, j=fledit.sym.indexOf(k); if(j>=0) fledit.sym.splice(j,1); else fledit.sym.push(k);
+  b.setAttribute("aria-pressed",String(j<0));
+});
+document.getElementById("flform").addEventListener("submit",ev=>{
+  ev.preventDefault(); if(!fledit) return;
+  const {date,e}=fledit, L=flaresOn(date);
+  if(!L.includes(e)){ fldlg.close(); return; }
+  const v=document.getElementById("fltime").value, c=document.getElementById("flc").value.trim().slice(0,1000);
+  if(/^\d\d:\d\d/.test(v)) e.t=timeOn(date,v,e.t); else delete e.t;
+  const sy=state.symptoms.map(x=>x.id).filter(id=>fledit.sym.includes(id));
+  const added=sy.filter(id=>!(e.sym||[]).includes(id));
+  if(sy.length) e.sym=sy; else delete e.sym;
+  if(c) e.c=c; else delete e.c;
+  /* newly picked symptoms not already logged within FLARE_JOIN of the flare-up are logged at its time */
+  for(const id of added){
+    const at=realTime(e.t)?e.t:stampFor(date), SL=symList(date,id);
+    if(SL.some(x=>x.t===ALLDAY||(realTime(x.t)&&Math.abs(x.t-at)<=FLARE_JOIN))) continue;
+    const d=state.slog[date]||(state.slog[date]={}); (d[id]||(d[id]=[])).push({t:at}); sortSym(d[id]);
+  }
+  sortFlares(L); tidyFlares(date);
+  fldlg.close(); commit();
+});
+document.getElementById("flcancel").onclick=()=>fldlg.close();
+document.getElementById("flremove").addEventListener("click",()=>watchRemoval("Removed flare-up"),true);
+document.getElementById("flremove").onclick=()=>{
+  if(fledit){ const L=flaresOn(fledit.date), j=L.indexOf(fledit.e); if(j>=0){ L.splice(j,1); tidyFlares(fledit.date); } }
+  fldlg.close(); commit();
+};
+fldlg.addEventListener("close",()=>{fledit=null});
+
 /* Medication change pop-up: Settings → Medication changes → Add, or tap a change (in Settings or on its day on Today) */
 const chdlg=document.getElementById("chdlg"); let chEdit=null;
 function openChange(id){
@@ -4046,6 +4182,7 @@ function openEditor(kind,id,pending){
   form.classList.toggle("is-appt",kind==="appt");
   form.classList.toggle("is-symptom",kind==="sym");
   document.getElementById("edWake").checked=kind==="sym"&&!!item&&state.wakeSyms.includes(item.id);
+  document.getElementById("edFlare").checked=kind==="sym"&&!!item&&state.flareSyms.includes(item.id);
   /* Supplements in the checklist style pick their times, when more than one is shown */
   form.classList.toggle("is-supp",kind==="supp"&&suppList()&&suppTimesOn().length>1);
   if(kind==="supp"){ const mine=item?suppSlotsOf(item):[suppTimesOn()[0].id];
@@ -4163,20 +4300,24 @@ form.addEventListener("submit",e=>{
   }
   /* A symptom's Wakes me up: the same list as Settings → Symptoms → Night wake-ups (set before a pending log below) */
   if(item&&kind==="sym"){ const on=document.getElementById("edWake").checked, L=state.wakeSyms.filter(x=>x!==item.id);
-    state.wakeSyms=on?[...L,item.id]:L; }
+    state.wakeSyms=on?[...L,item.id]:L;
+    /* Starts a flare-up: logging it on Today also logs a flare-up (see flareFromSym) */
+    const fon=document.getElementById("edFlare").checked, FL=state.flareSyms.filter(x=>x!==item.id);
+    state.flareSyms=fon?[...FL,item.id]:FL; }
   /* Types; a new one typed here is the answer when the editor was opened from Which one? → + New type… */
   const fresh=item&&TYPED.includes(kind)?saveOpts(kind,item):null;
   /* Started from Today's "+ New…": log it there too (an item with types gets the first one) */
   if(item&&p&&!editing.id){
     const o=defaultOpt(item);
     if(p.xmed) logExtra(p.date,item.id,o);
-    else if(p.sym) logSym(p.date,item.id);
+    else if(p.sym) p.flare=logSym(p.date,item.id);
     else if(p.mood) logMood(p.date,p.mt,item.id);
     else if(p.ev) logEv(p.ev,p.date,item.id,undefined,o);
     else if(p.meal){ if(kind==="food") logFoodVer(p.date,p.meal,item.id,o); else mealOf(p.date,p.meal).place=item.id; }
   }
   if(p&&p.thenType&&!p.typeDone){ p.typeDone=true; p.thenType(fresh?fresh.id:null); }
   dlg.close(); commit();
+  if(p&&p.flare){ const i=flaresOn(p.date).indexOf(p.flare); if(i>=0) openFlare(p.date,i,true); }
 });
 document.getElementById("delItem").onclick=async()=>{
   const K=KINDS[editing.kind], item=K.list().find(x=>x.id===editing.id);
@@ -4385,7 +4526,8 @@ function buildCSV(start,end){
     "weather","high_"+(US_UNITS?"F":"C"),"low_"+(US_UNITS?"F":"C"),"precip_"+(US_UNITS?"in":"mm"),"humidity_pct","pressure_hpa","pressure_change_hpa","us_aqi","pm2_5","pollen_tree","pollen_grass","pollen_weed","latitude","longitude","elevation_"+(US_UNITS?"ft":"m"),"distance_from_last_"+(US_UNITS?"mi":"km"),"elevation_change_"+(US_UNITS?"ft":"m"),"big_move",
     "suspected_triggers (what the user marked as possibly triggering their condition that day)",
     "suspected_flare (1 = the user marked this day as a possible flare-up of their condition)",
-    "flare_time (when the flare-up started)",
+    "flare_time (when each flare-up started, separated by ;)",
+    "flares (each flare-up that day: time, its symptoms and notes)",
     "linked_symptoms (things the user connected to a symptom that day: item → symptom)",
     "possible_flare_items (individual foods, doses and other things the user marked as a possible flare trigger)",
     "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells_other","notes_activity","notes_appointments","notes_supplements",
@@ -4443,7 +4585,9 @@ function buildCSV(start,end){
         return [g.lat,g.lon,el(g.el),m?(US_UNITS?m.mi:m.mi*1.609344).toFixed(0):"",m&&m.de!=null?el(m.de):"",m&&(m.far||m.high)?1:0]})(),
       trigText(k),
       isTrig(k,"syms")?1:0,
-      isTrig(k,"syms")&&realTime(state.flare[k])?fmtTime(state.flare[k]):"",
+      flaresOn(k).map(f=>realTime(f.t)?fmtTime(f.t):"").filter(Boolean).join("; "),
+      flaresOn(k).map(f=>{const sn=(f.sym||[]).map(symName).filter(Boolean);
+        return (realTime(f.t)?fmtTime(f.t):"time not set")+(sn.length?": "+sn.join(", "):"")+(f.c?" (note: "+f.c.replace(/\s+/g," ")+")":"");}).join(" | "),
       linkedText(k),
       pfText(k),
       MEALS.filter(m=>typed[m.id]).map(m=>m.label+": "+typed[m.id]).join(" | "),
@@ -4639,8 +4783,12 @@ setTimeout(checkUpdate,3000);
    After an update, one pop-up lists what's new in this version only (not every version skipped), dismissed with OK.
    APP_VER must match the number in sw.js's CACHE; add a WHATS_NEW entry (newest first) whenever you bump them.
    A first install sees nothing, since there's nothing new to it. */
-const APP_VER=114, VER_KEY="daily-meds-ver";
+const APP_VER=115, VER_KEY="daily-meds-ver";
 const WHATS_NEW=[
+  {v:115,items:[
+    "Flare-ups: log as many as you need in a day. Tap + Flare-up in Symptoms and it's saved straight away with the time, so you can do it half asleep. Its pop-up lets you set when it started, which symptoms and notes, now or later by tapping it.",
+    "A symptom can start a flare-up by itself: edit it in Settings → Symptoms and tick Starts a flare-up. Logging it then logs a flare-up and opens it. Within 2 hours of another flare-up, it joins that one.",
+    "Tap a symptom that's part of a flare-up to jump to that flare-up. The spreadsheet lists every flare-up of the day, with its symptoms and notes."]},
   {v:114,items:["Recap → Before flare-ups now counts ingredients too, like sour cream in mashed potatoes, matched by name across foods."]},
   {v:113,items:[
     "Water: a box under your meals with quick + buttons. Tick Electrolyte for an electrolyte drink. Tap a time to change or remove it. Totals are in the spreadsheet too.",
