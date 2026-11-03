@@ -1127,6 +1127,21 @@ await test("a med with types: Take all uses the last one; checking it asks which
   assert(/Antihistamine: Zyrtec 10 mg \(Morning\) at/.test(col("doses_taken_list")), "export names the type: " + col("doses_taken_list"));
 }, typedMed);
 
+await test("Which one? has a Time box: changing it logs at that time; left alone it's now", async page => {
+  await page.click('.row.med[data-k="ah|morning"]'); await page.waitForSelector("#odlg[open]");
+  assert(/^\d\d:\d\d$/.test(await page.inputValue("#oTime")), "set to now");
+  await page.fill("#oTime", "06:15"); await page.click('#oList [data-oid="o1"]');
+  const t = new Date((await page.state()).log[today]["ah|morning"]);
+  eq([t.getHours(), t.getMinutes()], [6, 15], "checked off at 6:15");
+  await page.selectOption('[data-pick="xmed"]', "ah"); await page.waitForSelector("#odlg[open]");
+  await page.fill("#oTime", "05:40"); await page.click('#oList [data-oid="o2"]');
+  const x = (await page.state()).xlog[today][0];
+  eq([new Date(x.t).getHours(), new Date(x.t).getMinutes(), x.o], [5, 40, "o2"], "additional dose at 5:40, Zyrtec");
+  await page.selectOption('[data-pick="xmed"]', "ah"); await page.click('#oList [data-oid="o1"]');
+  const y = (await page.state()).xlog[today].find(e => e.o === "o1");
+  assert(Math.abs(y.t - Date.now()) < 120000, "untouched time logs now");
+}, typedMed);
+
 await test("types are added in the editor; + New type… in Which one? adds one and logs it; a used type removed is kept for history", async page => {
   await page.click('[data-tab="set"][role="tab"]');
   await page.click("#addExtra");

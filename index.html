@@ -433,6 +433,7 @@ label.f textarea{display:block;width:100%;margin-top:4px;padding:10px;border:1px
   font:inherit;font-size:15px;color:var(--ink);resize:vertical;min-height:64px}
 /* Which one? pop-up */
 .occ .occf{margin:10px 0 0}
+.otime{margin:0 0 12px}
 .olist{display:flex;flex-direction:column;border:1px solid var(--rule);margin:0 0 14px}
 .olist button{display:flex;align-items:baseline;gap:8px;width:100%;min-height:52px;padding:10px 12px;border:0;background:var(--white);text-align:left;font-size:16px;font-weight:500}
 .olist button+button{border-top:1px solid var(--hair)}
@@ -880,6 +881,7 @@ body{display:flex;flex-direction:column}
 <dialog id="odlg" aria-labelledby="odlgTitle">
   <h3 id="odlgTitle">Which one?</h3>
   <div class="body">
+    <label class="f otime"><span>Time</span><input type="time" id="oTime"></label>
     <div class="olist" id="oList"></div>
     <div class="actions">
       <button type="button" class="ghost onew" id="oNew">+ New type…</button>
@@ -1283,17 +1285,25 @@ document.getElementById("askDlg").addEventListener("close",()=>askDone&&askDone(
    (foods only: "Just Rice"), or null when cancelled. The one picked last time is marked and focused.
    + New type… opens the item's editor with an empty type row; the type added there is the answer. */
 const odlg=document.getElementById("odlg"); let oDone=null, oFor=null;
-function pickType(item,kind,plain){
+/* The pop-up also has a Time box, set to now. Changing it logs the entry at that time instead: the answer is
+   handed to the caller with stampAt set, so the log made straight after (which asks stampFor for its time) gets it. */
+let stampAt=null;
+function withTime(done,date,v){
+  return id=>{ if(id!==null&&v){ stampAt={date,v}; setTimeout(()=>{stampAt=null},0); } done(id); };
+}
+function oTimeChanged(){ const i=document.getElementById("oTime"); return /^\d\d:\d\d/.test(i.value)&&i.value!==i.dataset.v?i.value:""; }
+function pickType(item,kind,plain,date=viewDate){
   const L=liveOpts(item);
   if(!item||!L.length) return Promise.resolve("");
   if(oDone) oDone(null);
+  { const ti=document.getElementById("oTime"); ti.value=ti.dataset.v=hhmm(stampFor(date)); }
   const last=L.some(o=>o.id===item.lastOpt)?item.lastOpt:"";
   document.getElementById("odlgTitle").textContent=item.name+": which one?";
   document.getElementById("oList").innerHTML=[...(plain?[{id:"",name:"Just "+item.name}]:[]),...L].map(o=>
     `<button type="button" data-oid="${esc(o.id)}"><span>${esc(o.name)}</span>${o.dose?`<span class="od">${esc(o.dose)}</span>`:""}${o.id&&o.id===last?`<span class="last">last time</span>`:""}</button>`).join("");
-  oFor={item,kind};
+  oFor={item,kind,date};
   return new Promise(res=>{
-    oDone=v=>{oDone=null;res(v);if(odlg.open)odlg.close()};
+    oDone=(v,t=oTimeChanged())=>{oDone=null;withTime(res,date,t)(v);if(odlg.open)odlg.close()};
     odlg.showModal();
     (odlg.querySelector(`[data-oid="${CSS.escape(last)}"]`)||odlg.querySelector("[data-oid]")).focus();
   });
@@ -1302,9 +1312,10 @@ document.getElementById("oList").addEventListener("click",e=>{const b=e.target.c
 document.getElementById("oCancel").onclick=()=>oDone&&oDone(null);
 odlg.addEventListener("close",()=>oDone&&oDone(null));
 document.getElementById("oNew").onclick=()=>{
-  const {item,kind}=oFor||{}, done=oDone; if(!item||!done) return;
+  const {item,kind,date}=oFor||{}, done=oDone; if(!item||!done) return;
+  const v=oTimeChanged();   // kept for when the new type is saved
   oDone=null; odlg.close();
-  openEditor(kind,item.id,{newType:true,thenType:done});
+  openEditor(kind,item.id,{newType:true,thenType:id=>done(id,v)});
 };
 
 /* ---------- storage ---------- */
@@ -1667,7 +1678,7 @@ async function toggleSupp(date,k){
   const i=suppChecks(date).rows.get(k);
   if(i!=null){ const L=state.suplog[date]; L.splice(i,1); if(!L.length) delete state.suplog[date]; commit(); return; }
   let o="";
-  if(liveOpts(m).length){ o=await pickType(m,"supp"); if(o===null) return; }
+  if(liveOpts(m).length){ o=await pickType(m,"supp",false,date); if(o===null) return; }
   if(suppChecks(date).rows.has(k)) return;
   logSupp(date,id,s,o); commit();
 }
@@ -3045,7 +3056,7 @@ todayCol.addEventListener("click",e=>{
 /* Checking a med with types (Antihistamine): ask which one, then check it off with that one */
 function defaultOpt(m){const L=liveOpts(m);return L.length?(L.find(o=>o.id===m.lastOpt)||L[0]).id:""}
 async function checkWithType(date,k,m){
-  const o=await pickType(m,"med");
+  const o=await pickType(m,"med",false,date);
   if(o===null) return;
   const day=state.log[date]||(state.log[date]={});
   if(!day[k]){ day[k]=stampFor(date); setDoseDet(date,k,o?{o}:null); rememberOpt(m,o); sweep(); }
@@ -3086,6 +3097,7 @@ async function medMenu(k){
 /* Log on `date` at the current time. Today, and yesterday in the small hours (a late dose or symptom from that night),
    get the real time; an older day gets its own date at the current clock time. Kept in time order by the callers. */
 function stampFor(date){
+  if(stampAt&&stampAt.date===date) return timeOn(date,stampAt.v);   // a time picked in the Which one? pop-up
   const now=new Date(), cal=keyOf(now);
   if(date===cal||date===todayKey()||(date===shiftKey(cal,-1)&&now.getHours()<LATE_CUTOFF)) return now.getTime();
   const d=parseKey(date); d.setHours(now.getHours(),now.getMinutes(),now.getSeconds()); return d.getTime();
@@ -3758,7 +3770,7 @@ todayCol.addEventListener("change",async e=>{
   const sel=e.target.closest("select[data-pick]"); if(!sel) return;
   const date=viewDate;
   /* An item with types asks which one before it's logged; Cancel logs nothing */
-  const typeOf=async(item,kind,plain)=>{ if(!liveOpts(item).length) return ""; const o=await pickType(item,kind,plain); if(o===null) sel.value=""; return o; };
+  const typeOf=async(item,kind,plain)=>{ if(!liveOpts(item).length) return ""; const o=await pickType(item,kind,plain,date); if(o===null) sel.value=""; return o; };
   if(sel.dataset.pick==="xmed"){
     const v=sel.value;
     if(v==="__new"){ sel.value=""; openEditor("extra",null,{date,xmed:true}); return; }
@@ -4783,8 +4795,9 @@ setTimeout(checkUpdate,3000);
    After an update, one pop-up lists what's new in this version only (not every version skipped), dismissed with OK.
    APP_VER must match the number in sw.js's CACHE; add a WHATS_NEW entry (newest first) whenever you bump them.
    A first install sees nothing, since there's nothing new to it. */
-const APP_VER=115, VER_KEY="daily-meds-ver";
+const APP_VER=116, VER_KEY="daily-meds-ver";
 const WHATS_NEW=[
+  {v:116,items:["Logging something with types (like Antihistamine → Allegra or Zyrtec) now has a Time box in the Which one? pop-up. Change it before picking, and it's logged at that time."]},
   {v:115,items:[
     "Flare-ups: log as many as you need in a day. Tap + Flare-up in Symptoms and it's saved straight away with the time, so you can do it half asleep. Its pop-up lets you set when it started, which symptoms and notes, now or later by tapping it.",
     "A symptom can start a flare-up by itself: edit it in Settings → Symptoms and tick Starts a flare-up. Logging it then logs a flare-up and opens it. Within 2 hours of another flare-up, it joins that one.",
