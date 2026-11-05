@@ -463,6 +463,22 @@ label.f textarea{display:block;width:100%;margin-top:4px;padding:10px;border:1px
 .flare .fadd{min-height:44px;font-size:15px}
 .sflares{margin:0 0 4px}
 #fldlg .fhint{margin:0 0 12px;font-size:13px;color:var(--muted)}
+/* New-food trials: the box on Today and Recap, the tag on a food's chip, the trial pop-up */
+.chip .trl{margin-left:6px;padding:0 5px;border:1px dashed var(--ink);font-size:12px;line-height:18px;white-space:nowrap;font-weight:600}
+.trialf .allday{margin:0}
+.trialf .thint{margin:2px 0 12px 32px}
+button.trow{display:grid;grid-template-columns:1fr auto;gap:2px 10px;width:100%;padding:10px;border:0;border-top:1px solid var(--hair);background:none;color:inherit;font:inherit;text-align:left;align-items:center;cursor:pointer;min-height:44px}
+.lid + button.trow{border-top:0}
+button.trow .nm{font-weight:500}
+button.trow .num{font-size:13px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+button.trow .num b{color:var(--ink);font-weight:600}
+button.trow:focus-visible{outline:2px solid var(--ink);outline-offset:-3px}
+#trdlg .fhint{margin:0 0 12px;font-size:13px;color:var(--muted)}
+.trfl{margin:0 0 12px;border:1px solid var(--rule)}
+.trfl div{padding:8px 10px;font-size:14px}
+.trfl div+div{border-top:1px solid var(--hair)}
+.trfl .none{display:block;padding:8px 10px;color:var(--muted);font-size:14px}
+.trres span{font-size:13px;padding:8px 4px}
 .cal button.fl,.ycal button.fl{box-shadow:inset 0 0 0 2px var(--ink)}
 /* ---------- Overnight & dreams ----------
    Same boxes, chips and scales as the rest of Today, in the section's own hue */
@@ -956,6 +972,7 @@ body{display:flex;flex-direction:column}
     <h3 id="fldlgTitle">Flare-up</h3>
     <div class="body">
       <p class="fhint" id="flhint">Saved. Add details now or tap it later.</p>
+      <p class="fhint" id="fltrial" hidden></p>
       <label class="f"><span>Started</span><input type="time" id="fltime"></label>
       <p class="ilabel">Symptoms</p>
       <div class="tagpick" id="flsym" role="group" aria-label="Symptoms in this flare-up"></div>
@@ -963,6 +980,32 @@ body{display:flex;flex-direction:column}
       <div class="actions">
         <button type="button" class="danger" id="flremove">Remove</button>
         <button type="button" class="ghost" id="flcancel">Later</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+<!-- A new-food trial: when it started, how many days it watches, the flare-ups in that time and how it went -->
+<dialog id="trdlg" aria-labelledby="trTitle">
+  <form method="dialog" id="trform" novalidate>
+    <h3 id="trTitle">Food trial</h3>
+    <div class="body">
+      <p class="fhint" id="trWhen"></p>
+      <label class="f">Started<input type="date" id="trStart"></label>
+      <label class="f">Days to watch<select id="trDays"><option value="3">3 days</option><option value="4">4 days</option><option value="5">5 days</option><option value="6">6 days</option><option value="7">7 days</option></select></label>
+      <p class="ilabel">Flare-ups in this time</p>
+      <div class="trfl" id="trFlares"></div>
+      <p class="ilabel">How it went</p>
+      <div class="imode trres" role="radiogroup" aria-label="How the trial went">
+        <label><input type="radio" name="trres" value=""><span>Still watching</span></label>
+        <label><input type="radio" name="trres" value="ok"><span>Seems fine</span></label>
+        <label><input type="radio" name="trres" value="react"><span>Reacted</span></label>
+        <label><input type="radio" name="trres" value="unsure"><span>Not sure</span></label>
+      </div>
+      <label class="f">Notes<textarea id="trc" rows="2" maxlength="500" placeholder="e.g. small portion at lunch, calm day"></textarea></label>
+      <div class="actions">
+        <button type="button" class="danger" id="trRemove">Remove</button>
+        <button type="button" class="ghost" id="trCancel">Cancel</button>
         <button type="submit" class="primary">Save</button>
       </div>
     </div>
@@ -1020,6 +1063,10 @@ body{display:flex;flex-direction:column}
       <label class="f" id="fverRow">Version name<input id="fverName" placeholder="e.g. with banana" autocomplete="off"></label>
       <label class="f">Linked symptom<select id="fsym"></select></label>
       <label class="allday"><input type="checkbox" id="fpf"><span>Possible flare trigger</span></label>
+      <div class="trialf">
+        <label class="allday"><input type="checkbox" id="ftrial"><span>New food trial</span></label>
+        <p class="thint" id="ftrialHint"></p>
+      </div>
       <label class="f">Comment<textarea id="fc" rows="2" maxlength="500" placeholder="e.g. extra spicy, ate in a hurry"></textarea></label>
       <p class="err" id="fErr" role="alert"></p>
       <div class="actions">
@@ -1185,7 +1232,10 @@ const LATE_CUTOFF = 3;       // 3 AM: the latest a day can run past midnight whi
    medsOffSince: the day the medication checklist was turned off (Settings → Medications → On Today), unset while it's on.
    lastBackup: when Save backup last saved a file (ms). backupSnooze: the day the backup reminder was put off until
    medsOffSpells: finished off spells [[from,to)], kept so those days aren't counted as missed doses (see dueOn)
-   wlog: {date:[{t,ml,e?}]} — each drink of water logged under the meals: when, how much (ml), e:1 = an electrolyte drink */
+   wlog: {date:[{t,ml,e?}]} — each drink of water logged under the meals: when, how much (ml), e:1 = an electrolyte drink
+   trials: [{id,f,d,n,r?,c?}] — new-food trials: food id f tried from day d, watched for n days (d and the n-1 after it).
+   Flare-ups in that window count toward the trial on their own (worked out, not stored); r = how it went ("ok", "react",
+   "unsure"), c = notes. See "food trials". */
 /* ---------- Today page sections ----------
    Default order tells the day's story: what you took, ate and were around, then how you felt. */
 const SECTIONS=[
@@ -1212,7 +1262,7 @@ function secShown(id){ const e=state.layout.find(x=>x.id===id); return !e||e.sho
 let state = {meds:[], log:{}, symptoms:[], slog:{}, food:{}, notes:{}, pnotes:{}, foods:[], places:[], meals:{}, extras:[], xlog:{}, supps:[], suplog:{}, suppMode:"list", suppTimes:["once"],
   moods:defaultMoods(), mlog:{}, mtlog:{}, mxlog:{}, smells:[], smlog:{}, trackSmells:false, others:defaultOthers(), olog:{}, trackOther:true, hotAdded:true, acts:[], aclog:{}, showSnacks:true, showAfter:true, trig:{}, trackTrig:true, altLook:true, todayJump:false,
   appts:[], alog:{}, layout:normLayout(), folded:{}, showYearCal:true, weather:{}, wxloc:null, trackLoc:false, geo:{}, pollenKey:"", name:"", updated:0,
-  ldet:{}, flares:{}, flareSyms:[], nlog:{}, wakeDef:{}, wakeSyms:[], sleepFrom:"22:00", sleepTo:"07:00", changes:[], medsOffSpells:[], lastBackup:0, backupSnooze:"", wlog:{}};
+  ldet:{}, flares:{}, flareSyms:[], nlog:{}, wakeDef:{}, wakeSyms:[], sleepFrom:"22:00", sleepTo:"07:00", changes:[], medsOffSpells:[], lastBackup:0, backupSnooze:"", wlog:{}, trials:[]};
 let viewDate = todayKey();
 let editing = null;          // {kind:"med"|"sym", id|null}
 
@@ -1347,7 +1397,7 @@ function normalize(s){
           lastBackup:Number(s.lastBackup)||0, backupSnooze:typeof s.backupSnooze==="string"?s.backupSnooze:"",
           medsOffSince:/^\d{4}-\d\d-\d\d$/.test(s.medsOffSince||"")?s.medsOffSince:undefined,
           medsOffSpells:(Array.isArray(s.medsOffSpells)?s.medsOffSpells:[]).filter(x=>Array.isArray(x)&&x.length===2&&x.every(d=>/^\d{4}-\d\d-\d\d$/.test(d))),
-          nlog:normNlog(obj(s.nlog)), changes:normChanges(s.changes),
+          nlog:normNlog(obj(s.nlog)), changes:normChanges(s.changes), trials:normTrials(s.trials),
           wakeDef:normWakeDef(s.wakeDef), wakeSyms:(Array.isArray(s.wakeSyms)?s.wakeSyms:[]).filter(x=>typeof x==="string"),
           sleepFrom:/^\d\d:\d\d$/.test(s.sleepFrom||"")?s.sleepFrom:"22:00", sleepTo:/^\d\d:\d\d$/.test(s.sleepTo||"")?s.sleepTo:"07:00",
           updated:Number(s.updated)||0};
@@ -2028,7 +2078,7 @@ function render(){
   S.syms=html; SUM.syms=[state.symptoms.filter(x=>(sday[x.id]||[]).length).length||"",(n=>n?n+(n===1?" flare":" flares"):"")(flaresOn(viewDate).length)].filter(Boolean).join(" · ");
 
   /* Food */
-  html="";
+  html=trialsBox(viewDate);
   const mday=state.meals[viewDate]||{}, legacy=state.food[viewDate]||{};
   const byId=(list,id)=>list.find(x=>x.id===id);
   const foodsSorted=[...state.foods].sort((a,b)=>a.name.localeCompare(b.name));
@@ -2044,7 +2094,8 @@ function render(){
           ? `<button class="t${own?"":" inh"}" data-editf="${esc(id)}" data-meal="${ml.id}" aria-label="Times of each ${esc(nm)} serving">${shown?fmtTime(shown):CLOCK}</button>`
           : `<button class="t${own?"":" inh"}" data-editf="${esc(id)}" data-meal="${ml.id}" aria-label="${shown?`Change time of ${esc(nm)}, now ${fmtTime(shown)}`:`Add a time for ${esc(nm)}`}">${shown?fmtTime(shown):CLOCK}</button>`;
         const fe=(m.fi||{})[id], vn=fe&&fe.v&&verOf(byId(state.foods,id),fe.v), hasI=fe&&(fe.ings||[]).length;
-        const nb=`<button class="nm" data-ings="${esc(id)}" data-meal="${ml.id}" aria-label="Ingredients, linked symptom and comment for ${esc(nm)}">${esc(nm)}${vn?`<span class="ver">· ${esc(vn.name)}</span>`:hasI?`<span class="dot" aria-hidden="true"></span>`:""}${entryTags(fe)}</button>`;
+        const tr=trialAt(id,viewDate);
+        const nb=`<button class="nm" data-ings="${esc(id)}" data-meal="${ml.id}" aria-label="Ingredients, linked symptom and comment for ${esc(nm)}${tr?", new food trial starts here":""}">${esc(nm)}${vn?`<span class="ver">· ${esc(vn.name)}</span>`:hasI?`<span class="dot" aria-hidden="true"></span>`:""}${tr?`<span class="trl" title="New food trial">Trial</span>`:""}${entryTags(fe)}</button>`;
         return `<span class="chip">${nb}${n>1?`<span class="qty">×${n}</span>`:""}${tb}<button data-rm="${esc(id)}" data-meal="${ml.id}" aria-label="Remove one ${esc(nm)}">×</button></span>`}).join(""):`<span class="none">Nothing added</span>`}</div>
       ${legacy[ml.id]?`<p class="legacy">${esc(legacy[ml.id])}</p>`:""}
       <div class="pickers">
@@ -2456,7 +2507,8 @@ function renderSummary(){
 
   if(empties.length) html+=`<div class="box l-list"><div class="lid">Nothing logged this ${unit}</div><p class="hint empties">${esc(empties.join(" · "))}</p></div>`;
 
-  /* Weather vs symptoms */
+  /* Food trials, then weather vs symptoms */
+  html+=trialSummary(from,upto);
   html+=flareSummary(from,upto);
   html+=wxSummary(from,upto);
   html+=travelSummary(from,upto);
@@ -3701,6 +3753,9 @@ function openIngredients(date,meal,id){
   document.getElementById("fsym").value=symName(fe.sym)?fe.sym:"";
   document.getElementById("fc").value=fe.c||"";
   document.getElementById("fpf").checked=!!fe.pf;
+  /* New food trial: ticked when a trial of this food starts on this day */
+  document.getElementById("ftrial").checked=!!trialAt(id,date);
+  document.getElementById("ftrialHint").textContent=trialHint(id,date);
   renderIngs(); fdlg.showModal();
 }
 function renderIngs(){
@@ -3740,9 +3795,10 @@ fdlg.addEventListener("click",e=>{
 });
 document.getElementById("fcancel").onclick=()=>fdlg.close();
 fdlg.addEventListener("close",()=>{fedit=null;render()});
-document.getElementById("fform").addEventListener("submit",ev=>{
+document.getElementById("fform").addEventListener("submit",async ev=>{
   ev.preventDefault(); addTypedIngs();
   const m=(state.meals[fedit.date]||{})[fedit.meal], f=state.foods.find(x=>x.id===fedit.id); if(!m||!f){fdlg.close();return}
+  if(!await setTrial(f,fedit.date,document.getElementById("ftrial").checked)||!fedit) return;
   const mode=fdlg.querySelector('[name="fmode"]:checked').value;
   let vid=fedit.v;
   if(mode==="ver"){
@@ -3761,6 +3817,136 @@ document.getElementById("fform").addEventListener("submit",ev=>{
   if(fedit.ings.length||vid||sym||c||pf) fi[fedit.id]={...(vid?{v:vid}:{}),ings:[...fedit.ings],...(sym?{sym}:{}),...(pf?{pf:1}:{}),...(c?{c}:{})}; else delete fi[fedit.id];
   tidyMeals(fedit.date); fdlg.close(); commit();
 });
+
+/* ---------- food trials ----------
+   Trying a new food: tick New food trial on the food's pop-up the first time you eat it. The trial watches that day and
+   the days after it (TRIAL_DAYS in all, changeable on the trial), since reactions can take a day or more to build and
+   recovery can take a few. Every flare-up logged in that window counts toward the trial by itself; nothing is copied,
+   so editing or removing a flare-up later changes the trial too. Two trials at once share their flare-ups, which is why
+   starting a second one asks first. */
+const TRIAL_DAYS=4;
+const TRIAL_RES={ok:"Seems fine",react:"Reacted",unsure:"Not sure"};
+function normTrials(v){
+  return (Array.isArray(v)?v:[]).filter(t=>t&&typeof t==="object"&&typeof t.f==="string"&&/^\d{4}-\d\d-\d\d$/.test(t.d||"")).map(t=>{
+    const o={id:typeof t.id==="string"&&t.id?t.id:uid(),f:t.f,d:t.d,n:Math.min(7,Math.max(3,Math.round(+t.n)||TRIAL_DAYS))};
+    if(TRIAL_RES[t.r]) o.r=t.r;
+    if(typeof t.c==="string"&&t.c.trim()) o.c=t.c.slice(0,500);
+    return o;}).sort((a,b)=>a.d.localeCompare(b.d));
+}
+function trialFood(tr){return state.foods.find(x=>x.id===tr.f)}
+function trialEnd(tr){return shiftKey(tr.d,tr.n-1)}
+function trialOn(tr,k){return k>=tr.d&&k<=trialEnd(tr)}
+/* Trials of foods still on the list (a deleted food takes its trials out of view) */
+function liveTrials(){return state.trials.filter(trialFood)}
+function trialsOn(k){return liveTrials().filter(tr=>trialOn(tr,k))}
+function trialAt(fid,k){return state.trials.find(tr=>tr.f===fid&&tr.d===k)}
+/* Every flare-up in the trial's window so far: [{k,f}] */
+function trialFlares(tr){
+  const out=[], tk=todayKey();
+  for(let k=tr.d;k<=trialEnd(tr)&&k<=tk;k=shiftKey(k,1)) for(const f of flaresOn(k)) out.push({k,f});
+  return out;
+}
+function trialOver(tr){return trialEnd(tr)<todayKey()}
+const shortDay=k=>parseKey(k).toLocaleDateString([], {month:"short",day:"numeric"});
+function trialSpan(tr){return shortDay(tr.d)+"–"+shortDay(trialEnd(tr))}
+/* "day 2 of 4 · no flare-ups yet" / "Nov 2–5 · 1 flare-up · Reacted" */
+function trialStatus(tr,k){
+  const n=trialFlares(tr).length, fl=n?`<b>${n} ${n===1?"flare-up":"flare-ups"}</b>`:trialOver(tr)?"no flare-ups":"no flare-ups yet";
+  const when=k&&trialOn(tr,k)&&!trialOver(tr)?`day ${daysBetween(tr.d,k)} of ${tr.n}`:esc(trialSpan(tr));
+  return [when,fl,tr.r?esc(TRIAL_RES[tr.r]):trialOver(tr)?"how did it go?":""].filter(Boolean).join(" · ");
+}
+function flareLine({k,f}){
+  const sn=(f.sym||[]).map(symName).filter(Boolean);
+  return shortDay(k)+(realTime(f.t)?" · "+fmtTime(f.t):"")+(sn.length?" · "+sn.join(", "):"");
+}
+/* The line under New food trial on a food's pop-up */
+function trialHint(fid,k){
+  const mine=trialAt(fid,k), other=trialsOn(k).filter(tr=>tr.f!==fid).map(tr=>trialFood(tr).name);
+  const past=state.trials.filter(tr=>tr.f===fid&&tr!==mine).sort((a,b)=>b.d.localeCompare(a.d))[0];
+  return [mine?`Watching ${trialSpan(mine)}. Flare-ups in that time count toward it.`
+      :`Watches this day and the ${TRIAL_DAYS-1} after it. Flare-ups in that time count toward this food.`,
+    past?`Last tried ${shortDay(past.d)}${past.r?": "+TRIAL_RES[past.r].toLowerCase():""}.`:"",
+    other.length?`Also trying ${other.join(", ")}.`:""].filter(Boolean).join(" ");
+}
+/* Ticking or unticking New food trial on save. false = stay in the pop-up (the user said no) */
+async function setTrial(f,k,on){
+  const mine=trialAt(f.id,k);
+  if(on&&!mine){
+    const tr={id:uid(),f:f.id,d:k,n:TRIAL_DAYS}, clash=liveTrials().filter(x=>x.f!==f.id&&x.d<=trialEnd(tr)&&trialEnd(x)>=k);
+    if(clash.length&&!await ask(`You're already trying ${clash.map(x=>trialFood(x).name+" (until "+shortDay(trialEnd(x))+")").join(" and ")}. With two at once, a flare-up counts for both, so it's hard to tell which food did it. Start the ${f.name} trial anyway?`,{ok:"Start trial",title:"Two food trials"})) return false;
+    state.trials.push(tr); state.trials.sort((a,b)=>a.d.localeCompare(b.d));
+  } else if(!on&&mine){
+    if((mine.r||mine.c)&&!await ask(`Remove the ${f.name} trial and what you noted about it?`,{ok:"Remove"})) return false;
+    state.trials=state.trials.filter(x=>x!==mine);
+  }
+  return true;
+}
+/* Food trials on Today: each trial watching this day, with how far along it is. Tap one to open it. */
+function trialsBox(k){
+  const L=trialsOn(k); if(!L.length) return "";
+  return `<div class="box l-list trials"><div class="lid">Food trials<span class="st">${L.length} watching</span></div>
+    ${L.map(tr=>`<button type="button" class="trow" data-trial="${esc(tr.id)}"><span class="nm">${esc(trialFood(tr).name)}</span><span class="num">${trialStatus(tr,k)}</span></button>`).join("")}</div>`;
+}
+/* "During your Quinoa trial (day 2 of 4), so it counts toward it." on a flare-up's pop-up */
+function trialFlareText(k){
+  const L=trialsOn(k); if(!L.length) return "";
+  return "Counts toward your "+L.map(tr=>trialFood(tr).name+" trial (day "+daysBetween(tr.d,k)+" of "+tr.n+")").join(" and ")+".";
+}
+/* Recap: trials that watched any day of this period */
+function trialSummary(from,upto){
+  const L=liveTrials().filter(tr=>tr.d<=upto&&trialEnd(tr)>=from).sort((a,b)=>b.d.localeCompare(a.d));
+  if(!L.length) return liveTrials().length?"":`<div class="box l-list"><div class="lid">Food trials</div>
+    <div class="empty-row">Trying a new food? Tap it on Today and tick New food trial. Flare-ups in the next ${TRIAL_DAYS} days count toward it.</div></div>`;
+  const tally=r=>L.filter(tr=>tr.r===r).length, parts=[["ok","fine"],["react","reacted"],["unsure","not sure"]].filter(([r])=>tally(r)).map(([r,w])=>tally(r)+" "+w);
+  return `<div class="box l-list"><div class="lid">Food trials<span class="st">${parts.length?esc(parts.join(" · ")):L.length+(L.length===1?" trial":" trials")}</span></div>
+    ${L.map(tr=>`<button type="button" class="trow" data-trial="${esc(tr.id)}"><span class="nm">${esc(trialFood(tr).name)}</span><span class="num">${trialStatus(tr)}</span></button>`).join("")}
+    <p class="hint">Each trial watches the day you started a new food and the days after it. Flare-ups in that time count toward it by themselves; two trials at the same time share them. Tap one to say how it went.</p></div>`;
+}
+function trialText(k){
+  return trialsOn(k).map(tr=>trialFood(tr).name+" (day "+daysBetween(tr.d,k)+" of "+tr.n+(tr.r?"; "+TRIAL_RES[tr.r].toLowerCase():"")+")").join("; ");
+}
+/* The trial pop-up */
+const trdlg=document.getElementById("trdlg"); let tredit=null;
+function trialPreview(){
+  const d=document.getElementById("trStart").value, n=+document.getElementById("trDays").value;
+  if(!tredit||!/^\d{4}-\d\d-\d\d$/.test(d)) return;
+  const tr={...tredit,d,n}, F=trialFlares(tr);
+  document.getElementById("trWhen").textContent=`Watching ${trialSpan(tr)}${trialOver(tr)?", done.":`, day ${Math.max(1,Math.min(n,daysBetween(d,todayKey())))} of ${n}.`}`;
+  document.getElementById("trFlares").innerHTML=F.length?F.map(x=>`<div>${esc(flareLine(x))}</div>`).join(""):`<span class="none">None${trialOver(tr)?"":" so far"}</span>`;
+}
+function openTrial(id){
+  const tr=state.trials.find(x=>x.id===id), f=tr&&trialFood(tr); if(!f) return;
+  tredit=tr;
+  document.getElementById("trTitle").textContent=f.name+" trial";
+  document.getElementById("trStart").value=tr.d;
+  document.getElementById("trStart").max=todayKey();
+  document.getElementById("trDays").value=String(tr.n);
+  trdlg.querySelector(`[name="trres"][value="${tr.r||""}"]`).checked=true;
+  document.getElementById("trc").value=tr.c||"";
+  trialPreview(); trdlg.showModal();
+  trdlg.querySelector('[type="submit"]').focus();
+}
+document.getElementById("trStart").addEventListener("change",trialPreview);
+document.getElementById("trDays").addEventListener("change",trialPreview);
+document.getElementById("trCancel").onclick=()=>trdlg.close();
+trdlg.addEventListener("close",()=>{tredit=null});
+document.getElementById("trRemove").onclick=async()=>{
+  const tr=tredit, f=tr&&trialFood(tr); if(!f) return;
+  if(!await ask(`Remove the ${f.name} trial? The food and your flare-ups stay logged.`,{ok:"Remove"})) return;
+  state.trials=state.trials.filter(x=>x!==tr); trdlg.close(); commit();
+};
+document.getElementById("trform").addEventListener("submit",ev=>{
+  ev.preventDefault(); const tr=tredit; if(!tr||!state.trials.includes(tr)){ trdlg.close(); return; }
+  const d=document.getElementById("trStart").value, c=document.getElementById("trc").value.trim().slice(0,500), r=trdlg.querySelector('[name="trres"]:checked').value;
+  if(/^\d{4}-\d\d-\d\d$/.test(d)) tr.d=d;
+  tr.n=Math.min(7,Math.max(3,+document.getElementById("trDays").value||TRIAL_DAYS));
+  if(TRIAL_RES[r]) tr.r=r; else delete tr.r;
+  if(c) tr.c=c; else delete tr.c;
+  state.trials.sort((a,b)=>a.d.localeCompare(b.d));
+  trdlg.close(); commit();
+});
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-trial]"); if(b) openTrial(b.dataset.trial); });
+
 todayCol.addEventListener("change",async e=>{
   /* Dreams: Disturbing, Nightmare, None remembered (which clears the rest) */
   const df=e.target.closest("[data-dflag]");
@@ -3990,6 +4176,7 @@ function openFlare(date,i,fresh){
   fledit={date,e,sym:[...(e.sym||[])]};
   document.getElementById("fldlgTitle").textContent="Flare-up"+(date===todayKey()?"":" · "+parseKey(date).toLocaleDateString(undefined,{month:"short",day:"numeric"}));
   document.getElementById("flhint").hidden=!fresh;
+  { const t=trialFlareText(date), p=document.getElementById("fltrial"); p.textContent=t; p.hidden=!t; }
   document.getElementById("fltime").value=realTime(e.t)?hhmm(e.t):"";
   document.getElementById("flc").value=e.c||"";
   renderFlSym();
@@ -4542,6 +4729,7 @@ function buildCSV(start,end){
     "flares (each flare-up that day: time, its symptoms and notes)",
     "linked_symptoms (things the user connected to a symptom that day: item → symptom)",
     "possible_flare_items (individual foods, doses and other things the user marked as a possible flare trigger)",
+    "food_trials (new foods the user was trying that day: food, day of the trial and how it went; flare-ups in a trial's days count toward it)",
     "food_typed_notes","notes_today","notes_food","notes_meds","notes_symptoms","notes_mood","notes_smells_other","notes_activity","notes_appointments","notes_supplements",
     "medication_changes (changes the user marked on this day)",
     "night_after_wakeups (times the user woke in the night after this day; blank before night tracking started)",
@@ -4602,6 +4790,7 @@ function buildCSV(start,end){
         return (realTime(f.t)?fmtTime(f.t):"time not set")+(sn.length?": "+sn.join(", "):"")+(f.c?" (note: "+f.c.replace(/\s+/g," ")+")":"");}).join(" | "),
       linkedText(k),
       pfText(k),
+      trialText(k),
       MEALS.filter(m=>typed[m.id]).map(m=>m.label+": "+typed[m.id]).join(" | "),
       state.notes[k]||"",...["food","meds","syms","mood","smell","act","appt","supp"].map(n=>(state.pnotes[n]||{})[k]||""),
       changesOn(k).map(c=>c.txt).join("; "),
@@ -4671,6 +4860,10 @@ function doctorSummary(){
     const R=state.symptoms.filter(x=>c.c[x.id]).sort((a,b)=>c.c[b.id]-c.c[a.id]||a.name.localeCompare(b.name))
       .map(x=>{const lv=c.lv[x.id]; return [x.name,`${c.c[x.id]} of ${days} (${Math.round(c.c[x.id]/days*100)}%)`,String(c.times[x.id]||0),lv?String(Math.round(lv[0]/lv[1]*10)/10)+"/10":"–"]});
     out+=sec(`Symptoms · ${c.anyDays} of ${days} days with any${fl?` · ${fl} flare-up ${fl===1?"day":"days"}`:""}`,tbl(["Symptom","Days","Times","Avg intensity"],R)); }
+  /* New-food trials that watched any day of this period */
+  { const L=liveTrials().filter(tr=>tr.d<=upto&&trialEnd(tr)>=from);
+    if(L.length) out+=sec("New food trials",tbl(["Food","Watched","Flare-ups","How it went","Notes"],L.map(tr=>{const F=trialFlares(tr);
+      return [trialFood(tr).name,fmt(tr.d)+" to "+fmt(trialEnd(tr)),F.length?F.length+": "+F.map(flareLine).join("; "):"None",tr.r?TRIAL_RES[tr.r]:trialOver(tr)?"Not noted":"Still watching",tr.c||""]}))); }
   /* Appointments */
   { const R=[]; for(const [k,v] of Object.entries(state.alog)) if(inP(k)) for(const e of v){ const m=evOf("appt",e.id); if(m) R.push([k,fmt(k),evName("appt",e)]); }
     R.sort((a,b)=>a[0].localeCompare(b[0])); if(R.length) out+=sec("Appointments",tbl(["Date","Appointment"],R.map(r=>r.slice(1)))); }
@@ -4795,8 +4988,12 @@ setTimeout(checkUpdate,3000);
    After an update, one pop-up lists what's new in this version only (not every version skipped), dismissed with OK.
    APP_VER must match the number in sw.js's CACHE; add a WHATS_NEW entry (newest first) whenever you bump them.
    A first install sees nothing, since there's nothing new to it. */
-const APP_VER=116, VER_KEY="daily-meds-ver";
+const APP_VER=117, VER_KEY="daily-meds-ver";
 const WHATS_NEW=[
+  {v:117,items:[
+    "New food trials: the first time you eat a new food, tap it on Today and tick New food trial. The trial watches that day and the 3 after it, and any flare-up logged in that time counts toward the food by itself.",
+    "Trials in progress show at the top of Food on Today, and a flare-up's pop-up says which trial it counts toward. Tap a trial to change its days, see its flare-ups and say how it went.",
+    "Recap lists your food trials with their flare-ups and results, and they're in the doctor summary and the spreadsheet too."]},
   {v:116,items:["Logging something with types (like Antihistamine → Allegra or Zyrtec) now has a Time box in the Which one? pop-up. Change it before picking, and it's logged at that time."]},
   {v:115,items:[
     "Flare-ups: log as many as you need in a day. Tap + Flare-up in Symptoms and it's saved straight away with the time, so you can do it half asleep. Its pop-up lets you set when it started, which symptoms and notes, now or later by tapping it.",

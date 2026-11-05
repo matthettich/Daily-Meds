@@ -1869,6 +1869,63 @@ await test("Recap's Before flare-ups finds what keeps showing up in the days bef
   return { ...base, foods: [{ id: "rice", name: "Rice" }, { id: "mash", name: "Mashed potatoes" }, { id: "taco", name: "Tacos" }], smells: [{ id: "af", name: "Air freshener" }], trackSmells: true, meals, trig, smlog,
     log: { [shift(today, -39)]: { "m1|morning": at(shift(today, -39), 8) } } }; })());
 
+/* ---------- New food trials ---------- */
+await test("New food trial: ticked on a food's pop-up, it shows on Today, links flare-ups in its days, and Recap, export and doctor summary list it", async page => {
+  await page.selectOption('select[data-pick="food"][data-meal="lunch"]', "f1");
+  await page.click('[data-ings="f1"][data-meal="lunch"]');
+  assert((await page.textContent("#ftrialHint")).includes("3 after it"), "hint explains the window");
+  await page.check("#ftrial"); await page.click('#fform button[type="submit"]');
+  let s = await page.state();
+  eq(s.trials.map(t => [t.f, t.d, t.n]), [["f1", today, 4]], "trial saved");
+  eq(await page.textContent('[data-ings="f1"][data-meal="lunch"] .trl'), "Trial", "chip tagged");
+  assert(/Quinoa.*day 1 of 4 · no flare-ups yet/.test(await page.textContent(".box.trials")), "Today box: " + await page.textContent(".box.trials"));
+  // A flare-up now counts toward it, and its pop-up says so
+  await page.click("[data-flareadd]");
+  assert((await page.textContent("#fltrial")).includes("Quinoa trial (day 1 of 4)"), "flare pop-up names the trial");
+  await page.click("#flcancel");
+  assert((await page.textContent(".box.trials")).includes("1 flare-up"), "flare-up linked automatically");
+  // A second trial at once asks first; saying no keeps the pop-up open and starts nothing
+  await page.selectOption('select[data-pick="food"][data-meal="dinner"]', "f2");
+  await page.click('[data-ings="f2"][data-meal="dinner"]');
+  assert((await page.textContent("#ftrialHint")).includes("Also trying Quinoa"), "mentions the other trial");
+  await page.check("#ftrial"); await page.click('#fform button[type="submit"]');
+  assert((await page.textContent("#askTitle")).includes("Two food trials"), "asks before a second trial");
+  await page.click("#askNo");
+  assert(await page.isVisible("#fdlg"), "still in the food pop-up");
+  eq((await page.state()).trials.length, 1, "nothing started");
+  await page.click('#fform button[type="submit"]'); await page.click("#askYes");
+  eq((await page.state()).trials.length, 2, "started after yes");
+  // Unticking a trial with nothing noted removes it without asking
+  await page.click('[data-ings="f2"][data-meal="dinner"]'); await page.uncheck("#ftrial"); await page.click('#fform button[type="submit"]');
+  eq((await page.state()).trials.map(t => t.f), ["f1"], "removed");
+  // The trial pop-up: flare-ups listed, result and notes saved
+  await page.click('.box.trials [data-trial]');
+  assert(await page.isVisible("#trdlg"), "trial pop-up opens");
+  eq(await page.textContent("#trTitle"), "Quinoa trial", "title");
+  eq(await page.locator("#trFlares div").count(), 1, "its flare-up listed");
+  await page.check('[name="trres"][value="react"]', { force: true }); await page.fill("#trc", "small portion");
+  await page.click('#trform button[type="submit"]');
+  s = await page.state();
+  eq([s.trials[0].r, s.trials[0].c], ["react", "small portion"], "result and notes saved");
+  const col = csvRowOf(await page.evaluate(k => buildCSV(k, k), today));
+  eq(col("food_trials"), "Quinoa (day 1 of 4; reacted)", "export column");
+  const recap = await page.evaluate(() => trialSummary(shiftKey(todayKey(), -30), todayKey()));
+  assert(/Quinoa.*1 flare-up.*Reacted/.test(recap.replace(/<[^>]+>/g, "")), "Recap row: " + recap);
+  assert((await page.evaluate(() => doctorSummary())).includes("New food trials"), "doctor summary section");
+}, { ...base, foods: [{ id: "f1", name: "Quinoa" }, { id: "f2", name: "Oats" }] });
+
+await test("A food trial counts only flare-ups inside its days; its length can change; bad saved trials are dropped", async page => {
+  eq(await page.evaluate(() => trialFlares(state.trials[0]).map(x => x.k)), [shift(today, -9)], "only the one in its 4 days");
+  eq((await page.state()).trials.length, 1, "trial without a food or date dropped");
+  await page.evaluate(() => { openTrial(state.trials[0].id); });
+  await page.selectOption("#trDays", "7");
+  eq(await page.locator("#trFlares div").count(), 2, "preview updates with more days");
+  await page.click('#trform button[type="submit"]');
+  eq(await page.evaluate(() => trialFlares(state.trials[0]).length), 2, "saved: both flare-ups now count");
+}, { ...base, foods: [{ id: "f1", name: "Quinoa" }],
+  trials: [{ id: "t1", f: "f1", d: shift(today, -10), n: 4 }, { f: "f9" }],
+  flares: { [shift(today, -9)]: [{ t: at(shift(today, -9), 3) }], [shift(today, -5)]: [{}] }, trig: { [shift(today, -9)]: { syms: true }, [shift(today, -5)]: { syms: true } } });
+
 /* ---------- 10. Wide screen (unfolded) still renders ---------- */
 await test("unfolded width renders Today and Recap side by side", async page => {
   assert(await page.isVisible("#sumBody .ygrid"), "year calendar visible");
