@@ -362,6 +362,11 @@ label.f select{display:block;width:100%;margin-top:4px;appearance:none;-webkit-a
   padding:8px 28px 8px 10px;font:inherit;font-size:14px;color:var(--ink)}
 .pickers select:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
 .lid .mtime{margin-left:8px;font-size:13px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* The meal's time in its heading is a button: it sets the time of every food in the meal */
+.lid button.mtime{border:0;background:none;color:inherit;font-family:inherit;padding:8px 4px;margin:-8px 0 -8px 4px;cursor:pointer;
+  text-decoration:underline dotted;text-underline-offset:3px}
+.lid button.mtime svg{width:14px;height:14px;display:block}
+.lid button.mtime:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
 .lid .mtime + .place{margin-left:auto}
 .chip button.t.inh{opacity:.55;text-decoration:none}
 /* A food's name is a button: tap it to see or change that entry's ingredients */
@@ -2088,7 +2093,8 @@ function render(){
     const m=mday[ml.id]||{}, counts=countFoods(m.foods), ids=[...counts.keys()].filter(id=>byId(state.foods,id));
     const place=m.place&&byId(state.places,m.place), mt=mealTime(m);
     html+=`<div class="box meal ${ml.l}">
-      <div class="lid">${copyName("meal",ml.id,ml.label)}${mt?`<span class="mtime">${fmtTime(mt)}</span>`:""}${place?`<span class="place">at ${esc(place.name)}</span>`:""}</div>
+      <div class="lid">${copyName("meal",ml.id,ml.label)}${mt?`<button type="button" class="mtime" data-mealt="${ml.id}" aria-label="Change the time of everything in ${esc(ml.label)}, now ${fmtTime(mt)}">${fmtTime(mt)}</button>`
+        :ids.length?`<button type="button" class="mtime" data-mealt="${ml.id}" aria-label="Add a time for everything in ${esc(ml.label)}">${CLOCK}</button>`:""}${place?`<span class="place">at ${esc(place.name)}</span>`:""}</div>
       <div class="chips">${ids.length?ids.map(id=>{const nm=byId(state.foods,id).name,n=counts.get(id),own=foodTime(m,id),shown=own||mt;
         const tb = n>1
           ? `<button class="t${own?"":" inh"}" data-editf="${esc(id)}" data-meal="${ml.id}" aria-label="Times of each ${esc(nm)} serving">${shown?fmtTime(shown):CLOCK}</button>`
@@ -3044,6 +3050,8 @@ todayCol.addEventListener("click",e=>{
   if(editmood){ openMoodTime(viewDate,editmood.dataset.mt,editmood.dataset.editmood); return; }
   const ingb=e.target.closest("[data-ings]");
   if(ingb){ openIngredients(viewDate,ingb.dataset.meal,ingb.dataset.ings); return; }
+  const mealt=e.target.closest("[data-mealt]");
+  if(mealt){ openMealTime(viewDate,mealt.dataset.mealt); return; }
   const editf=e.target.closest("[data-editf]");
   if(editf){ const m=(state.meals[viewDate]||{})[editf.dataset.meal];
     if(countFoods(m&&m.foods).get(editf.dataset.editf)>1) openServings(viewDate,editf.dataset.meal,editf.dataset.editf);
@@ -3263,6 +3271,18 @@ function openFoodTime(date,meal,id){
   openTimeDialog(f.name+(ml?" · "+ml.label:""),"Time eaten","Clear time",own||mealTime(m));
   document.getElementById("xremove").style.display=own?"":"none";
 }
+/* The meal's time: tap it in the meal's heading. Saving gives every food in the meal that time; second and later
+   servings (m.fx) move by the same amount, so a later helping stays that much later. Clear times takes them all off. */
+function openMealTime(date,meal){
+  const m=(state.meals[date]||{})[meal], ml=MEALS.find(x=>x.id===meal), n=new Set((m&&m.foods)||[]).size; if(!m||!ml||!n) return;
+  const mt=mealTime(m);
+  xedit={kind:"meal",date,meal};
+  openTimeDialog(ml.label+" · all foods","Time eaten","Clear times",mt);
+  const note=document.getElementById("xnote");
+  note.textContent=`Sets ${n===1?"the food":"all "+n+" foods"} in ${ml.label} to this time.${m.fx&&Object.keys(m.fx).length?" Second helpings move by the same amount.":""}`;
+  note.hidden=false;
+  document.getElementById("xremove").style.display=mt?"":"none";
+}
 /* Servings pop-up: each serving of a food in this meal gets its own time (stored as m.ft[id] for the earliest,
    m.fx[id] for the rest). Edited on a copy; Save writes it back, Cancel leaves it alone. */
 const pdlg=document.getElementById("pdlg"); let pedit=null;
@@ -3476,6 +3496,11 @@ document.getElementById("xform").addEventListener("submit",ev=>{
     else if(xedit.kind==="med"){ const day=state.log[xedit.date]; if(day&&day[xedit.k]) day[xedit.k]=at(day[xedit.k]); }
     else if(xedit.kind==="mood"){ if((((state.mlog[xedit.date]||{})[xedit.mt])||[]).includes(xedit.id)){ const day=state.mtlog[xedit.date]||(state.mtlog[xedit.date]={}), o=day[xedit.mt]||(day[xedit.mt]={}); o[xedit.id]=at(o[xedit.id]); } }
     else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&(m.foods||[]).includes(xedit.id)){ const ft=m.ft||(m.ft={}); ft[xedit.id]=at(ft[xedit.id]); } }
+    else if(xedit.kind==="meal"){ const m=(state.meals[xedit.date]||{})[xedit.meal];
+      if(m&&(m.foods||[]).length){ const old=mealTime(m), t=at(old), d=old?t-old:0, ft=m.ft||(m.ft={});
+        for(const id of new Set(m.foods)) ft[id]=t;
+        for(const L of Object.values(m.fx||{})) for(let i=0;i<L.length;i++) if(realTime(L[i])) L[i]+=d;
+        tidyMeals(xedit.date); } }
     else { const list=(xedit.kind==="ev"?state[EVLOGS[xedit.ev].log]:xedit.kind==="water"?state.wlog:state.xlog)[xedit.date]||[], e=list[xedit.i]; if(e){ e.t=at(e.t); list.sort((a,b)=>a.t-b.t); } }
   }
   xdlg.close(); commit();
@@ -3490,6 +3515,7 @@ document.getElementById("xremove").onclick=()=>{
   else if(xedit.kind==="med"){ const day=state.log[xedit.date]||{}; delete day[xedit.k]; if(!Object.keys(day).length) delete state.log[xedit.date]; setDoseDet(xedit.date,xedit.k,null); }
   else if(xedit.kind==="mood"){ delete moodTimes(xedit.date,xedit.mt)[xedit.id]; tidyMoods(xedit.date); }
   else if(xedit.kind==="food"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m&&m.ft){ delete m.ft[xedit.id]; tidyMeals(xedit.date); } }
+  else if(xedit.kind==="meal"){ const m=(state.meals[xedit.date]||{})[xedit.meal]; if(m){ delete m.ft; delete m.fx; tidyMeals(xedit.date); } }
   else { const log=xedit.kind==="ev"?state[EVLOGS[xedit.ev].log]:xedit.kind==="water"?state.wlog:state.xlog, list=log[xedit.date]||[]; list.splice(xedit.i,1); if(!list.length) delete log[xedit.date]; }
   xdlg.close(); commit();
 };
@@ -4988,8 +5014,9 @@ setTimeout(checkUpdate,3000);
    After an update, one pop-up lists what's new in this version only (not every version skipped), dismissed with OK.
    APP_VER must match the number in sw.js's CACHE; add a WHATS_NEW entry (newest first) whenever you bump them.
    A first install sees nothing, since there's nothing new to it. */
-const APP_VER=117, VER_KEY="daily-meds-ver";
+const APP_VER=118, VER_KEY="daily-meds-ver";
 const WHATS_NEW=[
+  {v:118,items:["Tap a meal's time next to its name to change the time of everything in that meal at once. Second helpings move by the same amount."]},
   {v:117,items:[
     "New food trials: the first time you eat a new food, tap it on Today and tick New food trial. The trial watches that day and the 3 after it, and any flare-up logged in that time counts toward the food by itself.",
     "Trials in progress show at the top of Food on Today, and a flare-up's pop-up says which trial it counts toward. Tap a trial to change its days, see its flare-ups and say how it went.",

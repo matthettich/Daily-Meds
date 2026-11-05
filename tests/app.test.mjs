@@ -1869,6 +1869,24 @@ await test("Recap's Before flare-ups finds what keeps showing up in the days bef
   return { ...base, foods: [{ id: "rice", name: "Rice" }, { id: "mash", name: "Mashed potatoes" }, { id: "taco", name: "Tacos" }], smells: [{ id: "af", name: "Air freshener" }], trackSmells: true, meals, trig, smlog,
     log: { [shift(today, -39)]: { "m1|morning": at(shift(today, -39), 8) } } }; })());
 
+/* ---------- Meal time ---------- */
+await test("Tapping a meal's time sets every food in it; a second helping moves by the same amount; Clear times clears them", async page => {
+  await page.click('[data-mealt="lunch"]');
+  assert(await page.isVisible("#xdlg"), "time pop-up opens");
+  assert((await page.textContent("#xnote")).includes("all 2 foods in Lunch") && (await page.textContent("#xnote")).includes("Second helpings"), "explains: " + await page.textContent("#xnote"));
+  eq(await page.inputValue("#xtime"), "12:00", "starts at the meal's time");
+  await page.fill("#xtime", "13:30"); await page.click('#xform button[type="submit"]');
+  let m = (await page.state()).meals[today].lunch;
+  eq([m.ft.f1, m.ft.f2, m.fx.f1], [at(today, 13, 30), at(today, 13, 30), [at(today, 16, 30)]], "all moved, helping kept its gap");
+  eq(await page.textContent('[data-mealt="lunch"]'), "1:30 PM", "heading shows the new time");
+  await page.click('[data-mealt="lunch"]'); await page.click("#xremove");
+  m = (await page.state()).meals[today].lunch;
+  eq([m.ft, m.fx, m.foods], [undefined, undefined, ["f1", "f2", "f1"]], "times cleared, foods kept");
+  await page.click('[data-mealt="lunch"]'); await page.fill("#xtime", "12:15"); await page.click('#xform button[type="submit"]');
+  eq((await page.state()).meals[today].lunch.ft, { f1: at(today, 12, 15), f2: at(today, 12, 15) }, "a meal without times can be given one");
+}, { ...base, foods: [{ id: "f1", name: "Coffee" }, { id: "f2", name: "Toast" }],
+  meals: { [today]: { lunch: { foods: ["f1", "f2", "f1"], ft: { f1: at(today, 12), f2: at(today, 12, 10) }, fx: { f1: [at(today, 15)] } } } } });
+
 /* ---------- New food trials ---------- */
 await test("New food trial: ticked on a food's pop-up, it shows on Today, links flare-ups in its days, and Recap, export and doctor summary list it", async page => {
   await page.selectOption('select[data-pick="food"][data-meal="lunch"]', "f1");
