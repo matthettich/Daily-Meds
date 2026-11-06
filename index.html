@@ -325,6 +325,7 @@ label.f select{display:block;width:100%;margin-top:4px;appearance:none;-webkit-a
    on each section, counting only the sections that show (folded ones count; hidden ones don't). */
 .pg-white .box.meal{--H:calc(var(--h) + 22)}                 /* Food */
 .pg-white .box.smo{--H:calc(var(--h) + 22)}                  /* Smells & other: Food's color */
+.pg-white .box.trials{--H:calc(var(--h) + 22)}               /* Food trials: sits in Food, so Food's color */
 .pg-white .box.mood{--H:calc(var(--h) - 55)}                 /* Mood, deepening through the day */
 .l-mmorning{--l:90%} .l-mafternoon{--l:86%} .l-mevening{--l:82%}
 .pg-white .box.l-sym{--H:calc(var(--h) + 44);--l:86%}        /* Symptoms */
@@ -5014,8 +5015,9 @@ setTimeout(checkUpdate,3000);
    After an update, one pop-up lists what's new in this version only (not every version skipped), dismissed with OK.
    APP_VER must match the number in sw.js's CACHE; add a WHATS_NEW entry (newest first) whenever you bump them.
    A first install sees nothing, since there's nothing new to it. */
-const APP_VER=118, VER_KEY="daily-meds-ver";
+const APP_VER=119, VER_KEY="daily-meds-ver";
 const WHATS_NEW=[
+  {v:119,items:["The Food trials box on Today now matches the rest of the Food section's color."]},
   {v:118,items:["Tap a meal's time next to its name to change the time of everything in that meal at once. Second helpings move by the same amount."]},
   {v:117,items:[
     "New food trials: the first time you eat a new food, tap it on Today and tick New food trial. The trial watches that day and the 3 after it, and any flare-up logged in that time counts toward the food by itself.",
