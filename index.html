@@ -2411,7 +2411,7 @@ function renderSummary(){
     html+=`<div class="box l-list"><div class="lid">Medication</div>
       <div class="big">${expected?pct+"%":"–"}<small>of doses checked off</small></div>
       <div class="stat"><span class="nm">Doses</span><span class="num">${taken} of ${expected}${skipped?` · ${skipped} skipped`:""}</span><div class="track"><i style="width:${pct}%"></i></div></div>
-      <p class="hint">Based on your medication list, counted from when you started using the app. Archived meds count only before the day you archived them.</p></div>`;
+      <p class="hint">Based on your medication list, counted from when you started using the app (up to about the last 400 days; older check-offs are cleared). Archived meds count only before the day you archived them.</p></div>`;
   }
   /* Medication changes in this period: the two weeks before each one against the change day and up to 13 days after */
   {
@@ -5015,8 +5015,9 @@ setTimeout(checkUpdate,3000);
    After an update, one pop-up lists what's new in this version only (not every version skipped), dismissed with OK.
    APP_VER must match the number in sw.js's CACHE; add a WHATS_NEW entry (newest first) whenever you bump them.
    A first install sees nothing, since there's nothing new to it. */
-const APP_VER=119, VER_KEY="daily-meds-ver";
+const APP_VER=120, VER_KEY="daily-meds-ver";
 const WHATS_NEW=[
+  {v:120,items:["Updates are safer offline: a new version only takes over once the app page is fully saved on your phone, and Daily meds no longer clears the offline copies of other apps on the same site."]},
   {v:119,items:["The Food trials box on Today now matches the rest of the Food section's color."]},
   {v:118,items:["Tap a meal's time next to its name to change the time of everything in that meal at once. Second helpings move by the same amount."]},
   {v:117,items:[
