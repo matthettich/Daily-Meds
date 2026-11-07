@@ -31,7 +31,8 @@ function add(k,ok,v){rows.push(`<tr><td>${k}</td><td>${ok===null?"":`<span class
   try{const m=await (await fetch("manifest.webmanifest",{cache:"no-store"})).json();add("Manifest readable",true,`name "${m.name}", ${m.icons?.length||0} icons, display ${m.display}`)}
   catch(e){add("Manifest readable",false,String(e))}
   if(swSupported){
-    try{await navigator.serviceWorker.register("sw.js");const r=await navigator.serviceWorker.ready;add("Offline worker running",!!r.active,r.scope)}
+    /* If the worker can't install (say the app page didn't download), ready never settles, so stop waiting after 10 s. */
+    try{await navigator.serviceWorker.register("sw.js");let t;const r=await Promise.race([navigator.serviceWorker.ready,new Promise((_,no)=>{t=setTimeout(()=>no(new Error("timed out waiting for the offline worker")),10000)})]).finally(()=>clearTimeout(t));add("Offline worker running",!!r.active,r.scope)}
     catch(e){add("Offline worker running",false,String(e))}
     const keys=(await caches.keys().catch(()=>[])).filter(k=>k.startsWith("daily-meds-"));
     let saved=false;for(const k of keys){const c=await caches.open(k);if(await c.match("index.html")&&await c.match("./")){saved=true;break}}
