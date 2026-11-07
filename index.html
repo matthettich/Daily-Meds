@@ -2402,7 +2402,8 @@ function renderSummary(){
 
   /* Medication consistency */
   if(state.meds.length){
-    const begin = from;
+    /* Check-offs older than KEEP_MED_DAYS are cleared on save, so don't count those days as missed. */
+    const kept=shiftKey(todayKey(),-KEEP_MED_DAYS), begin = from<kept?kept:from;
     let expected=0, taken=0, skipped=0;
     /* Day by day, so an archived med counts only on the days it was on your list. A skipped dose counts as checked off. */
     if(begin<=upto) for(let k=begin;k<=upto;k=shiftKey(k,1)){ const v=state.log[k]||{}, det=state.ldet[k]||{};

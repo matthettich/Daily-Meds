@@ -603,6 +603,15 @@ await test("archived med leaves the checklist from that day; earlier days still 
 }, { ...base, meds: [{ id: "m1", name: "Lisinopril", dose: "10 mg", slots: ["morning"], archived: shift(today, -4) }, { id: "m2", name: "Metformin", slots: ["morning"] }],
      log: { [shift(today, -6)]: {}, [shift(today, -2)]: { "m1|morning": at(shift(today, -2), 8) } } });
 
+await test("Recap's Medication box doesn't count days whose check-offs were cleared after 400 days as missed", async page => {
+  await page.click('[data-tab="sum"][role="tab"]');
+  const medBox = () => page.evaluate(() => [...document.querySelectorAll("#sumBody .box")].find(b => b.querySelector(".lid")?.textContent === "Medication")?.querySelector(".big")?.textContent);
+  await page.evaluate(k => { sumMode = "month"; sumAnchor = k; renderSummary(); }, shift(today, -450));
+  eq((await medBox()).startsWith("–"), true, "a month older than 400 days shows no percentage");
+  await page.evaluate(k => { sumMode = "month"; sumAnchor = k; renderSummary(); }, today);
+  assert(/\d+%/.test(await medBox()), "this month still shows a percentage");
+}, { ...base, notes: { [shift(today, -500)]: "started" }, log: { [today]: { "m1|morning": at(today, 8) } } });
+
 await test("a med checked off on the day it's archived stays on that day's list", async page => {
   assert(await page.$('.row.med[aria-checked="true"][data-k="m1|morning"]'), "still shows, checked");
 }, { ...base, meds: [{ id: "m1", name: "Lisinopril", slots: ["morning"], archived: today }], log: { [today]: { "m1|morning": at(today, 8) } } });

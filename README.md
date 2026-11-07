@@ -19,7 +19,8 @@ Open Safari on your iPhone and go to the website you want to save. Tap the Share
 Everything is stored on the device in the browser's storage. Records are never uploaded; if weather is on, only a rough
 location is sent to Open-Meteo (and to Google for pollen, with the user's own key). See `privacy.html`.
 Use **Save backup** in Settings → Your data before changing phones, uninstalling,
-or clearing browser data, then **Restore from backup** (same place) on the new device.
+or clearing browser data. Copy the backup file to the new phone (or keep it somewhere safe), then use
+**Restore from backup** (same place) there.
 
 ## Updating the app
 
