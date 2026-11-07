@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daily meds help</title>
+<meta name="theme-color" content="#FFFFFF">
+<meta name="color-scheme" content="only light">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#111111;--muted:#4A4A4A;--rule:#111111;--hair:rgba(17,17,17,.16);--white:#FFFFFF;
+  --h:262;--s:70%;--tx:#2F4A0A;color-scheme:only light}
+/* Same day colors as the app */
+body[data-day="0"]{--h:22; --s:85%;--tx:#1B4A6B}
+body[data-day="1"]{--h:262;--s:70%;--tx:#2F4A0A}
+body[data-day="2"]{--h:338;--s:80%;--tx:#0A4A44}
+body[data-day="3"]{--h:176;--s:55%;--tx:#7A1F3D}
+body[data-day="4"]{--h:44; --s:75%;--tx:#3A2F86}
+body[data-day="5"]{--h:152;--s:50%;--tx:#7A1E5E}
+body[data-day="6"]{--h:208;--s:75%;--tx:#8A3412}
+*,*::before,*::after{box-sizing:border-box;border-radius:0}
+body{margin:0;color:var(--ink);background:var(--white);
+  font-family:Futura,"Futura PT","Jost","Century Gothic",system-ui,sans-serif;font-size:15px;line-height:1.5;
+  padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+.wrap{max-width:720px;margin:0 auto;padding:16px 12px 40px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 14px}
+h1{font-size:26px;line-height:1.1;margin:0;font-weight:500;letter-spacing:-.01em}
+h1 small{display:block;font-size:13px;font-weight:400;color:var(--muted);letter-spacing:.02em;margin-bottom:2px}
+.back{border:1px solid var(--rule);background:var(--white);color:var(--ink);text-decoration:none;padding:8px 14px;min-height:40px;display:inline-flex;align-items:center;white-space:nowrap}
+nav.toc{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px}
+nav.toc a{border:1px solid var(--rule);background:var(--white);color:var(--ink);text-decoration:none;font-size:14px;padding:4px 10px;min-height:32px;display:inline-flex;align-items:center}
+.box{border:3px solid var(--rule);margin-top:12px;background:hsl(var(--H) var(--s) var(--l));scroll-margin-top:12px}
+.box:nth-of-type(odd){--H:calc(var(--h) + 22);--l:93%}
+.box:nth-of-type(even){--H:var(--h);--l:96%}
+.lid{min-height:38px;padding:7px 10px;background:var(--white);color:var(--tx);border-bottom:3px solid var(--rule);font-weight:500;font-size:17px}
+.lid h2{margin:0;font:inherit}
+.body{padding:4px 12px 12px}
+.body p{margin:10px 0 0}
+.body ul{margin:10px 0 0;padding-left:20px}
+.body li+li{margin-top:6px}
+.body h3{font-size:15px;font-weight:500;margin:14px 0 0}
+b{font-weight:500}
+.body a{color:var(--ink);text-underline-offset:3px}
+.chip{display:inline-block;border:1px solid var(--rule);background:var(--white);padding:0 8px;font-size:14px;white-space:nowrap}
+.foot{text-align:center;margin-top:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1><small>Daily meds</small>Help</h1>
+    <a class="back" href="./">← Back to app</a>
+  </div>
+
+  <nav class="toc" aria-label="Sections">
+    <a href="#today">Today</a><a href="#meals">Meals</a><a href="#meds">Meds</a><a href="#symptoms">Symptoms</a>
+    <a href="#food">Food</a><a href="#mood">Mood</a><a href="#night">Overnight</a><a href="#smells">Smells &amp; Other</a><a href="#activity">Activity</a><a href="#appts">Appointments</a><a href="#weather">Weather</a><a href="#summary">Recap</a><a href="#data">Your data</a><a href="#install">Install &amp; updates</a><a href="privacy.html">Privacy</a>
+  </nav>
+
+  <section class="box" id="today">
+    <div class="lid"><h2>Today</h2></div>
+    <div class="body">
+      <p>Today is your daily checklist. Medications are grouped by time of day: Waking, Morning, Afternoon, Evening and Bedtime. A fresh checklist appears every day.</p>
+      <ul>
+        <li><b>Tap a medication</b> to check it off. The time you took it shows on the right. Tap it again to uncheck it.</li>
+        <li>Checked it off late? <b>Tap the time</b> on the right to change it to when you actually took it. In that pop-up (and every pop-up with a time), tap anywhere on the time to open the time picker, not just the small clock icon.</li>
+        <li><b>Take all</b> checks off everything in that time of day at once. A medication with types gets the one you took last time.</li>
+        <li>Not taking a dose on purpose? <b>Press and hold</b> the medication and choose <b>Skip</b>. It counts as done, so it stops waiting to be checked (a skipped day-ending dose still ends the day), and it shows a <span class="chip">Skipped</span> tag. Recap counts skipped doses separately, and the spreadsheet lists them in <b>skipped_doses</b> rather than as taken or missed. Press and hold it again to <b>Undo skip</b>. On a computer, right-click instead.</li>
+        <li><b>Tap the name of anything you logged</b> (an additional medication, a supplement, a smell, an Other entry, an appointment) to change its time, add a <b>comment</b>, or link it to a <b>symptom</b>: Tylenol → Headache, miconazole cream → Athlete's foot. The chip shows <span class="chip">→ Headache</span> and the start of the comment. Foods do the same from their ingredients pop-up, and activities from their details pop-up. The spreadsheet adds each comment and link next to the entry, and a <b>linked_symptoms</b> column lists every link that day.</li>
+        <li>The bar at the top shows how many of today's doses are checked off, supplements included when they're a checklist. Additional medication isn't counted, since it's as needed.</li>
+        <li>Use the <b>‹ ›</b> arrows, or <b>swipe</b> across the page, to look at or fill in past days: swipe right to go back a day, left to go forward. Tap the date, or <b>Back to today</b>, to return.</li>
+        <li><b>Notes</b> at the bottom is for anything about the day. It saves as you type. An empty notes box is a single <b>+ Add note</b> line until you tap it, so Today stays short.</li>
+        <li>Removed something by mistake? Tapping <b>×</b> (or Remove in a time pop-up) shows <b>Undo</b> along the bottom for a few seconds.</li>
+        <li>Today runs in the order of the day's story: medications, food, smells &amp; other, mood, symptoms, appointments, notes, then overnight &amp; dreams. <b>Tap a section's heading</b> to fold it away; folded, it shows a quick count, and it stays folded until you tap it again.</li>
+        <li>In <b>Settings</b>, under <b>Today page</b>, untick <b>Show …</b> to hide a section, or use the arrows to move it up or down. <b>Reset order</b> puts them back in the usual order.</li>
+        <li>Same as yesterday? <b>Tap a box's name</b> (Supplements, Breakfast, Snacks &amp; Other Meals, Morning, Symptoms, Smells, Other, Activity, Appointments, or any notes box such as Food notes or Notes) and choose <b>Copy Yesterday's Meal</b> (or Moods, Symptoms, Notes and so on). It copies what you logged in that box the day before, servings, ingredients, restaurant and intensity included, then asks what time it was. <b>Undo copy</b> in that pop-up puts the box back. Notes copy yesterday's text and don't ask a time. If the box already has something in it, it asks before replacing it. Medications, Additional medication and Medication notes don't have this, since doses are a checklist. Looking at a past day, it copies the day before that one.</li>
+        <li>Think something set off your symptoms? In the same menu, tick <b>Suspected trigger</b>. The box gets a <span class="chip">Trigger?</span> tag for that day, and the spreadsheet's <b>suspected_triggers</b> column lists the box and what was in it, so your doctor (or AI) can check whether the data backs it up. On Symptoms the checkbox is <b>Suspected Flare</b> instead: tick it on a day you think was a flare-up, the box gets a <span class="chip">Flare?</span> tag, and the spreadsheet's <b>suspected_flare</b> column shows a 1 for that day. Untick it to take the mark off. Don't want it? Untick <b>Suspected triggers</b> in Settings, under Today page; marks you've already made are kept.</li>
+        <li>Something changed? Every list in <b>Settings</b> (meds, supplements, symptoms, foods, restaurants, moods, smells, other things and appointments) has an <b>Archive</b> button. Archived items leave Today's lists but keep their history, and <b>Unarchive</b> brings them back.</li>
+      </ul>
+      <p>Today's sections alternate down the page: white boxes with a colored title bar, then colored boxes with a white title bar. Recap and Settings do the same; to go back to their old look, untick <b>Alternate colors on Recap and Settings</b> in Settings, under Personalize.</p>
+      <p>On a wide screen, like the Fold opened up, all the pages show side by side instead of as tabs.</p>
+    </div>
+  </section>
+
+  <section class="box" id="meals">
+    <div class="lid"><h2>Meals</h2></div>
+    <div class="body">
+      <p>Each day has Breakfast, Lunch, <b>Snacks &amp; Other Meals</b>, Dinner and After dinner boxes on the Today page. Snacks &amp; Other Meals is for anything in between, like an afternoon snack or a second lunch. Give each food there its own time.</p>
+      <p>Don't need Snacks or After dinner? Untick <b>Show snacks</b> or <b>Show after dinner</b> in Settings, under Food. Anything already logged there is kept and still goes in the export; tick it again to bring the box back.</p>
+      <ul>
+        <li><b>Add food…</b> opens a search of your food list. Your <b>usual</b> foods for that meal (eaten in it on at least two of the last four weeks) come first, then everything A–Z. Start typing to narrow it down, and press Enter to add the first match. <b>+ New food</b> adds what you typed if it isn't there yet.</li>
+        <li><b>Tap the clock</b> on a food to add when you ate it. If only one food has a time, the whole meal gets that time. Give another food its own time if it was eaten separately, or tap its time and choose <b>Clear time</b>.</li>
+        <li><b>Tap the meal's time</b> next to its name (like <b>Lunch 12:30 PM</b>) to change the time of everything in it at once. Every food gets the new time; a second helping moves by the same amount, so it stays that much later. <b>Clear times</b> takes the times off all of them.</li>
+        <li>Choose the same food again to count another serving. It shows as <span class="chip">Coffee ×2</span>. <b>Tap its time</b> to give each serving its own time (say, one coffee at 7:15 and another at 10:40), add another serving or remove one. It still shows as ×2, and the export lists every time.</li>
+        <li>Tap <b>×</b> on a food to remove one serving.</li>
+        <li><b>Tap a food's name</b> to add its ingredients, a linked symptom, a comment or a <b>Possible flare trigger</b> mark for that meal. Doses, supplements, smells, other things and activities have the same mark in their pop-ups; marked items show <b>Flare?</b> and are listed in the spreadsheet's <b>possible_flare_items</b> column. Choose <b>Log once</b> to keep the ingredients with just that meal, or <b>Save as version</b> to name them (like "Oatmeal · with banana"). A small dot means a meal has its own ingredients.</li>
+        <li>A food with types (versions), like <b>Rice</b> with jasmine and brown, shows once in <b>Add food…</b> with a <b>›</b>. Picking it asks which one, or <b>Just Rice</b>. Add or rename types in Settings, under Food: tap the food, then <b>+ Add type</b>. A type's details are its ingredients.</li>
+        <li><b>Restaurant…</b> records where you ate. Pick <b>Not eating out</b> to clear it.</li>
+        <li>Had the same breakfast as yesterday? <b>Tap Breakfast</b> and choose <b>Copy Yesterday's Meal</b>, then set the time you ate.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="box" id="meds">
+    <div class="lid"><h2>Meds</h2></div>
+    <div class="body">
+      <p>Your medication list is in <b>Settings</b>, under Medications and Supplements.</p>
+      <ul>
+        <li><b>Add</b> a medication with its name, dose, the times of day you take it, and an optional note such as "with food". Pick every time you take it; it appears once in each.</li>
+        <li><b>Tap a medication</b> to change it after a doctor visit, or to delete it.</li>
+        <li>Only take medication as needed? Set <b>On Today</b> to <b>Off</b> and Today shows just your as-needed box, called <b>Medications</b> (and your supplements). The days it's off aren't counted as missed doses, the day ends at midnight, and turning it back on brings your checklist back as it was.</li>
+        <li>Switch between a few? Give it <b>types</b>: say a medication called <b>Antihistamine</b> with types Allegra 180 mg, Zyrtec 10 mg and Claritin. Tap <b>+ Add type</b> in its editor for each, with its dose in the second box. On Today, checking it off asks <b>which one</b> (the one you took last time is marked), and the row shows it. That pop-up has a <b>Time</b> box set to now; change it before you pick, and it's logged at that time. Tap the time to change which one it was. <b>+ New type…</b> in that pop-up adds one on the spot. Additional medications, supplements, foods, smells, Other things and activities can have types too; picking one asks which. A type you remove that past days used is kept for history.</li>
+        <li>Up past midnight? Under <b>End of day</b>, pick the bedtime dose you take last. Until you check it off, the app stays on that day, so late doses, food and symptoms land there with their real times. If it's still unchecked at 3 AM, the new day starts. Choose <b>At midnight</b> to turn this off.</li>
+        <li>Every dose you check off keeps the <b>time you tapped it</b>, not just the part of the day. That's what lets Recap, the export and the Overnight section work out how long after a dose something happened. Took it earlier than you checked it? Tap the time to fix it.</li>
+        <li>Doctor changed something? Under <b>Medication changes</b>, tap <b>Add</b>, pick the day and write what changed, like "Started montelukast 10 mg". That day's Today page shows it above the doses (tap it to edit), the Recap calendar marks the day, and Recap's <b>Medication changes</b> box compares the 14 days before with the days after: days with symptoms, flare-ups, wake-ups a night and nightmares. The spreadsheet has a <b>medication_changes</b> column.</li>
+        <li>Stopped taking one? Tap <b>Archive</b> instead of deleting it. It leaves the checklist from that day on and stops counting as missed, but every dose you took stays in Recap and the export. <b>Unarchive</b> (or adding a med with the same name) puts it back, and the days it was archived still aren't counted as missed.</li>
+      </ul>
+      <h3>Additional medications</h3>
+      <p>For as-needed meds like Tylenol or aspirin that aren't taken at a set time. Add them under <b>Additional medications</b> with a name and dose.</p>
+      <ul>
+        <li>On Today, the <b>Additional medication</b> box sits below your timed doses. <b>Add medication…</b> lists your additional meds and your regular ones, so you can log an extra dose of either.</li>
+        <li>Each dose is saved with the time you logged it. Take it twice and it shows twice. Tap <b>×</b> to remove a dose logged by mistake.</li>
+        <li>Logged it late? <b>Tap the time</b> on a dose to change it to when you actually took it.</li>
+        <li>Recap shows how many doses and days of each, and the export includes them.</li>
+      </ul>
+      <h3>Supplements</h3>
+      <p>For vitamins, minerals and other supplements. Add them under <b>Supplements</b> with a name and dose.</p>
+      <ul>
+        <li>On Today, supplements sit below Additional medication as a <b>checklist</b>, like your medications: tap one to check it off with the current time, or <b>Take all</b>. A supplement with types asks which one.</li>
+        <li><b>Times:</b> under Settings → Supplements, choose which boxes show on Today: <b>Once a day</b> (the default), Waking, Morning, Lunch, Afternoon, Evening and Bedtime. With more than one on, open a supplement to pick its times. A supplement set to a time is checked off in that time's box with your medications (Lunch gets its own box between Morning and Afternoon, and Take all covers both); Once a day ones get their own <b>Once a day</b> box at the top. Took one outside its times? Log it in <b>Additional supplements</b>, below Medication notes, just like Additional medication; it doesn't tick off the checklist. <b>Supplement notes</b> sits under it, and the spreadsheet has a notes_supplements column. Turning a time off keeps each supplement's choice for when you turn it back on.</li>
+        <li>Tap the time to change it, its type, a linked symptom or a comment. Recap and the export include supplements too.</li>
+        <li>Rather log them as you take them? Set <b>On Today</b> to <b>Log each one as you take it</b>: pick one from <b>Add supplement…</b> to log it, and picking it again shows <b>×2</b>, ×3 and so on. Switching back and forth keeps everything you've logged.</li>
+      </ul>
+      <p>Settings also has the Backup box. See <a href="#data">Your data</a>.</p>
+    </div>
+  </section>
+
+  <section class="box" id="symptoms">
+    <div class="lid"><h2>Symptoms</h2></div>
+    <div class="body">
+      <ul>
+        <li>On Today, use <b>Add symptom…</b> to log a symptom for that day, or <b>+ New symptom…</b> to create one.</li>
+        <li>Had it again later? Pick it from <b>Add symptom…</b> again. Each time is saved with its own time, and it shows once as <span class="chip">Headache ×2</span>. Tap <b>×</b> to remove the latest one.</li>
+        <li><b>Tap a symptom's name</b> to see every time you logged it that day. Set each one's <b>intensity</b> from 1 (mild) to 10 (severe), change its time, mark it <b>All day</b>, or remove it. The strongest one shows as a small number on the chip.</li>
+        <li><b>Tap the time</b> on the chip to change the latest one to when it actually started.</li>
+        <li>Having a flare-up? Tap <b>+ Flare-up</b> in the Symptoms box. It's saved straight away with the time, nothing else needed, so it's quick in the middle of the night. A pop-up opens where you can set when it started, pick its symptoms and write notes; tap <b>Later</b> to skip that and fill it in whenever you like by tapping the flare-up. You can log as many flare-ups in a day as you have. Symptoms you pick in a flare-up are logged in Symptoms too, if they aren't already.</li>
+        <li>Some symptoms always mean a flare? Edit the symptom in Settings → Symptoms and tick <b>Starts a flare-up</b>. Logging it on Today then logs a flare-up with it and opens the same pop-up. If another flare-up started within 2 hours, it joins that one instead. Tap a symptom that's part of a flare-up to jump to it.</li>
+        <li>Flare-ups are the same mark as <b>Suspected Flare</b> in the box's menu. Recap counts flare-ups and outlines their days on the calendars, and the spreadsheet has <b>suspected_flare</b>, <b>flare_time</b> and <b>flares</b> columns (each flare-up's time, symptoms and notes).</li>
+        <li>Recap shows how many times and the average intensity, and the export has a count and the strongest intensity for each symptom.</li>
+        <li>The Symptoms section of <b>Settings</b> lists every symptom you track and how many days you've had it this month. Tap one to rename or delete it.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="box" id="food">
+    <div class="lid"><h2>Food</h2></div>
+    <div class="body">
+      <ul>
+        <li>The Food section of <b>Settings</b> holds your lists of foods and restaurants, with how often each came up this month.</li>
+        <li>Tap one to rename it or delete it. Deleting a food or restaurant removes it from past meals too.</li>
+        <li><b>Archive</b> a food or restaurant to take it off the pick lists on Today without losing its history, handy for places you ate while traveling or foods you've stopped eating. Archived ones move to the bottom of the list, still show in the export, and <b>Unarchive</b> brings one back. Adding one with the same name brings it back too.</li>
+        <li>If you add a name that already exists, the app reuses it instead of making a duplicate.</li>
+      </ul>
+      <h3>New food trials</h3>
+      <ul>
+        <li>The first time you eat a new food, tap it in its meal on Today and tick <b>New food trial</b>. The food's chip shows <b>Trial</b>.</li>
+        <li>A trial watches that day and the 3 after it. Every flare-up you log in that time counts toward the food by itself, and the flare-up's pop-up says so.</li>
+        <li>Trials in progress show at the top of Food. Tap one to change when it started or how many days it watches (3 to 7), see its flare-ups, and mark how it went: Seems fine, Reacted or Not sure.</li>
+        <li>Try one new food at a time when you can. If two trials overlap, a flare-up counts for both, so the app asks before starting a second one.</li>
+        <li>Recap lists your trials, and they're in the doctor summary and the spreadsheet.</li>
+      </ul>
+      <p>On Today, the Medication, Symptoms, Food and Mood sections each end with their own <b>Notes</b> box for that day, and there's a general Notes box at the very bottom.</p>
+    </div>
+  </section>
+
+  <section class="box" id="mood">
+    <div class="lid"><h2>Mood &amp; emotions</h2></div>
+    <div class="body">
+      <ul>
+        <li>On Today, below the meals, there are <b>Morning</b>, <b>Afternoon</b> and <b>Evening</b> boxes. Use <b>Add mood or emotion…</b> to log how you felt, as many as fit. Felt the same thing again? Pick it again: each time gets its own time and it shows as <span class="chip">Anxious ×2</span>. Tap <b>×</b> to remove the latest one.</li>
+        <li>The Mood section of <b>Settings</b> holds your list. It starts with a few common ones; tap one to rename or delete it, or <b>Add</b> your own.</li>
+        <li><b>Tap the clock</b> on a mood to add when you felt it. If only one mood in the morning, afternoon or evening has a time, the rest of that group gets it too. Tap a time and choose <b>Clear time</b> to remove it.</li>
+        <li>Recap shows which moods came up most, and the export has a column for each time of day.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="box" id="night">
+    <div class="lid"><h2>Overnight &amp; dreams</h2></div>
+    <div class="body">
+      <p>The last section on Today is for the night: wake-ups and dreams. Want it nearer the top? Move it up in <b>Settings</b>, under Today page.</p>
+      <ul>
+        <li>Woke up? Tap <b>+ Woke up now</b>. It's saved straight away with the time, then a pop-up asks <b>what woke you</b> (a dream, a symptom, nothing, not sure), what was going on <b>in your body</b> (racing heart, shaking, nausea, stomach or gut…), your <b>feelings</b> (anxious, teary, agitated…), <b>how hard</b> it was from 1 to 5, and a comment. All optional: <b>Cancel</b> keeps the wake-up with just its time, and you can fill the rest in the morning by tapping it.</li>
+        <li>Woken by a symptom? Pick <b>Symptom</b> and the pop-up lists your symptoms so you can tie this wake-up to the ones that woke you; they show on the wake-up and in Recap and the spreadsheet.</li>
+        <li>In <b>Settings → Symptoms → Night wake-ups</b>: set what every new wake-up starts with (say, woken by Itching), pick symptoms that <b>always log a wake-up</b> (or tick <b>Wakes me up</b> when you tap a symptom to edit it), and set your asleep hours. Noting one of those symptoms while you're asleep adds a wake-up by itself, or ties it to one already logged within 30 minutes. Any single wake-up can still be changed by tapping it.</li>
+        <li>The pop-up shows <b>Since last dose</b>: how long before the wake-up you last took each thing that evening, like "Cromolyn 4h 40m · Montelukast 9h 30m". The box also lists that evening's doses with their times.</li>
+        <li><b>Dreams</b>: rate how vivid they were from 1 to 5, tick <b>Disturbing</b> or <b>Nightmare</b>, or <b>None remembered</b>, and jot down what it was about if you like. Tap a number again to clear it.</li>
+        <li>Which night? Until 6 PM the section shows <b>last night</b>. From 6 PM it switches to <b>tonight</b>, with a line about last night at the top. A past day shows the night before it, and there <b>+ Add a wake-up</b> starts at 3 AM so you can set the time.</li>
+        <li>Recap's <b>Overnight &amp; dreams</b> box counts nights with a wake-up, wake-ups a night, the usual time, what woke you, your feelings and body, and vivid, disturbing and nightmare nights. It counts from the first night you logged, and a night with nothing logged counts as no wake-ups.</li>
+        <li>The spreadsheet puts each night on the row of the <b>evening before it</b>, next to that evening's doses, in the <b>night_after_…</b> columns: how many wake-ups, each one's details and time since each dose, and the dream ratings.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="box" id="smells">
+    <div class="lid"><h2>Smells &amp; Other</h2></div>
+    <div class="body">
+      <ul>
+        <li><b>Smells</b> are off by default. Turn on <b>Track smells</b> in the Smells &amp; Other section of <b>Settings</b>.</li>
+        <li><b>Other</b> is for anything else worth tracking that might matter, like air travel, a hot tub or a late night. It starts with <b>Got overheated</b>, for heat that isn't an activity: a warm room, a hot shower, a car in the sun. It's on by default; turn off <b>Track other things</b> to hide it.</li>
+        <li>On Today they sit below Mood. Pick one from <b>Add smell…</b> or <b>Log something…</b> to log it with the current time; tap the time to change it, or <b>×</b> to remove one. Pick the same one again and it shows ×2.</li>
+        <li>Each list lives in Settings under its switch. Recap and the export include both. Turning a switch off hides the box but keeps what you've logged.</li>
+        <li>A <b>Smells &amp; other notes</b> box sits below them for anything else worth writing down.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="box" id="activity">
+    <div class="lid"><h2>Activity</h2></div>
+    <div class="body">
+      <ul>
+        <li>For anything that takes effort: a walk, yoga, cleaning, errands. Add your activities in <b>Settings</b>, under Activity, or pick <b>+ New activity…</b> on Today.</li>
+        <li>Pick one from <b>Log activity…</b> to log it with the current time as its start. Tap the time to change it, or <b>×</b> to remove one.</li>
+        <li><b>Tap an activity's name</b> to add how many minutes it took and how hard it felt, from 1 (easy) to 10 (all-out). The highest rating shows next to the name, and the minutes on the chip.</li>
+        <li>Recap's <b>Exertion &amp; symptoms</b> box compares harder activities (6–10) with easier ones (1–5): how often a symptom was logged during them or in the 6 hours after. Only rated activities count.</li>
+        <li>The export lists each activity with its time, minutes and exertion, plus a column per activity, like the symptom columns.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="box" id="appts">
+    <div class="lid"><h2>Appointments</h2></div>
+    <div class="body">
+      <ul>
+        <li>The <b>Appointments</b> box is near the bottom of Today, just above Notes. Pick one from <b>Add appointment…</b> to log it with the current time, or <b>+ New appointment…</b> to add one, with who or where it's with.</li>
+        <li>One appointment can have several people or places, like <b>Therapy</b> with two therapists. Add them in Settings with <b>+ Add another</b>, or use <b>+ New appointment…</b> with the same name and the new therapist; the ones already there are kept. Each shows up in <b>Add appointment…</b> as its own choice (Therapy · Dr. Lee, Therapy · Dr. Kim), and each visit keeps its own.</li>
+        <li>Tap a visit's practitioner or time to change either one for that visit only, or <b>×</b> to remove it. Seeing someone new? Choose <b>+ Add practitioner…</b> in that pop-up: the appointment opens with a blank row, and whoever you add there goes on that visit. Removing someone in Settings keeps their name on past visits. <b>Appointment notes</b> below it is for what the doctor said.</li>
+        <li>The list lives in <b>Settings</b> under Appointments. To hide the section, untick <b>Show Appointments</b> in Settings, under Today page; what you've logged is kept.</li>
+        <li>Recap and the export include appointments, so you can see whether symptoms change after a visit or a new treatment.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="box" id="weather">
+    <div class="lid"><h2>Weather</h2></div>
+    <div class="body">
+      <p>Set a location in the <b>Weather</b> box in <b>Settings</b>, in the Recap section at the bottom. From then on the app saves each day's temperature, rain, humidity, air pressure and air quality, and fills in the past three months.</p>
+      <ul>
+        <li>Recap's <b>Weather &amp; symptoms</b> box compares days you had symptoms with days you didn't. Pick one symptom to narrow it down.</li>
+        <li>Under the location, a line shows how many of the last 30 days have weather saved, and lists any missing days. Missing days fill in by themselves the next time the app is open and online, up to three months back.</li>
+        <li><b>Pollen</b> in the US needs a free Google Pollen API key. When you save the key, the app checks it right away and tells you in a pop-up whether it worked, with today's pollen. The line under the key keeps showing whether pollen is on. Pollen only comes as a forecast, so it's saved for each day you open the app and can't be filled in for past days.</li>
+        <li>Weather, air quality and elevation come from Open-Meteo (with Copernicus data), and pollen from Google Maps. Only your location is sent, rounded to about a kilometer. Pollen readings are kept for a year, as Google's terms ask; the rest of the weather stays.</li>
+        <li><b>Track location</b> (a checkbox in the same box) saves where you are and your elevation once a day, the first time you open the app. Weather then follows you when you travel. Recap's <b>Travel &amp; symptoms</b> box lists big moves (50+ miles, or 2,000+ ft up or down) and compares how often you had symptoms on the move day and the 3 days after with your other days. The app can't check while it's closed, so only days you open it get a location. Positions stay on your phone; they're in backups and the spreadsheet export.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="box" id="summary">
+    <div class="lid"><h2>Recap</h2></div>
+    <div class="body">
+      <p>Switch between <b>Month</b> and <b>Year</b>, and use the arrows to go back in time.</p>
+      <ul>
+        <li><b>Top symptoms</b> ranks symptoms by how many days you had them. Arrows compare with the same days of the previous month or year: ▲ more, ▼ fewer.</li>
+        <li>The <b>Calendar</b> shades each day by how many symptoms you logged. Tap a day to open it.</li>
+        <li>The <b>Year calendar</b> below it shows the whole year at a glance, each month in its own color, shaded the same way. Turn it off in Settings, under Recap.</li>
+        <li><b>Medication</b> shows the share of doses you checked off, counted from when you started using the app, and how many of those were skipped.</li>
+      </ul>
+      <h3>Doctor summary</h3>
+      <p>Near the bottom of Recap, <b>Print or save as PDF</b> makes a one-page summary of the month or year you're looking at: each medication with how many doses you took, medication changes, as-needed medication, supplements, symptoms (days, times and average intensity), appointments and your notes. Print it, or choose Save as PDF to email or show it.</p>
+      <h3>Export for AI</h3>
+      <p>Downloads a spreadsheet (CSV) with one row per day: each dose taken (with its time and type), doses missed or skipped, symptoms (how many times and how strong), each meal's foods and restaurant, mood, smells and other things, appointments, what you marked as suspected triggers and flares (with the flare-up's time), what you linked to a symptom, your comments, weather, air quality, pollen, and your notes. Share it with your doctor, or upload it to an AI assistant and ask whether symptoms tend to follow certain foods, restaurants or missed doses.</p>
+    </div>
+  </section>
+
+  <section class="box" id="data">
+    <div class="lid"><h2>Your data</h2></div>
+    <div class="body">
+      <p>Everything is stored on this phone only, and the app works without internet. Your records are never uploaded. If you turn on weather, only your rough location is sent to get it. The <a href="privacy.html">privacy page</a> has the details.</p>
+      <ul>
+        <li><b>Save backup</b> (in Settings, under Your data) downloads a file with all your data. Do this before switching phones, uninstalling, or clearing browser data. Settings shows when you last saved one, and Today reminds you if it's been two weeks (<b>Later</b> waits three days).</li>
+        <li><b>Restore from backup</b> loads that file. It replaces everything currently in the app.</li>
+        <li><b>Name</b> (in Settings, under Personalize) is who the tracking is for. It shows on the Recap page and goes into spreadsheet and backup file names (and a name column in the spreadsheet), so files for different people don't get mixed up. Set it once and it stays.</li>
+      </ul>
+      <p>On Android, backups and exports land in your Downloads folder. On iPhone, look in the Files app under Downloads.</p>
+    </div>
+  </section>
+
+  <section class="box" id="install">
+    <div class="lid"><h2>Install &amp; updates</h2></div>
+    <div class="body">
+      <h3>Android (Samsung, Pixel and others)</h3>
+      <p>Open the app in Chrome, then tap <b>Install app</b> in Settings, under Personalize (or choose <b>Install app</b> from Chrome's ⋮ menu). It opens full-screen like a normal app, named Daily meds, with its own icon.</p>
+      <p>If your home-screen icon has a small Chrome badge, or the app opens as "Meds", it was added as a shortcut rather than installed. Remove that icon, open the website in Chrome, and use <b>Install app</b> instead. Your records stay; they belong to the website, not the icon.</p>
+      <h3>iPhone</h3>
+      <ul>
+        <li>Open the app in <b>Safari</b>.</li>
+        <li>Tap the <b>Share</b> button (the square with an arrow pointing up). On newer iPhones it may be under the <b>⋯</b> menu in the address bar.</li>
+        <li>Scroll down and tap <b>Add to Home Screen</b>. If it's missing, tap <b>Edit Actions</b> at the bottom of the list and add it.</li>
+        <li>Turn on <b>Open as Web App</b> if you see it, then tap <b>Add</b>.</li>
+      </ul>
+      <p>On iPhone, the home-screen app and Safari keep separate data. Use the home-screen app every day so your records stay in one place. If you start in Safari first, move your data over with <b>Save backup</b> and <b>Restore from backup</b>.</p>
+      <h3>Updates</h3>
+      <p>The app updates itself. Every time it starts with internet, it loads the newest version. Your records stay on the phone and aren't touched by updates.</p>
+      <p>Switching away and coming back usually doesn't count as starting, especially on iPhone, which tends to resume the copy already in memory. To get an update right away, close the app fully and open it again:</p>
+      <ul>
+        <li><b>Android:</b> open Recent apps, swipe the app away, then open it again.</li>
+        <li><b>iPhone:</b> swipe up from the bottom of the screen and pause to see your open apps, swipe the app up and away, then open it again.</li>
+      </ul>
+      <p>A new version can take a few minutes to become available after it's published, sometimes up to about 10. If it still doesn't show up, wait a bit and close and reopen the app again.</p>
+      <p>If the app misbehaves, open <a href="check.html">the check page</a> and screenshot it.</p>
+    </div>
+  </section>
+
+  <p class="foot"><a class="back" href="./">← Back to app</a></p>
+</div>
+<script>document.body.dataset.day=new Date().getDay()</script>
+</body>
+</html>

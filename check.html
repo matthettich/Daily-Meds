@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="only light">
+<title>Daily meds check</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;padding:16px;background:#fff;color:#111;font-size:15px}
+h1{font-size:20px;margin:0 0 12px}
+table{border-collapse:collapse;width:100%}
+td{border:1px solid #111;padding:8px;vertical-align:top}
+td:first-child{width:45%}
+.ok{color:#1b7a3a;font-weight:600}.bad{color:#b3261e;font-weight:600}
+p{color:#555;font-size:13px}
+</style></head><body>
+<h1>Daily meds check</h1>
+<table id="t"></table>
+<p>Screenshot this page and send it over.</p>
+<script>
+const rows=[];
+function add(k,ok,v){rows.push(`<tr><td>${k}</td><td>${ok===null?"":`<span class="${ok?"ok":"bad"}">${ok?"OK":"Problem"}</span>`} ${v||""}</td></tr>`);document.getElementById("t").innerHTML=rows.join("")}
+(async()=>{
+  add("Browser",true,navigator.userAgent.replace(/^Mozilla\/5\.0 /,""));
+  add("Secure page (https)",location.protocol==="https:",location.href);
+  const swSupported="serviceWorker" in navigator; add("Offline support available",swSupported);
+  for(const f of ["index.html","sw.js","manifest.webmanifest","icon-192.png","icon-512.png","icon-maskable-512.png"]){
+    try{const r=await fetch(f,{cache:"no-store"});add(f,r.ok,"status "+r.status+" · "+(r.headers.get("content-type")||""))}
+    catch(e){add(f,false,String(e))}
+  }
+  try{const m=await (await fetch("manifest.webmanifest",{cache:"no-store"})).json();add("Manifest readable",true,`name "${m.name}", ${m.icons?.length||0} icons, display ${m.display}`)}
+  catch(e){add("Manifest readable",false,String(e))}
+  if(swSupported){
+    try{await navigator.serviceWorker.register("sw.js");const r=await navigator.serviceWorker.ready;add("Offline worker running",!!r.active,r.scope)}
+    catch(e){add("Offline worker running",false,String(e))}
+    const keys=await caches.keys().catch(()=>[]);add("Offline copy saved",keys.length>0,keys.join(", "));
+  }
+  try{localStorage.setItem("x","1");localStorage.removeItem("x");add("Storage works",true)}catch(e){add("Storage works",false,String(e))}
+  add("Opened as installed app",null,matchMedia("(display-mode: standalone)").matches?"yes":"no (opened in browser)");
+  add("Phone dark mode",null,matchMedia("(prefers-color-scheme: dark)").matches?"on":"off");
+})();
+</script></body></html>
