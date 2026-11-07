@@ -17,7 +17,9 @@ p{color:#555;font-size:13px}
 <p>Screenshot this page and send it over.</p>
 <script>
 const rows=[];
-function add(k,ok,v){rows.push(`<tr><td>${k}</td><td>${ok===null?"":`<span class="${ok?"ok":"bad"}">${ok?"OK":"Problem"}</span>`} ${v||""}</td></tr>`);document.getElementById("t").innerHTML=rows.join("")}
+/* add() returns the row's number so a later result can replace it (set). */
+function set(i,k,ok,v){rows[i]=`<tr><td>${k}</td><td>${ok===null?"":`<span class="${ok?"ok":"bad"}">${ok?"OK":"Problem"}</span>`} ${v||""}</td></tr>`;document.getElementById("t").innerHTML=rows.join("");return i}
+function add(k,ok,v){return set(rows.length,k,ok,v)}
 (async()=>{
   add("Browser",true,navigator.userAgent.replace(/^Mozilla\/5\.0 /,""));
   add("Secure page (https)",location.protocol==="https:",location.href);
@@ -31,12 +33,18 @@ function add(k,ok,v){rows.push(`<tr><td>${k}</td><td>${ok===null?"":`<span class
   try{const m=await (await fetch("manifest.webmanifest",{cache:"no-store"})).json();add("Manifest readable",true,`name "${m.name}", ${m.icons?.length||0} icons, display ${m.display}`)}
   catch(e){add("Manifest readable",false,String(e))}
   if(swSupported){
-    /* If the worker can't install (say the app page didn't download), ready never settles, so stop waiting after 10 s. */
-    try{await navigator.serviceWorker.register("sw.js");let t;const r=await Promise.race([navigator.serviceWorker.ready,new Promise((_,no)=>{t=setTimeout(()=>no(new Error("timed out waiting for the offline worker")),10000)})]).finally(()=>clearTimeout(t));add("Offline worker running",!!r.active,r.scope)}
-    catch(e){add("Offline worker running",false,String(e))}
-    const keys=(await caches.keys().catch(()=>[])).filter(k=>k.startsWith("daily-meds-"));
-    let saved=false;for(const k of keys){const c=await caches.open(k);if(await c.match("index.html")&&await c.match("./")){saved=true;break}}
-    add("Offline copy saved",saved,keys.join(", ")||"none");
+    /* If the worker can't install (say the app page didn't download), it never becomes ready, so stop waiting after 10 s.
+       If it does finish later, both rows below are updated. */
+    const offlineCopy=async()=>{const keys=(await caches.keys().catch(()=>[])).filter(k=>k.startsWith("daily-meds-"));
+      for(const k of keys){const c=await caches.open(k);if(await c.match("index.html")&&await c.match("./"))return [true,keys]}return [false,keys]};
+    const swRow=add("Offline worker running",null,"checking…"), copyRow=add("Offline copy saved",null,"checking…");
+    const showCopy=async()=>{const [ok,keys]=await offlineCopy();set(copyRow,"Offline copy saved",ok,keys.join(", ")||"none")};
+    const ready=navigator.serviceWorker.register("sw.js").then(()=>navigator.serviceWorker.ready);
+    let t;
+    try{const r=await Promise.race([ready,new Promise((_,no)=>{t=setTimeout(()=>no(new Error("timed out waiting for the offline worker")),10000)})]);set(swRow,"Offline worker running",!!r.active,r.scope)}
+    catch(e){set(swRow,"Offline worker running",false,String(e));ready.then(r=>{set(swRow,"Offline worker running",!!r.active,r.scope+" (ready after the timeout)");showCopy()},()=>{})}
+    finally{clearTimeout(t)}
+    await showCopy();
   }
   try{localStorage.setItem("daily-meds-check","1");localStorage.removeItem("daily-meds-check");add("Storage works",true)}catch(e){add("Storage works",false,String(e))}
   add("Opened as installed app",null,matchMedia("(display-mode: standalone)").matches?"yes":"no (opened in browser)");
