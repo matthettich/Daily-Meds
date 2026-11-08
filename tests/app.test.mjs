@@ -921,6 +921,21 @@ await test("editing times on a day that ran past midnight: 12:15 AM is that nigh
 }, { ...lateSeed, log: { [NIGHT]: { "c1|waking": at(NIGHT, 7), "c1|bedtime": at(NEXT, 0, 33) } }, slog: { [NIGHT]: { s2: [{ t: at(NIGHT, 16) }] } } },
    { clock: new Date(2026, 9, 20, 10, 0) });
 
+await test("a symptom logged three times shows each time on its chip, and each can be given its own time", async page => {
+  const btns = page.locator('.box.l-sym button[data-editsym="s1"]');
+  eq(await btns.count(), 3, "three time buttons");
+  eq(await btns.allTextContents(), ["9:00 AM", "1:00 PM", "6:00 PM"], "every time shown, in order");
+  await btns.nth(1).click();
+  await page.fill("#xtime", "14:20"); await page.click('#xform button[type="submit"]');
+  const L = (await page.state()).slog[today].s1.map(e => new Date(e.t)).map(d => d.getHours() * 60 + d.getMinutes());
+  eq(L, [9 * 60, 14 * 60 + 20, 18 * 60], "only the middle one moved");
+  await page.locator('.box.l-sym button[data-editsym="s1"]').nth(2).click();
+  await page.fill("#xtime", "07:30"); await page.click('#xform button[type="submit"]');
+  const M = (await page.state()).slog[today].s1.map(e => new Date(e.t)).map(d => d.getHours() * 60 + d.getMinutes());
+  eq(M, [7 * 60 + 30, 9 * 60, 14 * 60 + 20], "moving the last one earlier re-sorts the list");
+  eq((await page.state()).slog[today].s1.length, 3, "still three");
+}, { ...base, slog: { [today]: { s1: [{ t: at(today, 9) }, { t: at(today, 13) }, { t: at(today, 18), i: 6 }] } } }, { clock: new Date(new Date().setHours(20, 0, 0, 0)) });
+
 await test("End of day setting: bedtime Cromolyn by default, At midnight turns it off", async page => {
   await page.click('[data-tab="set"][role="tab"]');
   eq(await page.inputValue("#dayEnd"), "c1", "Cromolyn picked");

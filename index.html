@@ -349,6 +349,8 @@ label.f select{display:block;width:100%;margin-top:4px;appearance:none;-webkit-a
 .allday input{width:22px;height:22px;margin:0;accent-color:var(--ink)}
 #xtimeRow.off{opacity:.4}
 .chip .qty{margin-left:6px;font-size:13px;color:var(--muted)}
+/* A symptom logged more than once: one time button per time, divided by a hairline */
+.chip.multi .t+.t{border-left:1px solid var(--hair);padding-left:6px}
 .chips .none{font-size:13px;color:var(--muted);padding:6px 0}
 .legacy{margin:8px 10px 0;font-size:13px;color:var(--muted);white-space:pre-wrap}
 .pickers{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px}
@@ -2056,14 +2058,15 @@ function render(){
   {
     const symsSorted=[...state.symptoms].sort((a,b)=>a.name.localeCompare(b.name));
     const had=symsSorted.filter(x=>(sday[x.id]||[]).length);
-    /* One chip per symptom: ×N when logged more than once; tap the name for every time and its intensity;
-       the time and × act on the latest one */
+    /* One chip per symptom: tap the name for every time and its intensity. Logged more than once, each time gets
+       its own button on the chip, so each can be set on its own; × removes the latest */
     html+=`<div class="box l-sym">
       <div class="lid">${copyName("syms","syms","Symptoms")}<span class="st">${had.length?had.length+" today":"None"}</span></div>
       <div class="chips">${had.length?[...had].sort((a,b)=>symSortKey(sday[a.id][0].t)-symSortKey(sday[b.id][0].t)).map(x=>{
-        const L=sday[x.id], last=L.length-1, lb=symLabel(L[last].t), mx=symMax(L);
+        const L=sday[x.id], last=L.length-1, mx=symMax(L);
         const nb=`<button class="nm" data-symd="${esc(x.id)}" aria-label="${esc(x.name)}${mx?", intensity "+mx+" of 10":""}. Tap to set intensity and times">${esc(x.name)}${mx?`<span class="lvl" style="--i:${mx}">${mx}</span>`:""}</button>`;
-        return `<span class="chip">${nb}${L.length>1?`<span class="qty">×${L.length}</span>`:""}${lb?`<button class="t" data-editsym="${esc(x.id)}" data-si="${last}" aria-label="Change time of ${esc(x.name)}, now ${lb}">${lb}</button>`:""}<button data-rmsym="${esc(x.id)}" data-si="${last}" aria-label="Remove ${L.length>1?"one ":""}${esc(x.name)}">×</button></span>`}).join(""):`<span class="none">No symptoms today</span>`}</div>
+        const tb=L.map((e,si)=>{const l=symLabel(e.t); return l?`<button class="t" data-editsym="${esc(x.id)}" data-si="${si}" aria-label="Change time of ${esc(x.name)}${L.length>1?" ("+(si+1)+" of "+L.length+")":""}, now ${l}">${l}</button>`:""}).join("");
+        return `<span class="chip${L.length>1?" multi":""}">${nb}${L.length>1?`<span class="qty">×${L.length}</span>`:""}${tb}<button data-rmsym="${esc(x.id)}" data-si="${last}" aria-label="Remove ${L.length>1?"one ":""}${esc(x.name)}">×</button></span>`}).join(""):`<span class="none">No symptoms today</span>`}</div>
       ${(()=>{const FL=flaresOn(viewDate);
         /* Flare-ups: + Flare-up logs one straight away (nothing else needed, for the middle of the night) and opens its
            pop-up; tap one later to add when, which symptoms and notes */
@@ -5015,8 +5018,9 @@ setTimeout(checkUpdate,3000);
    After an update, one pop-up lists what's new in this version only (not every version skipped), dismissed with OK.
    APP_VER must match the number in sw.js's CACHE; add a WHATS_NEW entry (newest first) whenever you bump them.
    A first install sees nothing, since there's nothing new to it. */
-const APP_VER=119, VER_KEY="daily-meds-ver";
+const APP_VER=120, VER_KEY="daily-meds-ver";
 const WHATS_NEW=[
+  {v:120,items:["A symptom logged more than once a day now shows every time on its chip on Today. Tap any one to give it its own time, or mark it all day, without changing the others."]},
   {v:119,items:["The Food trials box on Today now matches the rest of the Food section's color."]},
   {v:118,items:["Tap a meal's time next to its name to change the time of everything in that meal at once. Second helpings move by the same amount."]},
   {v:117,items:[
