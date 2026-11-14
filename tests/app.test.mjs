@@ -1871,11 +1871,17 @@ await test("Recap's Before flare-ups finds what keeps showing up in the days bef
   const box = async () => page.evaluate(() => { const m = sumMode; const P = periodOf(m, sumAnchor); return flareSummary(shiftKey(todayKey(), -40), todayKey()); });
   const h = await box();
   assert(h.includes("Before flare-ups"), "box drawn");
-  assert(/Air freshener<\/span><span class="num">2 of 2 flare-ups · \d+% of other days/.test(h), "air freshener stands out: " + h.slice(0, 600));
+  assert(/Air freshener<\/span><span class="num">2 of 2 flare-up days · \d+% of other days/.test(h), "air freshener stands out: " + h.slice(0, 600));
   assert(!/Rice<\/span><span class="num">/.test(h.split("Unusual in")[0]), "everyday food isn't flagged");
   assert(h.split("Unusual in")[1].includes("Air freshener"), "listed on the flare's own line");
   assert(!h.split("Unusual in")[1].includes("Rice"), "everyday food left out of the flare line");
-  assert(/Sour cream<\/span><span class="num">2 of 2 flare-ups/.test(h), "ingredient counted across different foods");
+  assert(/Sour cream<\/span><span class="num">2 of 2 flare-up days/.test(h), "ingredient counted across different foods");
+  /* Several flare-ups on one day: the header counts them all, rows count days; today isn't a baseline day */
+  await page.evaluate(d => { state.flares[d] = [{ t: null }, { t: null }]; }, shift(today, -5));
+  const h2 = await box();
+  assert(/3 flare-ups on 2 days/.test(h2), "header counts every flare-up: " + h2.slice(0, 300));
+  const O = +(h2.match(/Other days: (\d+) days?/) || [])[1];
+  eq(O, 40 - 8 - 1, "other days: every finished day not in a flare-up window");
 }, (() => { const meals = {}, trig = {}, smlog = {};
   for (let i = 0; i < 40; i++) meals[shift(today, -i)] = { lunch: { foods: ["rice"] } };
   for (const d of [-20, -5]) { trig[shift(today, d)] = { syms: true }; smlog[shift(today, d - 1)] = [{ id: "af", t: at(shift(today, d - 1), 12) }]; }

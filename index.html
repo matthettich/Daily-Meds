@@ -539,10 +539,14 @@ button.trow:focus-visible{outline:2px solid var(--ink);outline-offset:-3px}
 .sumbar h2{flex:1 1 100%;margin:4px 0 0;font-size:26px;font-weight:500;letter-spacing:-.01em}
 /* Month name on Summary gets a stripe in that month's color, like the date on Today */
 .sumbar h2 .mt{background:linear-gradient(hsl(var(--H) var(--s) 78%),hsl(var(--H) var(--s) 78%)) no-repeat 0 88%/100% .36em;padding:0 .04em}
-.stat{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px;border-top:1px solid var(--hair);align-items:center}
+.stat{display:grid;grid-template-columns:minmax(0,1fr) fit-content(60%);gap:2px 10px;padding:10px;border-top:1px solid var(--hair);align-items:center}
+.stat > *{min-width:0}
 .lid + .stat{border-top:0}
-.stat .nm{font-weight:500}
-.stat .num{font-size:13px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat .nm{font-weight:500;overflow-wrap:anywhere}
+.stat .num{font-size:13px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+/* Stacked rows (Before flare-ups): name on top, the long detail wraps underneath */
+.stat.stk{grid-template-columns:minmax(0,1fr)}
+.stat.stk .num{text-align:left;font-size:14px;line-height:1.35}
 .stat .up{color:#9A2F2F}.stat .down{color:#2F6B3A}
 .track{grid-column:1 / -1;height:10px;border:1px solid var(--rule);background:var(--white)}
 .track i{display:block;height:100%;background:hsl(var(--H) var(--s) 72%)}
@@ -2916,28 +2920,33 @@ function dayItems(k){
 }
 function flareSummary(from,upto){
   const tk=todayKey(), fu=firstUse(), lo=from<fu?fu:from, hi=upto<tk?upto:tk;
-  const flares=[]; for(let k=lo;k<=hi;k=shiftKey(k,1)) if(isTrig(k,"syms")) flares.push(k);
-  const head=`<div class="box l-list"><div class="lid">Before flare-ups<span class="st">${flares.length} ${flares.length===1?"flare-up":"flare-ups"}</span></div>`;
-  if(!flares.length) return head+`<div class="empty-row">Tap + Flare-up in Symptoms when you flare, and this shows what came in the ${BEFORE_DAYS} days before.</div></div>`;
+  const flares=[]; let flareN=0;
+  for(let k=lo;k<=hi;k=shiftKey(k,1)) if(isTrig(k,"syms")){ flares.push(k); flareN+=Math.max(1,flaresOn(k).length); }
+  const D=flares.length, ofD=`of ${D} flare-up ${D===1?"day":"days"}`;
+  const head=`<div class="box l-list"><div class="lid">Before flare-ups<span class="st">${flareN} ${flareN===1?"flare-up":"flare-ups"}${flareN>D?` on ${D} ${D===1?"day":"days"}`:""}</span></div>`;
+  if(!D) return head+`<div class="empty-row">Tap + Flare-up in Symptoms when you flare, and this shows what came in the ${BEFORE_DAYS} days before.</div></div>`;
   const memo=new Map(), day=k=>memo.get(k)||(memo.set(k,dayItems(k)),memo.get(k));
   const win=k=>{const m=new Map(); for(let i=BEFORE_DAYS;i>=0;i--) for(const [a,b] of day(shiftKey(k,-i))) m.set(a,b); return m};
-  const inWin=new Set(); for(const f of flares) for(let i=0;i<=BEFORE_DAYS;i++) inWin.add(shiftKey(f,-i));
-  const others=[]; for(let k=lo;k<=hi;k=shiftKey(k,1)) if(!inWin.has(k)) others.push(k);
+  /* "Other days" are the baseline: every finished day since you started (not just this month, and not today, which
+     isn't over yet) that isn't a flare-up day or one of the BEFORE_DAYS days before any flare-up. */
+  const inWin=new Set(); for(let k=fu;k<=tk;k=shiftKey(k,1)) if(isTrig(k,"syms")) for(let i=0;i<=BEFORE_DAYS;i++) inWin.add(shiftKey(k,-i));
+  const others=[]; for(let k=fu;k<tk;k=shiftKey(k,1)) if(!inWin.has(k)) others.push(k);
   const names=new Map(), nb=new Map(), no=new Map(), bump=(M,key)=>M.set(key,(M.get(key)||0)+1);
   const fw=flares.map(f=>{const w=win(f); for(const [a,b] of w){ names.set(a,b); bump(nb,a); } return [f,w]});
   for(const k of others) for(const [a,b] of win(k)){ names.set(a,b); bump(no,a); }
   const rateO=key=>others.length?(no.get(key)||0)/others.length:0;
   const pct=x=>Math.round(x*100)+"%", dt=k=>parseKey(k).toLocaleDateString([], {month:"short",day:"numeric"});
-  const often=flares.length<2?[]:[...nb].filter(([key,n])=>n>=2&&n/flares.length-rateO(key)>=0.25)
-    .sort((a,b)=>(b[1]/flares.length-rateO(b[0]))-(a[1]/flares.length-rateO(a[0]))||names.get(a[0]).localeCompare(names.get(b[0]))).slice(0,8);
+  const often=D<2?[]:[...nb].filter(([key,n])=>n>=2&&n/D-rateO(key)>=0.25)
+    .sort((a,b)=>(b[1]/D-rateO(b[0]))-(a[1]/D-rateO(a[0]))||names.get(a[0]).localeCompare(names.get(b[0]))).slice(0,8);
   const recent=fw.slice(-5).reverse().map(([f,w])=>{
-    const odd=[...w].filter(([key])=>rateO(key)<0.5).map(([,b])=>b);
-    return `<div class="stat"><span class="nm">${dt(f)}</span><span class="num">${odd.length?esc(odd.slice(0,10).join(", "))+(odd.length>10?` +${odd.length-10} more`:""):"Nothing unusual logged"}</span></div>`}).join("");
+    const odd=[...w].filter(([key])=>rateO(key)<0.5).map(([,b])=>b), n=flaresOn(f).length;
+    return `<div class="stat stk"><span class="nm">${dt(f)}${n>1?` · ${n} flare-ups`:""}</span><span class="num">${odd.length?esc(odd.slice(0,10).join(", "))+(odd.length>10?` +${odd.length-10} more`:""):"Nothing unusual logged"}</span></div>`}).join("");
+  const O=others.length;
   return head+`
-    ${often.length?`<div class="lid" style="border:0;padding-bottom:0">Often before flare-ups</div>`+often.map(([key,n])=>`<div class="stat"><span class="nm">${esc(names.get(key))}</span><span class="num">${n} of ${flares.length} flare-ups · ${others.length?pct(rateO(key))+" of other days":"no other days yet"}</span></div>`).join("")
-      :flares.length>=2?`<div class="empty-row">Nothing stands out yet across these flare-ups.</div>`:""}
+    ${often.length?`<div class="lid" style="border:0;padding-bottom:0">Often before flare-ups</div>`+often.map(([key,n])=>`<div class="stat stk"><span class="nm">${esc(names.get(key))}</span><span class="num">${n} ${ofD} · ${O?pct(rateO(key))+" of other days":"no other days yet"}</span></div>`).join("")
+      :D>=2?`<div class="empty-row">Nothing stands out yet across these flare-ups.</div>`:""}
     <div class="lid" style="border:0;padding-bottom:0">Unusual in the ${BEFORE_DAYS} days before</div>${recent}
-    <p class="hint">Each flare-up counts the day it happened and the ${BEFORE_DAYS} days before: foods and their ingredients, restaurants, smells, other things, activities, additional medication, supplements and electrolyte drinks. A flare-up's line leaves out things that show up around most other days. ${others.length?`Other days: ${others.length} days not in the ${BEFORE_DAYS} days before a flare-up.`:""} These are patterns to look into, not proof.</p>
+    <p class="hint">Each flare-up day counts that day and the ${BEFORE_DAYS} days before: foods and their ingredients, restaurants, smells, other things, activities, additional medication, supplements and electrolyte drinks. A flare-up's line leaves out things that show up around most other days. ${O?`Other days: ${O} ${O===1?"day":"days"} since you started that weren't a flare-up day or in the ${BEFORE_DAYS} days before one (today isn't counted until it's over); the percentage is how many of them had it in their own ${BEFORE_DAYS} days before.${O<7?` With so few other days, the percentages are rough.`:""}`:""} These are patterns to look into, not proof.</p>
   </div>`;
 }
 function travelSummary(from,upto){
@@ -5018,8 +5027,9 @@ setTimeout(checkUpdate,3000);
    After an update, one pop-up lists what's new in this version only (not every version skipped), dismissed with OK.
    APP_VER must match the number in sw.js's CACHE; add a WHATS_NEW entry (newest first) whenever you bump them.
    A first install sees nothing, since there's nothing new to it. */
-const APP_VER=120, VER_KEY="daily-meds-ver";
+const APP_VER=121, VER_KEY="daily-meds-ver";
 const WHATS_NEW=[
+  {v:121,items:["Recap's Before flare-ups box now counts flare-up days correctly and shows how many flare-ups there were in all (like 14 flare-ups on 11 days).","\"Other days\" now compares against every regular day since you started, not just this month, so the percentages mean something. Today isn't counted until it's over.","Long lists in Recap wrap onto the next line instead of running off the screen."]},
   {v:120,items:["A symptom logged more than once a day now shows every time on its chip on Today. Tap any one to give it its own time, or mark it all day, without changing the others."]},
   {v:119,items:["The Food trials box on Today now matches the rest of the Food section's color."]},
   {v:118,items:["Tap a meal's time next to its name to change the time of everything in that meal at once. Second helpings move by the same amount."]},
